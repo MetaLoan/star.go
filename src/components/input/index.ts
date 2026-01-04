@@ -1,2 +1,0 @@
-export { BirthDataForm } from './BirthDataForm';
-
