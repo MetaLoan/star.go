@@ -145,6 +145,7 @@ export default function HomePage() {
     const daysData = (weeklyAny.days || weeklyAny.dailySummaries || []).map((d: any) => ({
       ...d,
       date: new Date(d.date),
+      score: d.overallScore ?? d.score ?? 0, // 兼容不同字段名
     }));
     return {
       ...weekly,

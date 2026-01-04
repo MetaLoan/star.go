@@ -65,8 +65,9 @@ export function WeeklyForecastView({ forecast, onDaySelect }: WeeklyForecastView
         <CardBody className="pt-0">
           <div className="grid grid-cols-7 gap-2">
             {(forecast.dailySummaries || []).map((day, index) => {
-              const isToday = day.date.getTime() === today.getTime();
-              const moonSign = ZODIAC_SIGNS.find(s => s.id === day.moonSign);
+              const isToday = day.date?.getTime?.() === today.getTime();
+              const moonSign = day.moonSign ? ZODIAC_SIGNS.find(s => s.id === day.moonSign) : null;
+              const score = day.score ?? (day as any).overallScore ?? 0;
               
               return (
                 <motion.div
@@ -81,17 +82,17 @@ export function WeeklyForecastView({ forecast, onDaySelect }: WeeklyForecastView
                 >
                   <div className="text-xs text-default-400">{day.dayOfWeek}</div>
                   <div className="text-lg font-display text-default-200">
-                    {day.date.getDate()}
+                    {day.date?.getDate?.() || '-'}
                   </div>
-                  <div className="text-xl my-1">{moonSign?.symbol}</div>
+                  {moonSign && <div className="text-xl my-1">{moonSign.symbol}</div>}
                   <div 
                     className="text-lg font-mono"
                     style={{
-                      color: day.score >= 70 ? '#22c55e' : 
-                             day.score >= 50 ? '#eab308' : '#ef4444'
+                      color: score >= 70 ? '#22c55e' : 
+                             score >= 50 ? '#eab308' : '#ef4444'
                     }}
                   >
-                    {day.score}
+                    {Math.round(score)}
                   </div>
                   {isToday && (
                     <Chip size="sm" color="danger" className="mt-1">今天</Chip>
