@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+/* ==================== 自定义主题变量 ==================== */
+@theme {
+  /* 宇宙主题色彩系统 */
+  --color-cosmic-nova: #00D4FF;
+  --color-cosmic-aurora: #FF6B9D;
+  --color-cosmic-nebula: #A855F7;
+  --color-cosmic-void: #0A0A0F;
+  --color-cosmic-dust: #1a1a2e;
+  
+  /* 行星颜色 */
+  --color-planet-sun: #ffd700;
+  --color-planet-moon: #c0c0c0;
+  --color-planet-mercury: #b5651d;
+  --color-planet-venus: #ff69b4;
+  --color-planet-mars: #dc143c;
+  --color-planet-jupiter: #daa520;
+  --color-planet-saturn: #8b7355;
+  --color-planet-uranus: #40e0d0;
+  --color-planet-neptune: #4169e1;
+  --color-planet-pluto: #800080;
+  
+  /* 相位颜色 */
+  --color-aspect-conjunction: #ffd700;
+  --color-aspect-trine: #22c55e;
+  --color-aspect-sextile: #3b82f6;
+  --color-aspect-square: #ef4444;
+  --color-aspect-opposition: #f97316;
+  
+  /* 维度颜色 */
+  --color-dimension-career: #3b82f6;
+  --color-dimension-relationship: #ec4899;
+  --color-dimension-health: #22c55e;
+  --color-dimension-finance: #f59e0b;
+  --color-dimension-spiritual: #a855f7;
+  
+  /* 字体 */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* 动画 */
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+/* ==================== 基础样式 ==================== */
+:root {
+  /* 标准化边距 */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* 标准化圆角 */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* 标准化阴影 */
+  --shadow-glow: 0 0 20px rgba(0, 212, 255, 0.3);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== 宇宙主题背景 ==================== */
+body {
+  background: radial-gradient(ellipse at top, #1a1a2e 0%, #0a0a0f 100%);
+  color: white;
+  font-family: var(--font-body);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==================== 玻璃拟态组件 ==================== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-card);
+}
+
+.glass-card-glow {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-glow);
+}
+
+/* 宇宙按钮 */
+.btn-cosmic {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  background: linear-gradient(to right, var(--color-cosmic-nova), var(--color-cosmic-nebula));
+}
+
+.btn-cosmic:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+}
+
+.btn-cosmic:active {
+  transform: scale(0.95);
+}
+
+/* 发光文字 */
+.text-glow {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+}
+
+/* 分数进度条 */
+.score-bar {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: all 0.5s;
+}
+
+/* ==================== 星盘 SVG 样式 ==================== */
+.chart-zodiac-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+}
+
+.chart-house-line {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 1;
+}
+
+.chart-planet {
+  font-size: 16px;
+  fill: currentColor;
+}
+
+.chart-aspect-line {
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.chart-aspect-conjunction { stroke: #ffd700; }
+.chart-aspect-trine { stroke: #22c55e; }
+.chart-aspect-sextile { stroke: #3b82f6; }
+.chart-aspect-square { stroke: #ef4444; }
+.chart-aspect-opposition { stroke: #f97316; }
+
+/* ==================== 动画效果 ==================== */
+@keyframes glow {
+  0% { box-shadow: 0 0 5px rgba(0, 212, 255, 0.3); }
+  100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.6); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* ==================== 响应式优化 ==================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==================== 滚动条样式 ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ==================== 原生表单元素样式 ==================== */
+/* Select 下拉菜单深色主题 */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+select option {
+  background: #1a1a2e;
+  color: white;
+  padding: 8px 12px;
+}
+
+/* Input number 箭头隐藏 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* 表单聚焦动画 */
+input:focus,
+select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
+}
