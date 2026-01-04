@@ -14,103 +14,138 @@ import {
   ModalContent,
   ModalHeader,
   ModalBody,
-  useDisclosure
+  useDisclosure,
+  Spinner
 } from '@heroui/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  type BirthData,
-  type NatalChart as NatalChartType,
-  type PlanetId,
-  type DailyForecast as DailyForecastType,
-  type WeeklyForecast as WeeklyForecastType,
-  type InfluenceFactorConfig,
-  type ProcessedDailyForecast,
-  type ProcessedWeeklyForecast,
-  calculateNatalChart,
-  calculateLifeTrend,
-  generateChartSummary,
-  processDailyForecast,
-  processWeeklyForecast,
-  getProcessedUserSnapshot,
-  DEFAULT_FACTOR_CONFIG,
-  PLANETS
-} from '@/lib/astro';
+import { PLANETS, ZODIAC_SIGNS, type PlanetId } from '@/lib/astro';
+import { useAstroData, type BirthDataInput, type ChartData } from '@/lib/api';
 import { NatalChartSVG, ChartInfo } from '@/components/chart';
 import { LifeTimeline, ProfectionWheel } from '@/components/timeline';
 import { BirthDataForm } from '@/components/input';
 import { DailyForecastView, WeeklyForecastView } from '@/components/forecast';
 import { InfluenceFactorsPanel } from '@/components/factors/InfluenceFactorsPanel';
 
+// 将 API 响应转换为组件需要的格式
+function transformChartForDisplay(chart: ChartData): any {
+  return {
+    ...chart,
+    birthData: {
+      ...chart.birthData,
+      date: new Date(chart.birthData.date),
+    },
+  };
+}
+
 export default function HomePage() {
-  const [birthData, setBirthData] = useState<BirthData | null>(null);
-  const [chart, setChart] = useState<NatalChartType | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
   const [selectedPlanet, setSelectedPlanet] = useState<PlanetId | null>(null);
   const [selectedTab, setSelectedTab] = useState<string>('chart');
   const [timelineRange, setTimelineRange] = useState<[number, number]>([1990, 2060]);
   const [forecastMode, setForecastMode] = useState<'daily' | 'weekly'>('daily');
   const [forecastDate, setForecastDate] = useState<Date>(new Date());
-  const [factorConfig, setFactorConfig] = useState<InfluenceFactorConfig>(DEFAULT_FACTOR_CONFIG);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
-  // 计算星盘
-  const handleCalculate = useCallback(async (data: BirthData) => {
-    setIsCalculating(true);
+  // 使用 API Hook
+  const {
+    birthData,
+    chart,
+    daily,
+    weekly,
+    lifeTrend,
+    loading,
+    error,
+    initialize,
+    refreshDaily,
+    refreshWeekly,
+    reset,
+  } = useAstroData();
+
+  // 处理出生数据提交
+  const handleSubmit = useCallback(async (data: any) => {
+    const birthDataInput: BirthDataInput = {
+      name: data.name || 'Anonymous',
+      date: data.date.toISOString(),
+      latitude: data.latitude,
+      longitude: data.longitude,
+      timezone: data.timezone || 'UTC',
+    };
     
-    // 模拟异步计算
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const natalChart = calculateNatalChart(data);
-    setBirthData(data);
-    setChart(natalChart);
-    setIsCalculating(false);
+    await initialize(birthDataInput);
     
     // 设置时间线范围
     const birthYear = data.date.getFullYear();
     setTimelineRange([birthYear, birthYear + 80]);
-  }, []);
+  }, [initialize]);
 
-  // 计算人生趋势
-  const trendData = useMemo(() => {
+  // 日期变化时刷新预测
+  const handleDateChange = useCallback(async (newDate: Date) => {
+    setForecastDate(newDate);
+    const dateStr = newDate.toISOString();
+    
+    if (forecastMode === 'daily') {
+      await refreshDaily(dateStr);
+    } else {
+      await refreshWeekly(dateStr);
+    }
+  }, [forecastMode, refreshDaily, refreshWeekly]);
+
+  // 转换数据格式供组件使用
+  const displayChart = useMemo(() => {
     if (!chart) return null;
-    return calculateLifeTrend(chart, timelineRange[0], timelineRange[1], 'yearly');
-  }, [chart, timelineRange]);
+    return transformChartForDisplay(chart);
+  }, [chart]);
 
   // 计算当前年龄
   const currentAge = useMemo(() => {
     if (!birthData) return 30;
+    const birthDate = new Date(birthData.date);
     const now = new Date();
-    return now.getFullYear() - birthData.date.getFullYear();
+    return now.getFullYear() - birthDate.getFullYear();
   }, [birthData]);
 
   // 星盘摘要
   const chartSummary = useMemo(() => {
     if (!chart) return '';
-    return generateChartSummary(chart);
+    const sun = chart.planets.find((p: any) => p.id === 'sun');
+    const moon = chart.planets.find((p: any) => p.id === 'moon');
+    const risingIndex = Math.floor(chart.ascendant / 30);
+    const rising = ZODIAC_SIGNS[risingIndex];
+    return `☉ ${sun?.signName || ''} | ☽ ${moon?.signName || ''} | ASC ${rising?.name || ''}`;
   }, [chart]);
 
-  // 每日预测（经过影响因子处理）
-  const dailyForecast = useMemo(() => {
-    if (!chart) return null;
-    return processDailyForecast(chart, forecastDate, factorConfig);
-  }, [chart, forecastDate, factorConfig]);
+  // 转换每日预测数据
+  const dailyForecastForView = useMemo(() => {
+    if (!daily) return null;
+    return {
+      ...daily,
+      date: new Date(daily.date),
+      factorResult: daily.factors ? {
+        totalAdjustment: daily.factors.totalAdjustment,
+        summary: daily.factors.summary,
+        appliedFactors: daily.factors.appliedFactors,
+        adjustedScores: {
+          overall: daily.overallScore,
+          dimensions: daily.dimensions,
+        },
+      } : null,
+      topFactors: daily.factors?.appliedFactors?.slice(0, 5) || [],
+      processed: daily.processed,
+    };
+  }, [daily]);
 
-  // 每周预测（经过影响因子处理）
-  const weeklyForecast = useMemo(() => {
-    if (!chart) return null;
-    // 获取本周一
-    const weekStart = new Date(forecastDate);
-    const dayOfWeek = weekStart.getDay();
-    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    weekStart.setDate(weekStart.getDate() + diff);
-    return processWeeklyForecast(chart, weekStart, factorConfig);
-  }, [chart, forecastDate, factorConfig]);
-
-  // 用户快照
-  const userSnapshot = useMemo(() => {
-    if (!chart) return null;
-    return getProcessedUserSnapshot(chart, factorConfig);
-  }, [chart, factorConfig]);
+  // 转换每周预测数据
+  const weeklyForecastForView = useMemo(() => {
+    if (!weekly) return null;
+    return {
+      ...weekly,
+      startDate: new Date(weekly.startDate),
+      endDate: new Date(weekly.endDate),
+      days: weekly.days?.map((d: any) => ({
+        ...d,
+        date: new Date(d.date),
+      })) || [],
+    };
+  }, [weekly]);
 
   return (
     <main className="min-h-screen relative">
@@ -124,12 +159,13 @@ export default function HomePage() {
             <div className="text-2xl" style={{ filter: 'drop-shadow(0 0 8px #e94560)' }}>✧</div>
             <h1 className="text-xl font-display text-cosmic-nova tracking-wider">STAR</h1>
             <span className="text-xs text-default-400 hidden sm:block">占星时间系统</span>
+            <Chip size="sm" variant="flat" color="success" className="ml-2">API</Chip>
           </div>
           
           {chart && (
             <div className="flex items-center gap-4">
               <div className="text-sm text-default-400 hidden md:block">
-                {birthData?.name || '命盘'} · {birthData?.date.toLocaleDateString('zh-CN')}
+                {birthData?.name || '命盘'} · {birthData?.date ? new Date(birthData.date).toLocaleDateString('zh-CN') : ''}
               </div>
               <Button 
                 size="sm" 
@@ -176,10 +212,20 @@ export default function HomePage() {
                 transition={{ delay: 0.4 }}
               >
                 <BirthDataForm 
-                  onSubmit={handleCalculate}
-                  isLoading={isCalculating}
+                  onSubmit={handleSubmit}
+                  isLoading={loading}
                 />
               </motion.div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-4 text-red-400 text-sm"
+                >
+                  {error.message}
+                </motion.div>
+              )}
 
               {/* 装饰性星座符号 */}
               <motion.div
@@ -203,6 +249,18 @@ export default function HomePage() {
                 ))}
               </motion.div>
             </motion.div>
+          ) : loading ? (
+            // 加载中
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="min-h-[80vh] flex flex-col items-center justify-center"
+            >
+              <Spinner size="lg" color="primary" />
+              <p className="mt-4 text-default-400">正在计算星盘数据...</p>
+            </motion.div>
           ) : (
             // 结果界面
             <motion.div
@@ -220,11 +278,11 @@ export default function HomePage() {
                         {birthData?.name || '你的星盘'}
                       </h2>
                       <p className="text-sm text-default-400 whitespace-pre-line font-mono">
-                        {chartSummary.split('\n').slice(0, 2).join(' | ')}
+                        {chartSummary}
                       </p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      {chart.dominantPlanets.slice(0, 3).map(planetId => {
+                      {chart.dominantPlanets.slice(0, 3).map((planetId: string) => {
                         const planet = PLANETS.find(p => p.id === planetId);
                         return (
                           <Chip 
@@ -266,7 +324,7 @@ export default function HomePage() {
 
               {/* 内容区域 */}
               <AnimatePresence mode="wait">
-                {selectedTab === 'chart' && (
+                {selectedTab === 'chart' && displayChart && (
                   <motion.div
                     key="chart-view"
                     initial={{ opacity: 0, x: -20 }}
@@ -277,7 +335,7 @@ export default function HomePage() {
                     {/* 星盘 SVG */}
                     <div className="lg:col-span-2 flex justify-center">
                       <NatalChartSVG 
-                        chart={chart}
+                        chart={displayChart}
                         size={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 40 : 600)}
                         highlightPlanet={selectedPlanet}
                         onPlanetClick={setSelectedPlanet}
@@ -287,7 +345,7 @@ export default function HomePage() {
                     {/* 信息面板 */}
                     <div className="lg:col-span-1">
                       <ChartInfo 
-                        chart={chart}
+                        chart={displayChart}
                         selectedPlanet={selectedPlanet}
                         onPlanetSelect={setSelectedPlanet}
                       />
@@ -314,7 +372,7 @@ export default function HomePage() {
                               onPress={() => {
                                 const newDate = new Date(forecastDate);
                                 newDate.setDate(newDate.getDate() - (forecastMode === 'daily' ? 1 : 7));
-                                setForecastDate(newDate);
+                                handleDateChange(newDate);
                               }}
                             >
                               ←
@@ -322,7 +380,7 @@ export default function HomePage() {
                             <input
                               type="date"
                               value={forecastDate.toISOString().split('T')[0]}
-                              onChange={(e) => setForecastDate(new Date(e.target.value))}
+                              onChange={(e) => handleDateChange(new Date(e.target.value))}
                               className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-sm font-mono"
                             />
                             <Button 
@@ -331,7 +389,7 @@ export default function HomePage() {
                               onPress={() => {
                                 const newDate = new Date(forecastDate);
                                 newDate.setDate(newDate.getDate() + (forecastMode === 'daily' ? 1 : 7));
-                                setForecastDate(newDate);
+                                handleDateChange(newDate);
                               }}
                             >
                               →
@@ -340,7 +398,7 @@ export default function HomePage() {
                               size="sm" 
                               variant="flat"
                               color="primary"
-                              onPress={() => setForecastDate(new Date())}
+                              onPress={() => handleDateChange(new Date())}
                             >
                               今天
                             </Button>
@@ -369,21 +427,22 @@ export default function HomePage() {
                     </Card>
 
                     {/* 预测内容 */}
-                    {forecastMode === 'daily' && dailyForecast && (
-                      <DailyForecastView forecast={dailyForecast} />
+                    {forecastMode === 'daily' && dailyForecastForView && (
+                      <DailyForecastView forecast={dailyForecastForView as any} />
                     )}
-                    {forecastMode === 'weekly' && weeklyForecast && (
+                    {forecastMode === 'weekly' && weeklyForecastForView && (
                       <WeeklyForecastView 
-                        forecast={weeklyForecast as any}
+                        forecast={weeklyForecastForView as any}
                         onDaySelect={(date) => {
                           setForecastDate(date);
                           setForecastMode('daily');
+                          refreshDaily(date.toISOString());
                         }}
                       />
                     )}
                     
                     {/* 当日影响因子概览 */}
-                    {dailyForecast && dailyForecast.processed && (
+                    {dailyForecastForView && dailyForecastForView.processed && dailyForecastForView.factorResult && (
                       <Card className="glass-card mt-4">
                         <CardBody>
                           <div className="flex items-center justify-between mb-3">
@@ -392,18 +451,18 @@ export default function HomePage() {
                             </h4>
                             <Chip
                               size="sm"
-                              color={dailyForecast.factorResult.totalAdjustment >= 0 ? 'success' : 'danger'}
+                              color={dailyForecastForView.factorResult.totalAdjustment >= 0 ? 'success' : 'danger'}
                               variant="flat"
                             >
-                              调整: {dailyForecast.factorResult.totalAdjustment >= 0 ? '+' : ''}
-                              {dailyForecast.factorResult.totalAdjustment.toFixed(1)}
+                              调整: {dailyForecastForView.factorResult.totalAdjustment >= 0 ? '+' : ''}
+                              {dailyForecastForView.factorResult.totalAdjustment.toFixed(1)}
                             </Chip>
                           </div>
                           <p className="text-sm text-white/60 mb-3">
-                            {dailyForecast.factorResult.summary}
+                            {dailyForecastForView.factorResult.summary}
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {dailyForecast.topFactors.map((factor, i) => (
+                            {dailyForecastForView.topFactors.map((factor: any, i: number) => (
                               <Chip
                                 key={i}
                                 size="sm"
@@ -428,7 +487,7 @@ export default function HomePage() {
                   </motion.div>
                 )}
 
-                {selectedTab === 'factors' && dailyForecast && (
+                {selectedTab === 'factors' && dailyForecastForView?.factorResult && (
                   <motion.div
                     key="factors-view"
                     initial={{ opacity: 0, x: -20 }}
@@ -438,23 +497,22 @@ export default function HomePage() {
                   >
                     {/* 因子分析面板 */}
                     <InfluenceFactorsPanel
-                      factorResult={dailyForecast.factorResult}
-                      config={factorConfig}
-                      onConfigChange={setFactorConfig}
+                      factorResult={dailyForecastForView.factorResult as any}
+                      config={{ enabled: true, weights: {}, customFactors: [] } as any}
                       showConfig={false}
                     />
 
-                    {/* 维度趋势（来自周预测） */}
-                    {weeklyForecast && (
+                    {/* 维度趋势 */}
+                    {weeklyForecastForView && weeklyForecastForView.dimensionTrends && (
                       <Card className="glass-card">
                         <CardBody>
                           <h4 className="text-lg font-semibold text-white/90 mb-4">
                             📈 本周维度趋势
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                            {Object.entries(weeklyForecast.dimensionTrends).map(([dim, values]) => {
-                              const avg = values.reduce((s, v) => s + v, 0) / values.length;
-                              const trend = values[6] - values[0];
+                            {Object.entries(weeklyForecastForView.dimensionTrends).map(([dim, values]) => {
+                              const avg = (values as number[]).reduce((s: number, v: number) => s + v, 0) / (values as number[]).length;
+                              const trend = (values as number[])[6] - (values as number[])[0];
                               const dimLabels: Record<string, string> = {
                                 career: '💼 事业',
                                 relationship: '💕 关系',
@@ -475,100 +533,13 @@ export default function HomePage() {
                               );
                             })}
                           </div>
-
-                          {/* 简易折线图 */}
-                          <div className="mt-6">
-                            <h5 className="text-sm text-white/70 mb-3">7日能量走势</h5>
-                            <div className="flex items-end justify-between h-24 gap-1">
-                              {weeklyForecast.days.map((day, i) => {
-                                const score = day.overallScore;
-                                const height = Math.max(10, (score / 100) * 100);
-                                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-                                return (
-                                  <div key={i} className="flex-1 flex flex-col items-center">
-                                    <div
-                                      className={`w-full rounded-t transition-all ${
-                                        score >= 70 ? 'bg-green-500' :
-                                        score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                      style={{ height: `${height}%` }}
-                                    />
-                                    <div className="text-xs text-white/50 mt-1">
-                                      周{weekdays[day.date.getDay()]}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    )}
-
-                    {/* 周度因子汇总 */}
-                    {weeklyForecast && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card className="glass-card">
-                          <CardBody>
-                            <h4 className="text-sm font-semibold text-green-400 mb-3">
-                              ✅ 本周有利因子
-                            </h4>
-                            <div className="space-y-2">
-                              {weeklyForecast.weeklyFactors.positive.map((factor, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm">
-                                  <span className="text-white/70">{factor.name}</span>
-                                  <span className="text-green-400">+{factor.adjustment.toFixed(1)}</span>
-                                </div>
-                              ))}
-                              {weeklyForecast.weeklyFactors.positive.length === 0 && (
-                                <p className="text-white/40 text-sm">暂无显著有利因子</p>
-                              )}
-                            </div>
-                          </CardBody>
-                        </Card>
-                        <Card className="glass-card">
-                          <CardBody>
-                            <h4 className="text-sm font-semibold text-red-400 mb-3">
-                              ⚠️ 本周需注意
-                            </h4>
-                            <div className="space-y-2">
-                              {weeklyForecast.weeklyFactors.negative.map((factor, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm">
-                                  <span className="text-white/70">{factor.name}</span>
-                                  <span className="text-red-400">{factor.adjustment.toFixed(1)}</span>
-                                </div>
-                              ))}
-                              {weeklyForecast.weeklyFactors.negative.length === 0 && (
-                                <p className="text-white/40 text-sm">暂无显著不利因子</p>
-                              )}
-                            </div>
-                          </CardBody>
-                        </Card>
-                      </div>
-                    )}
-
-                    {/* 周洞察 */}
-                    {weeklyForecast && (
-                      <Card className="glass-card bg-gradient-to-br from-purple-500/10 to-blue-500/10">
-                        <CardBody>
-                          <div className="flex items-start gap-3">
-                            <span className="text-2xl">💡</span>
-                            <div>
-                              <h4 className="text-sm font-semibold text-white/90 mb-1">
-                                {weeklyForecast.weeklyTheme}
-                              </h4>
-                              <p className="text-sm text-white/70">
-                                {weeklyForecast.weeklyInsight}
-                              </p>
-                            </div>
-                          </div>
                         </CardBody>
                       </Card>
                     )}
                   </motion.div>
                 )}
 
-                {selectedTab === 'timeline' && trendData && (
+                {selectedTab === 'timeline' && lifeTrend && (
                   <motion.div
                     key="timeline-view"
                     initial={{ opacity: 0, x: -20 }}
@@ -584,8 +555,8 @@ export default function HomePage() {
                           <Slider
                             size="sm"
                             step={1}
-                            minValue={birthData ? birthData.date.getFullYear() : 1950}
-                            maxValue={birthData ? birthData.date.getFullYear() + 100 : 2100}
+                            minValue={birthData ? new Date(birthData.date).getFullYear() : 1950}
+                            maxValue={birthData ? new Date(birthData.date).getFullYear() + 100 : 2100}
                             value={timelineRange}
                             onChange={(value) => setTimelineRange(value as [number, number])}
                             className="flex-1"
@@ -600,7 +571,7 @@ export default function HomePage() {
 
                     {/* 时间线图表 */}
                     <LifeTimeline 
-                      trendData={trendData}
+                      trendData={lifeTrend}
                       currentYear={new Date().getFullYear()}
                     />
 
@@ -610,9 +581,9 @@ export default function HomePage() {
                         <CardBody>
                           <h4 className="text-sm font-display text-cosmic-nova mb-2">土星周期</h4>
                           <div className="space-y-1">
-                            {trendData.cycles.saturnCycles.map((cycle, i) => (
+                            {lifeTrend.cycles?.saturnCycles?.map((cycle: any, i: number) => (
                               <div key={i} className="text-xs text-default-400">
-                                <span className="text-default-300">{cycle.age}岁</span> ({cycle.year}): {cycle.description.split('：')[0]}
+                                <span className="text-default-300">{cycle.age}岁</span> ({cycle.year})
                               </div>
                             ))}
                           </div>
@@ -622,7 +593,7 @@ export default function HomePage() {
                         <CardBody>
                           <h4 className="text-sm font-display text-cosmic-nova mb-2">木星周期</h4>
                           <div className="space-y-1">
-                            {trendData.cycles.jupiterCycles.slice(0, 4).map((cycle, i) => (
+                            {lifeTrend.cycles?.jupiterCycles?.slice(0, 4).map((cycle: any, i: number) => (
                               <div key={i} className="text-xs text-default-400">
                                 <span className="text-default-300">{cycle.age}岁</span> ({cycle.year})
                               </div>
@@ -634,9 +605,9 @@ export default function HomePage() {
                         <CardBody>
                           <h4 className="text-sm font-display text-cosmic-nova mb-2">年限法周期</h4>
                           <div className="space-y-1">
-                            {trendData.cycles.profectionCycles.slice(0, 4).map((cycle, i) => (
+                            {lifeTrend.cycles?.profectionCycles?.slice(0, 4).map((cycle: any, i: number) => (
                               <div key={i} className="text-xs text-default-400">
-                                <span className="text-default-300">{cycle.startAge}-{cycle.endAge}岁</span>: {cycle.theme.split('：')[0]}
+                                <span className="text-default-300">{cycle.startAge}-{cycle.endAge}岁</span>
                               </div>
                             ))}
                           </div>
@@ -646,7 +617,7 @@ export default function HomePage() {
                   </motion.div>
                 )}
 
-                {selectedTab === 'profection' && (
+                {selectedTab === 'profection' && displayChart && (
                   <motion.div
                     key="profection-view"
                     initial={{ opacity: 0, x: -20 }}
@@ -657,7 +628,7 @@ export default function HomePage() {
                     {/* 年限法轮盘 */}
                     <div className="flex justify-center">
                       <ProfectionWheel 
-                        chart={chart}
+                        chart={displayChart}
                         currentAge={currentAge}
                       />
                     </div>
@@ -668,7 +639,7 @@ export default function HomePage() {
                         <h4 className="text-lg font-display text-cosmic-nova mb-4">未来 12 年概览</h4>
                         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                           {Array.from({ length: 12 }, (_, i) => currentAge + i).map(age => {
-                            const year = birthData ? birthData.date.getFullYear() + age : 2024;
+                            const year = birthData ? new Date(birthData.date).getFullYear() + age : 2024;
                             const house = (age % 12) + 1;
                             const isAngular = [1, 4, 7, 10].includes(house);
                             const isCurrent = age === currentAge;
@@ -718,11 +689,14 @@ export default function HomePage() {
           <ModalBody className="pb-6">
             <BirthDataForm 
               onSubmit={(data) => {
-                handleCalculate(data);
+                handleSubmit(data);
                 onClose();
               }}
-              initialData={birthData || undefined}
-              isLoading={isCalculating}
+              initialData={birthData ? {
+                ...birthData,
+                date: new Date(birthData.date),
+              } : undefined}
+              isLoading={loading}
             />
           </ModalBody>
         </ModalContent>
@@ -733,9 +707,9 @@ export default function HomePage() {
         <div className="container mx-auto px-4 text-center text-xs text-default-400">
           <p>占星不是科学预测，而是人生时间叙事系统</p>
           <p className="mt-1 opacity-50">「你能算清楚什么时候浪大，但你永远不能替人决定是否下水」</p>
+          <p className="mt-2 text-cosmic-nova/50">✨ Powered by API</p>
         </div>
       </footer>
     </main>
   );
 }
-
