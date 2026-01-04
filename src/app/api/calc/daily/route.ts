@@ -66,6 +66,17 @@ export async function POST(request: NextRequest) {
         advice: forecast.advice,
         luckyHours: forecast.luckyHours,
         challengingHours: forecast.challengingHours,
+        hourlyBreakdown: forecast.hourlyBreakdown?.map(h => ({
+          hour: h.hour,
+          score: h.score,
+          mood: h.mood,
+          moonSign: h.moonSign,
+          moonSignName: h.moonSignName,
+          moonHouse: h.moonHouse,
+          keywords: h.keywords,
+          bestFor: h.bestFor,
+          avoidFor: h.avoidFor,
+        })) || [],
       });
     } else {
       const forecast = calculateDailyForecast(targetDate, chart);
@@ -86,6 +97,17 @@ export async function POST(request: NextRequest) {
         advice: forecast.advice,
         luckyHours: forecast.luckyHours,
         challengingHours: forecast.challengingHours,
+        hourlyBreakdown: forecast.hourlyBreakdown?.map(h => ({
+          hour: h.hour,
+          score: h.score,
+          mood: h.mood,
+          moonSign: h.moonSign,
+          moonSignName: h.moonSignName,
+          moonHouse: h.moonHouse,
+          keywords: h.keywords,
+          bestFor: h.bestFor,
+          avoidFor: h.avoidFor,
+        })) || [],
       });
     }
   } catch (error) {

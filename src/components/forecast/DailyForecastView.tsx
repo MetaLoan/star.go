@@ -67,17 +67,20 @@ export function DailyForecastView({ forecast, onHourSelect }: DailyForecastViewP
 
   // 生成24小时热力图
   const hourlyHeatmap = useMemo(() => {
+    if (!forecast.hourlyBreakdown || forecast.hourlyBreakdown.length === 0) {
+      return [];
+    }
     return forecast.hourlyBreakdown.map((h, index) => ({
       ...h,
       isCurrent: index === currentHour,
-      isLucky: forecast.luckyHours.includes(index),
-      isChallenging: forecast.challengingHours.includes(index),
+      isLucky: forecast.luckyHours?.includes(index) || false,
+      isChallenging: forecast.challengingHours?.includes(index) || false,
     }));
   }, [forecast, currentHour]);
 
   const selectedHourData = selectedHour !== null 
-    ? forecast.hourlyBreakdown[selectedHour] 
-    : forecast.hourlyBreakdown[currentHour];
+    ? forecast.hourlyBreakdown?.[selectedHour] 
+    : forecast.hourlyBreakdown?.[currentHour];
 
   return (
     <div className="space-y-4">
