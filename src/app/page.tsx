@@ -34,6 +34,11 @@ function transformChartForDisplay(chart: ChartData): any {
       ...chart.birthData,
       date: new Date(chart.birthData.date),
     },
+    // 确保 houses 有 longitude 属性（API 可能返回 cusp）
+    houses: chart.houses?.map((h: any) => ({
+      ...h,
+      longitude: h.longitude ?? h.cusp ?? 0,
+    })) || [],
   };
 }
 
