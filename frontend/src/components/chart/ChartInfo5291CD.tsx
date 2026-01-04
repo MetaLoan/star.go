@@ -136,6 +136,23 @@ function PlanetList({ planets }: { planets: PlanetPosition[] }) {
   );
 }
 
+// 行星符号映射
+const planetSymbols: Record<string, string> = {
+  sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
+  jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
+  northNode: '☊', chiron: '⚷',
+};
+
+// 相位符号映射
+const aspectSymbols: Record<string, string> = {
+  conjunction: '☌', sextile: '⚹', square: '□', trine: '△', opposition: '☍',
+};
+
+// 相位名称映射
+const aspectNames: Record<string, string> = {
+  conjunction: '合相', sextile: '六分', square: '四分', trine: '三分', opposition: '对分',
+};
+
 // 相位列表
 function AspectList({ aspects }: { aspects: AspectData[] }) {
   const aspectColors: Record<string, string> = {
@@ -161,12 +178,12 @@ function AspectList({ aspects }: { aspects: AspectData[] }) {
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: aspectColors[aspect.aspectType] || '#888' }}
               />
-              <span>{aspect.planet1Symbol}</span>
-              <span className="text-celestial-silver/60">{aspect.aspectSymbol}</span>
-              <span>{aspect.planet2Symbol}</span>
+              <span>{planetSymbols[aspect.planet1] || aspect.planet1}</span>
+              <span className="text-celestial-silver/60">{aspectSymbols[aspect.aspectType] || '?'}</span>
+              <span>{planetSymbols[aspect.planet2] || aspect.planet2}</span>
             </div>
             <div className="text-right">
-              <div className="text-sm">{aspect.aspectName}</div>
+              <div className="text-sm">{aspectNames[aspect.aspectType] || aspect.aspectType}</div>
               <div className="text-xs text-celestial-silver/60">
                 {aspect.orb.toFixed(1)}° {aspect.applying ? '入相' : '离相'}
               </div>

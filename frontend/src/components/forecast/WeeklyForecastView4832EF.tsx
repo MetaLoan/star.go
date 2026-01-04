@@ -4,7 +4,7 @@
  */
 
 import { motion } from 'framer-motion';
-import type { WeeklyForecast, DailyForecast } from '../../types';
+import type { WeeklyForecast, DailySummary } from '../../types';
 
 interface WeeklyForecastViewProps {
   forecast: WeeklyForecast;
@@ -27,16 +27,24 @@ export function WeeklyForecastView4832EF({
   forecast,
   className = '',
 }: WeeklyForecastViewProps) {
-  const maxScore = Math.max(...forecast.dailyForecasts.map((d) => d.overallScore));
-  const minScore = Math.min(...forecast.dailyForecasts.map((d) => d.overallScore));
-  const avgScore = forecast.weeklyAverage;
+  // 使用 dailySummaries 或 dailyForecasts
+  const dailyData = forecast.dailySummaries || forecast.dailyForecasts || [];
+  const weekStart = forecast.weekStart || forecast.startDate;
+  const weekEnd = forecast.weekEnd || forecast.endDate;
+  const avgScore = forecast.weeklyAverage || forecast.overallScore || 50;
+  const themes = forecast.weeklyThemes || (forecast.overallTheme ? [forecast.overallTheme] : []);
+
+  // 计算最高最低分
+  const scores = dailyData.map((d) => d.overallScore || 0);
+  const maxScore = scores.length > 0 ? Math.max(...scores) : 50;
+  const minScore = scores.length > 0 ? Math.min(...scores) : 50;
 
   return (
     <div className={`glass-card p-6 ${className}`}>
       {/* 周度概览 */}
       <div className="mb-6">
         <h3 className="text-lg font-bold mb-2">
-          📅 {forecast.weekStart} - {forecast.weekEnd}
+          📅 {weekStart} - {weekEnd}
         </h3>
         <div className="flex items-center gap-4">
           <div className="flex-1">
@@ -60,76 +68,83 @@ export function WeeklyForecastView4832EF({
       </div>
 
       {/* 周度趋势图 */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
-          周度趋势
-        </h4>
-        <div className="flex items-end gap-2 h-32">
-          {forecast.dailyForecasts.map((day, index) => {
-            const date = new Date(day.date);
-            const weekday = weekdayNames[date.getDay()];
-            const height = (day.overallScore / 100) * 100;
-            const style = getScoreStyle(day.overallScore);
+      {dailyData.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
+            周度趋势
+          </h4>
+          <div className="flex items-end gap-2 h-32">
+            {dailyData.map((day, index) => {
+              const date = new Date(day.date);
+              const weekday = weekdayNames[date.getDay()];
+              const score = day.overallScore || 50;
+              const height = (score / 100) * 100;
+              const style = getScoreStyle(score);
 
-            return (
-              <motion.div
-                key={day.date}
-                className="flex-1 flex flex-col items-center"
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="w-full relative" style={{ height: '100px' }}>
-                  <motion.div
-                    className="absolute bottom-0 w-full rounded-t-lg"
-                    style={{
-                      height: `${height}%`,
-                      backgroundColor: style.color,
-                      opacity: 0.8,
-                    }}
-                    whileHover={{ opacity: 1 }}
-                  />
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">
-                    {day.overallScore.toFixed(0)}
+              return (
+                <motion.div
+                  key={day.date || index}
+                  className="flex-1 flex flex-col items-center"
+                  initial={{ scaleY: 0 }}
+                  animate={{ scaleY: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="w-full relative" style={{ height: '100px' }}>
+                    <motion.div
+                      className="absolute bottom-0 w-full rounded-t-lg"
+                      style={{
+                        height: `${height}%`,
+                        backgroundColor: style.color,
+                        opacity: 0.8,
+                      }}
+                      whileHover={{ opacity: 1 }}
+                    />
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold">
+                      {score.toFixed(0)}
+                    </div>
                   </div>
-                </div>
-                <div className="text-xs text-celestial-silver/60 mt-2">
-                  {weekday}
-                </div>
-              </motion.div>
-            );
-          })}
+                  <div className="text-xs text-celestial-silver/60 mt-2">
+                    {weekday}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 主题关键词 */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
-          本周主题
-        </h4>
-        <div className="flex flex-wrap gap-2">
-          {forecast.weeklyThemes.map((theme, index) => (
-            <span
-              key={index}
-              className="px-3 py-1 rounded-full bg-cosmic-nova/20 text-cosmic-nova text-sm"
-            >
-              {theme}
-            </span>
-          ))}
+      {themes.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
+            本周主题
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {themes.map((theme, index) => (
+              <span
+                key={index}
+                className="px-3 py-1 rounded-full bg-cosmic-nova/20 text-cosmic-nova text-sm"
+              >
+                {theme}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 每日详情 */}
-      <div>
-        <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
-          每日详情
-        </h4>
-        <div className="space-y-3 max-h-[400px] overflow-y-auto">
-          {forecast.dailyForecasts.map((day) => (
-            <DayCard key={day.date} day={day} />
-          ))}
+      {dailyData.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-celestial-silver/60 mb-3">
+            每日详情
+          </h4>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {dailyData.map((day) => (
+              <DayCard key={day.date} day={day} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 重要提醒 */}
       {forecast.keyDates && forecast.keyDates.length > 0 && (
@@ -141,7 +156,7 @@ export function WeeklyForecastView4832EF({
             {forecast.keyDates.map((keyDate, index) => (
               <li key={index} className="text-sm">
                 <span className="font-medium">{keyDate.date}</span>:{' '}
-                {keyDate.description}
+                {keyDate.event || keyDate.reason || '重要事件'}
               </li>
             ))}
           </ul>
@@ -152,11 +167,16 @@ export function WeeklyForecastView4832EF({
 }
 
 // 每日卡片组件
-function DayCard({ day }: { day: DailyForecast }) {
+function DayCard({ day }: { day: DailySummary }) {
   const date = new Date(day.date);
   const weekday = weekdayNames[date.getDay()];
   const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-  const style = getScoreStyle(day.overallScore);
+  const score = day.overallScore || 50;
+  const style = getScoreStyle(score);
+
+  // 获取月相和月亮星座信息
+  const moonPhase = day.moonPhase || '';
+  const moonSign = day.moonSign || '';
 
   return (
     <motion.div
@@ -169,7 +189,7 @@ function DayCard({ day }: { day: DailyForecast }) {
             className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
             style={{ backgroundColor: `${style.color}20`, color: style.color }}
           >
-            {day.overallScore.toFixed(0)}
+            {score.toFixed(0)}
           </div>
           <div>
             <div className="font-medium">
@@ -178,25 +198,27 @@ function DayCard({ day }: { day: DailyForecast }) {
             <div className="text-xs text-celestial-silver/60">{style.label}</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm">{day.moonInfo.signName}</div>
-          <div className="text-xs text-celestial-silver/60">
-            {day.moonInfo.phaseName}
+        {(moonSign || moonPhase) && (
+          <div className="text-right">
+            <div className="text-sm">{moonSign}</div>
+            <div className="text-xs text-celestial-silver/60">{moonPhase}</div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 五维度分数 */}
-      <div className="grid grid-cols-5 gap-2">
-        {Object.entries(day.dimensionScores).map(([dim, score]) => (
-          <DimensionBadge key={dim} dimension={dim} score={score} />
-        ))}
-      </div>
+      {day.dimensions && (
+        <div className="grid grid-cols-5 gap-2">
+          {Object.entries(day.dimensions).map(([dim, scoreVal]) => (
+            <DimensionBadge key={dim} dimension={dim} score={scoreVal as number} />
+          ))}
+        </div>
+      )}
 
       {/* 每日主题 */}
-      {day.dailyTheme && (
+      {day.theme && (
         <div className="mt-3 text-sm text-celestial-silver/80">
-          {day.dailyTheme}
+          {day.theme}
         </div>
       )}
     </motion.div>
@@ -231,16 +253,15 @@ function DimensionBadge({
 
   return (
     <div className="text-center">
-      <div className="text-lg">{dimensionIcons[dimension]}</div>
+      <div className="text-lg">{dimensionIcons[dimension] || '📊'}</div>
       <div className="text-xs font-bold" style={{ color: style.color }}>
         {score.toFixed(0)}
       </div>
       <div className="text-xs text-celestial-silver/60">
-        {dimensionNames[dimension]}
+        {dimensionNames[dimension] || dimension}
       </div>
     </div>
   );
 }
 
 export default WeeklyForecastView4832EF;
-

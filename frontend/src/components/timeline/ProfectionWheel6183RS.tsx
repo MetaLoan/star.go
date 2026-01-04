@@ -9,9 +9,6 @@ import type { AnnualProfection } from '../../types';
 import {
   PLANET_SYMBOLS,
   PLANET_COLORS,
-  PLANET_NAMES,
-  HOUSE_NAMES,
-  HOUSE_THEMES,
   polarToCartesian,
 } from '../../utils/astro';
 

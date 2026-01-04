@@ -305,7 +305,7 @@ function App() {
                       />
                       <div className="md:col-span-2">
                         <DimensionScoresCard5612XY
-                          scores={dailyForecast.dimensions || dailyForecast.dimensionScores || {
+                          scores={dailyForecast.dimensions || {
                             career: 50,
                             relationship: 50,
                             health: 50,

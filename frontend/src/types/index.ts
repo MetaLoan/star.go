@@ -144,14 +144,18 @@ export interface DailySummary {
   date: string;
   dayOfWeek: string;
   overallScore: number;
-  moonSign: ZodiacID;
-  keyTheme: string;
+  moonSign?: string;
+  moonPhase?: string;
+  theme?: string;
+  keyTheme?: string;
+  dimensions?: DimensionScores;
 }
 
 export interface KeyDate {
   date: string;
-  event: string;
-  significance: string;
+  event?: string;
+  reason?: string;
+  significance?: string;
 }
 
 export interface WeeklyTransit {
