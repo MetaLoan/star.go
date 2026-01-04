@@ -57,6 +57,22 @@ func SetupRouter() *gin.Engine {
 			agent.GET("/context", GetAgentContext)
 			agent.POST("/query", AgentQuery)
 		}
+
+		// 运营配置接口
+		admin := api.Group("/admin")
+		{
+			// 因子权重配置
+			admin.GET("/factor-weights", GetFactorWeights)
+			admin.PUT("/factor-weights", UpdateFactorWeights)
+
+			// 维度权重配置
+			admin.GET("/dimension-weights", GetDimensionWeights)
+			admin.PUT("/dimension-weights", UpdateDimensionWeights)
+
+			// 抖动配置
+			admin.GET("/jitter-config", GetJitterConfig)
+			admin.PUT("/jitter-config", UpdateJitterConfig)
+		}
 	}
 
 	return router

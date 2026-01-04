@@ -272,6 +272,7 @@ var DefaultFactorWeights = models.FactorWeights{
 	ProfectionLord: 1.0,
 	LunarPhase:     0.7,
 	PlanetaryHour:  0.3,
+	VoidOfCourse:   0.8,
 	Personal:       1.0,
 	Custom:         1.0,
 }

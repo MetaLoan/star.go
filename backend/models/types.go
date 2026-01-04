@@ -439,22 +439,74 @@ const (
 	FactorProfectionLord InfluenceFactorType = "profectionLord"
 	FactorLunarPhase     InfluenceFactorType = "lunarPhase"
 	FactorPlanetaryHour  InfluenceFactorType = "planetaryHour"
+	FactorVoidOfCourse   InfluenceFactorType = "voidOfCourse"
 	FactorPersonal       InfluenceFactorType = "personal"
 	FactorCustom         InfluenceFactorType = "custom"
 )
 
-// InfluenceFactor 影响因子
+// FactorTimeLevel 因子时间级别
+type FactorTimeLevel string
+
+const (
+	TimeLevelYearly  FactorTimeLevel = "yearly"  // 年度级：可见于所有视图
+	TimeLevelMonthly FactorTimeLevel = "monthly" // 月度级：月/周/日/时可见
+	TimeLevelWeekly  FactorTimeLevel = "weekly"  // 周度级：周/日/时可见
+	TimeLevelDaily   FactorTimeLevel = "daily"   // 日度级：日/时可见
+	TimeLevelHourly  FactorTimeLevel = "hourly"  // 小时级：仅时可见
+)
+
+// DimensionImpact 维度影响比例（总和=1.0）
+type DimensionImpact struct {
+	Career       float64 `json:"career"`       // 事业
+	Relationship float64 `json:"relationship"` // 关系
+	Health       float64 `json:"health"`       // 健康
+	Finance      float64 `json:"finance"`      // 财务
+	Spiritual    float64 `json:"spiritual"`    // 灵性
+}
+
+// FactorLifecycle 因子生命周期
+type FactorLifecycle struct {
+	StartTime time.Time `json:"startTime"` // 开始时间
+	PeakTime  time.Time `json:"peakTime"`  // 峰值时间
+	EndTime   time.Time `json:"endTime"`   // 结束时间
+	Duration  float64   `json:"duration"`  // 持续时长（小时）
+}
+
+// InfluenceFactor 影响因子（重构版）
 type InfluenceFactor struct {
+	// 基础信息
 	ID          string              `json:"id"`
 	Type        InfluenceFactorType `json:"type"`
 	Name        string              `json:"name"`
-	Value       float64             `json:"value"`
-	Weight      float64             `json:"weight"`
-	Adjustment  float64             `json:"adjustment"`
-	Dimension   string              `json:"dimension,omitempty"`
 	Description string              `json:"description"`
-	Reason      string              `json:"reason,omitempty"`
-	IsPositive  bool                `json:"isPositive"`
+
+	// 时间级别
+	TimeLevel FactorTimeLevel `json:"timeLevel"`
+
+	// 生命周期
+	Lifecycle *FactorLifecycle `json:"lifecycle,omitempty"`
+
+	// 原始值和权重
+	BaseValue float64 `json:"baseValue"` // 基础值（未经生命周期调整）
+	Weight    float64 `json:"weight"`    // 配置权重
+
+	// 当前强度（根据生命周期正弦曲线计算）
+	CurrentStrength float64 `json:"currentStrength"` // 0.0-1.0
+
+	// 最终调整值 = BaseValue × Weight × CurrentStrength
+	Adjustment float64 `json:"adjustment"`
+
+	// 维度影响分配
+	DimensionImpact DimensionImpact `json:"dimensionImpact"`
+
+	// 来源行星（如有）
+	SourcePlanet PlanetID `json:"sourcePlanet,omitempty"`
+
+	// 正负性质
+	IsPositive bool `json:"isPositive"`
+
+	// 占星学依据
+	AstroReason string `json:"astroReason,omitempty"`
 }
 
 // FactorWeights 因子权重配置（可运营调整）
@@ -467,17 +519,59 @@ type FactorWeights struct {
 	ProfectionLord float64 `json:"profectionLord"`
 	LunarPhase     float64 `json:"lunarPhase"`
 	PlanetaryHour  float64 `json:"planetaryHour"`
+	VoidOfCourse   float64 `json:"voidOfCourse"`
 	Personal       float64 `json:"personal"`
 	Custom         float64 `json:"custom"`
 }
 
-// FactorResult 因子计算结果
+// DimensionWeights 维度权重配置（可运营调整）
+type DimensionWeights struct {
+	Career       float64 `json:"career"`       // 默认 0.25
+	Relationship float64 `json:"relationship"` // 默认 0.20
+	Health       float64 `json:"health"`       // 默认 0.20
+	Finance      float64 `json:"finance"`      // 默认 0.20
+	Spiritual    float64 `json:"spiritual"`    // 默认 0.15
+}
+
+// DimensionScoresV2 维度分数（增强版）
+type DimensionScoresV2 struct {
+	Career       float64 `json:"career"`
+	Relationship float64 `json:"relationship"`
+	Health       float64 `json:"health"`
+	Finance      float64 `json:"finance"`
+	Spiritual    float64 `json:"spiritual"`
+}
+
+// FactorResult 因子计算结果（重构版）
 type FactorResult struct {
-	Factors              []InfluenceFactor  `json:"factors"`
-	TotalAdjustment      float64            `json:"totalAdjustment"`
-	PositiveFactors      []InfluenceFactor  `json:"positiveFactors"`
-	NegativeFactors      []InfluenceFactor  `json:"negativeFactors"`
-	DimensionAdjustments map[string]float64 `json:"dimensionAdjustments"`
+	// 所有因子
+	Factors []InfluenceFactor `json:"factors"`
+
+	// 按时间级别分组
+	YearlyFactors  []InfluenceFactor `json:"yearlyFactors,omitempty"`
+	MonthlyFactors []InfluenceFactor `json:"monthlyFactors,omitempty"`
+	WeeklyFactors  []InfluenceFactor `json:"weeklyFactors,omitempty"`
+	DailyFactors   []InfluenceFactor `json:"dailyFactors,omitempty"`
+	HourlyFactors  []InfluenceFactor `json:"hourlyFactors,omitempty"`
+
+	// 正负分组
+	PositiveFactors []InfluenceFactor `json:"positiveFactors"`
+	NegativeFactors []InfluenceFactor `json:"negativeFactors"`
+
+	// 各维度调整总和
+	DimensionAdjustments DimensionScoresV2 `json:"dimensionAdjustments"`
+
+	// 总调整值
+	TotalAdjustment float64 `json:"totalAdjustment"`
+}
+
+// NatalBaseScores 本命盘基础分
+type NatalBaseScores struct {
+	Career       float64 `json:"career"`
+	Relationship float64 `json:"relationship"`
+	Health       float64 `json:"health"`
+	Finance      float64 `json:"finance"`
+	Spiritual    float64 `json:"spiritual"`
 }
 
 // ==================== 行运结构 ====================

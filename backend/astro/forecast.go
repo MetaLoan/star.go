@@ -246,20 +246,11 @@ func calculateDailyDimensions(_ *models.NatalChart, _ []models.PlanetPosition, a
 
 	// 应用因子调整
 	if factors != nil {
-		for dim, adj := range factors.DimensionAdjustments {
-			switch dim {
-			case "career":
-				career += adj
-			case "relationship":
-				relationship += adj
-			case "health":
-				health += adj
-			case "finance":
-				finance += adj
-			case "spiritual":
-				spiritual += adj
-			}
-		}
+		career += factors.DimensionAdjustments.Career
+		relationship += factors.DimensionAdjustments.Relationship
+		health += factors.DimensionAdjustments.Health
+		finance += factors.DimensionAdjustments.Finance
+		spiritual += factors.DimensionAdjustments.Spiritual
 	}
 
 	return models.DailyDimensions{

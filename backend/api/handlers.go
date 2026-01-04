@@ -389,3 +389,110 @@ func CalculatePlanetaryHour(c *gin.Context) {
 	}
 }
 
+// ==================== 运营配置 API ====================
+
+// GetFactorWeights 获取因子权重配置
+func GetFactorWeights(c *gin.Context) {
+	weights := astro.GetCurrentFactorWeights()
+	c.JSON(http.StatusOK, gin.H{
+		"weights": weights,
+		"description": gin.H{
+			"dignity":        "尊贵度因子权重（入庙/旺相/落陷/失势）",
+			"retrograde":     "逆行因子权重",
+			"aspectPhase":    "相位阶段因子权重（入相/离相）",
+			"aspectOrb":      "相位容许度因子权重",
+			"outerPlanet":    "外行星因子权重",
+			"profectionLord": "年主星因子权重",
+			"lunarPhase":     "月相因子权重",
+			"planetaryHour":  "行星时因子权重",
+			"voidOfCourse":   "月亮空亡因子权重",
+			"personal":       "个人因子权重",
+			"custom":         "自定义因子权重",
+		},
+	})
+}
+
+// UpdateFactorWeights 更新因子权重配置
+func UpdateFactorWeights(c *gin.Context) {
+	var req models.FactorWeights
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	astro.UpdateFactorWeights(req)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "因子权重已更新",
+		"weights": req,
+	})
+}
+
+// GetDimensionWeights 获取维度权重配置
+func GetDimensionWeights(c *gin.Context) {
+	weights := astro.GetCurrentDimensionWeights()
+	c.JSON(http.StatusOK, gin.H{
+		"weights": weights,
+		"description": gin.H{
+			"career":       "事业维度权重（默认0.25，对应10/6/1宫）",
+			"relationship": "关系维度权重（默认0.20，对应7/5/11宫）",
+			"health":       "健康维度权重（默认0.20，对应1/6/8宫）",
+			"finance":      "财务维度权重（默认0.20，对应2/8宫）",
+			"spiritual":    "灵性维度权重（默认0.15，对应9/12宫）",
+		},
+		"note": "所有权重之和应为1.0",
+	})
+}
+
+// UpdateDimensionWeights 更新维度权重配置
+func UpdateDimensionWeights(c *gin.Context) {
+	var req models.DimensionWeights
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 验证权重总和
+	total := req.Career + req.Relationship + req.Health + req.Finance + req.Spiritual
+	if total < 0.99 || total > 1.01 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "维度权重之和必须为1.0",
+			"current_total": total,
+		})
+		return
+	}
+
+	astro.UpdateDimensionWeights(req)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "维度权重已更新",
+		"weights": req,
+	})
+}
+
+// GetJitterConfig 获取抖动配置
+func GetJitterConfig(c *gin.Context) {
+	config := astro.DefaultJitterConfig
+	c.JSON(http.StatusOK, gin.H{
+		"config": config,
+		"description": gin.H{
+			"enabled":   "是否启用视觉抖动（仅影响显示，不影响计算）",
+			"magnitude": "抖动幅度（±范围，默认0.5）",
+			"seed":      "随机种子（0表示使用时间戳）",
+		},
+	})
+}
+
+// UpdateJitterConfig 更新抖动配置
+func UpdateJitterConfig(c *gin.Context) {
+	var req astro.JitterConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	astro.UpdateJitterConfig(req)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "抖动配置已更新",
+		"config":  req,
+	})
+}
+

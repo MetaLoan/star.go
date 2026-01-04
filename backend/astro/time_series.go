@@ -89,10 +89,20 @@ func calculateTimeSeriesPoint(chart *models.NatalChart, t time.Time, granularity
 	factors := CalculateInfluenceFactors(chart, t, transitPositions)
 
 	// 构建分数因子
+	// 从因子列表中提取尊贵度和逆行的总调整
+	var dignityTotal, retrogradeTotal float64
+	for _, f := range factors.Factors {
+		switch f.Type {
+		case models.FactorDignity:
+			dignityTotal += f.Adjustment
+		case models.FactorRetrograde:
+			retrogradeTotal += f.Adjustment
+		}
+	}
 	scoreFactors := models.ScoreFactors{
 		Aspects:    transitScore.Total,
-		Dignity:    factors.DimensionAdjustments["dignity"],
-		Retrograde: factors.DimensionAdjustments["retrograde"],
+		Dignity:    dignityTotal,
+		Retrograde: retrogradeTotal,
 	}
 
 	// 根据粒度添加特定因子
