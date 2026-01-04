@@ -72,6 +72,11 @@ func SetupRouter() *gin.Engine {
 			// 抖动配置
 			admin.GET("/jitter-config", GetJitterConfig)
 			admin.PUT("/jitter-config", UpdateJitterConfig)
+
+			// 自定义因子管理
+			admin.POST("/custom-factors", AddCustomFactor)
+			admin.GET("/custom-factors/:userId", GetCustomFactors)
+			admin.DELETE("/custom-factors/:userId", ClearCustomFactors)
 		}
 	}
 

@@ -72,12 +72,23 @@ func CalculateDailyForecast(chart *models.NatalChart, date time.Time, withFactor
 
 	_ = jd
 
+	// 应用视觉抖动（仅显示用）
+	jitterSeed := GenerateSeedFromTime(date.Year(), int(date.Month()), date.Day(), date.Hour())
+	jitteredOverall := ApplyJitter(overallScore, jitterSeed)
+	jitteredDimensions := models.DailyDimensions{
+		Career:       ApplyJitter(dimensions.Career, jitterSeed+1),
+		Relationship: ApplyJitter(dimensions.Relationship, jitterSeed+2),
+		Health:       ApplyJitter(dimensions.Health, jitterSeed+3),
+		Finance:      ApplyJitter(dimensions.Finance, jitterSeed+4),
+		Spiritual:    ApplyJitter(dimensions.Spiritual, jitterSeed+5),
+	}
+
 	return &models.DailyForecast{
 		Date:            date,
 		DayOfWeek:       dayOfWeek,
-		OverallScore:    overallScore,
+		OverallScore:    jitteredOverall,
 		OverallTheme:    overallTheme,
-		Dimensions:      dimensions,
+		Dimensions:      jitteredDimensions,
 		MoonPhase:       moonPhase,
 		MoonSign:        moonSign,
 		HourlyBreakdown: hourlyBreakdown,
@@ -167,11 +178,14 @@ func CalculateWeeklyForecast(chart *models.NatalChart, startDate time.Time, with
 }
 
 // normalizeScore 将原始分数标准化到 0-100
+// 确保输出在 0-100 范围内，保留4位小数
 func normalizeScore(raw float64) float64 {
 	// 使用 tanh 压缩
 	scale := 20.0
 	normalized := 50 + 50*math.Tanh(raw/scale)
-	return math.Max(0, math.Min(100, normalized))
+	result := math.Max(0, math.Min(100, normalized))
+	// 保留4位小数
+	return math.Round(result*10000) / 10000
 }
 
 // calculateDailyDimensions 计算每日维度分数

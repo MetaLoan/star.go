@@ -112,11 +112,15 @@ func generateMonthlyTrend(chart *models.NatalChart, startYear, endYear int) []mo
 }
 
 // calculateLifeTrendPoint 计算单个人生趋势点
+// 使用因子系统V2进行完整的分数计算
 func calculateLifeTrendPoint(chart *models.NatalChart, date time.Time, year, age int) models.LifeTrendPoint {
-	// 获取行运位置
+	// 使用新版因子系统计算分数
+	scoreResult := CalculateScoresV2(chart, date)
+
+	// 获取行运位置（用于其他计算）
 	transitPositions := GetTransitPositions(date)
 
-	// 计算行运相位
+	// 计算行运相位（用于和谐/挑战分）
 	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
 	transitScore := CalculateTransitScore(aspects)
 
@@ -135,7 +139,7 @@ func calculateLifeTrendPoint(chart *models.NatalChart, date time.Time, year, age
 		majorTransitName = majorTransits[0].Name
 	}
 
-	// 计算各项分数
+	// 计算和谐/挑战/转化分数
 	harmonious := transitScore.Harmonious + 30 // 基础值
 	challenge := transitScore.Tense
 	transformation := 0.0
@@ -148,16 +152,16 @@ func calculateLifeTrendPoint(chart *models.NatalChart, date time.Time, year, age
 		}
 	}
 
-	// 整体分数
-	overallScore := normalizeScore(transitScore.Total)
+	// 使用因子系统的分数（已经标准化到0-100）
+	overallScore := scoreResult.Overall
 
-	// 维度分数
+	// 使用因子系统的维度分数
 	dimensions := models.DailyDimensions{
-		Career:       normalizeScore(transitScore.Total * 0.9),
-		Relationship: normalizeScore(transitScore.Total * 1.1),
-		Health:       normalizeScore(transitScore.Total * 0.85),
-		Finance:      normalizeScore(transitScore.Total * 0.95),
-		Spiritual:    normalizeScore(transitScore.Total + transformation*0.5),
+		Career:       scoreResult.Dimensions.Career,
+		Relationship: scoreResult.Dimensions.Relationship,
+		Health:       scoreResult.Dimensions.Health,
+		Finance:      scoreResult.Dimensions.Finance,
+		Spiritual:    scoreResult.Dimensions.Spiritual,
 	}
 
 	// 确定主导行星
@@ -173,7 +177,7 @@ func calculateLifeTrendPoint(chart *models.NatalChart, date time.Time, year, age
 		Transformation:   transformation,
 		Dimensions:       dimensions,
 		DominantPlanet:   dominantPlanet,
-		Profection:       models.ProfectionSummary{
+		Profection: models.ProfectionSummary{
 			House:      profection.House,
 			Theme:      profection.HouseTheme,
 			LordOfYear: profection.LordOfYear,

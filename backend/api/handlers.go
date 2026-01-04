@@ -496,3 +496,71 @@ func UpdateJitterConfig(c *gin.Context) {
 	})
 }
 
+// ==================== 自定义因子 API ====================
+
+// AddCustomFactor 添加自定义因子
+func AddCustomFactor(c *gin.Context) {
+	var req struct {
+		UserID     string `json:"userId"`
+		Definition string `json:"definition"` // 格式：AddScore=(2*healthScore,2.5,202501171230)
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.UserID == "" {
+		req.UserID = "default"
+	}
+
+	factor, err := astro.AddCustomFactor(req.UserID, req.Definition)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   err.Error(),
+			"example": "AddScore=(2*healthScore,2.5,202501171230)",
+			"format": gin.H{
+				"operation":  "AddScore | SubScore | MulScore | SetScore",
+				"value":      "数值（可选乘以维度如 2*healthScore）",
+				"duration":   "持续小时数",
+				"startTime":  "开始时间 YYYYMMDDHHmm",
+				"dimensions": "career | relationship | health | finance | spiritual | overall",
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "自定义因子已添加",
+		"factor":  factor,
+	})
+}
+
+// GetCustomFactors 获取用户的自定义因子
+func GetCustomFactors(c *gin.Context) {
+	userID := c.Param("userId")
+	if userID == "" {
+		userID = "default"
+	}
+
+	factors := astro.GetAllCustomFactors(userID)
+	c.JSON(http.StatusOK, gin.H{
+		"userId":  userID,
+		"count":   len(factors),
+		"factors": factors,
+	})
+}
+
+// ClearCustomFactors 清除用户的自定义因子
+func ClearCustomFactors(c *gin.Context) {
+	userID := c.Param("userId")
+	if userID == "" {
+		userID = "default"
+	}
+
+	astro.ClearCustomFactors(userID)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "自定义因子已清除",
+		"userId":  userID,
+	})
+}
+
