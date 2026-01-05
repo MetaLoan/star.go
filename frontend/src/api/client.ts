@@ -9,7 +9,7 @@ import type {
   DailyForecast,
   WeeklyForecast,
   LifeTrend,
-  TimeSeriesPoint,
+  TimeSeriesResponse,
   AnnualProfection,
   ProfectionMap,
   ProgressedChart,
@@ -20,6 +20,8 @@ import type {
   VoidOfCourseInfo,
   PlanetaryHourInfo,
   PlanetaryHoursResponse,
+  ScoreBreakdownAllResponse,
+  ActiveFactorsResponse,
 } from '../types';
 
 // API 基础 URL - 可通过环境变量配置
@@ -114,10 +116,36 @@ export async function getTimeSeries(
   start: string,
   end: string,
   granularity: TimeGranularity
-): Promise<TimeSeriesPoint[]> {
-  return request<TimeSeriesPoint[]>('/api/calc/time-series', {
+): Promise<TimeSeriesResponse> {
+  return request<TimeSeriesResponse>('/api/calc/time-series', {
     method: 'POST',
     body: JSON.stringify({ birthData, start, end, granularity }),
+  });
+}
+
+// ==================== 分数组成（开发调试用） ====================
+
+export async function getScoreBreakdownAll(
+  birthData: BirthData,
+  queryTime: string,
+  userId?: string
+): Promise<ScoreBreakdownAllResponse> {
+  return request<ScoreBreakdownAllResponse>('/api/calc/score-breakdown-all', {
+    method: 'POST',
+    body: JSON.stringify({ birthData, queryTime, userId }),
+  });
+}
+
+export async function getActiveFactors(
+  birthData: BirthData,
+  queryTime: string,
+  granularity: 'hour' | 'day' | 'week' | 'month' | 'year',
+  infect: 'all' | 'core' = 'all',
+  userId?: string
+): Promise<ActiveFactorsResponse> {
+  return request<ActiveFactorsResponse>('/api/calc/active-factors', {
+    method: 'POST',
+    body: JSON.stringify({ birthData, queryTime, granularity, infect, userId }),
   });
 }
 
@@ -277,6 +305,8 @@ export const apiClient = {
   getWeeklyForecast,
   getLifeTrend,
   getTimeSeries,
+  getScoreBreakdownAll,
+  getActiveFactors,
   getProfection,
   getProfectionMap,
   getTransits,

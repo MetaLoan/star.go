@@ -6,11 +6,21 @@ import (
 	"time"
 )
 
+/*
+每日/每周预测
+
+使用统一分数计算架构：
+- 日分数 = 24小时平均
+- 周分数 = 7天平均
+- 五维分数基于行星-维度映射独立计算
+*/
+
 // CalculateDailyForecast 计算每日预测
 func CalculateDailyForecast(chart *models.NatalChart, date time.Time, withFactors bool) *models.DailyForecast {
-	jd := DateToJulianDay(date)
+	// 使用统一计算逻辑获取日分数（24小时平均）
+	dailyScore := CalculateDailyScore(chart, date)
 
-	// 获取当前行星位置
+	// 获取当前行星位置（用于月亮信息和相位）
 	transitPositions := GetTransitPositions(date)
 
 	// 计算行运相位
@@ -38,9 +48,6 @@ func CalculateDailyForecast(chart *models.NatalChart, date time.Time, withFactor
 		Keywords: MoonSignKeywords[moonPos.Sign],
 	}
 
-	// 计算行运分数
-	transitScore := CalculateTransitScore(activeAspects)
-
 	// 计算影响因子
 	var factors *models.FactorResult
 	var topFactors []models.InfluenceFactor
@@ -49,20 +56,17 @@ func CalculateDailyForecast(chart *models.NatalChart, date time.Time, withFactor
 		topFactors = getTopFactors(factors, 5)
 	}
 
-	// 计算基础分数
-	baseScore := 50 + transitScore.Total
-	if factors != nil {
-		baseScore += factors.TotalAdjustment
+	// 构建五维分数（从统一计算结果中获取）
+	dimensions := models.DailyDimensions{
+		Career:       dailyScore.Dimensions["career"],
+		Relationship: dailyScore.Dimensions["relationship"],
+		Health:       dailyScore.Dimensions["health"],
+		Finance:      dailyScore.Dimensions["finance"],
+		Spiritual:    dailyScore.Dimensions["spiritual"],
 	}
 
-	// 标准化到 0-100
-	overallScore := normalizeScore(baseScore)
-
-	// 计算维度分数
-	dimensions := calculateDailyDimensions(chart, transitPositions, activeAspects, factors)
-
-	// 计算小时预测
-	hourlyBreakdown := calculateHourlyBreakdown(chart, date, transitPositions)
+	// 计算小时预测（使用统一计算逻辑）
+	hourlyBreakdown := calculateUnifiedHourlyBreakdown(chart, date)
 
 	// 生成主题
 	overallTheme := generateDailyTheme(moonSign, activeAspects)
@@ -70,25 +74,12 @@ func CalculateDailyForecast(chart *models.NatalChart, date time.Time, withFactor
 	// 获取星期
 	dayOfWeek := getDayOfWeekChinese(date.Weekday())
 
-	_ = jd
-
-	// 应用视觉抖动（仅显示用）
-	jitterSeed := GenerateSeedFromTime(date.Year(), int(date.Month()), date.Day(), date.Hour())
-	jitteredOverall := ApplyJitter(overallScore, jitterSeed)
-	jitteredDimensions := models.DailyDimensions{
-		Career:       ApplyJitter(dimensions.Career, jitterSeed+1),
-		Relationship: ApplyJitter(dimensions.Relationship, jitterSeed+2),
-		Health:       ApplyJitter(dimensions.Health, jitterSeed+3),
-		Finance:      ApplyJitter(dimensions.Finance, jitterSeed+4),
-		Spiritual:    ApplyJitter(dimensions.Spiritual, jitterSeed+5),
-	}
-
 	return &models.DailyForecast{
 		Date:            date,
 		DayOfWeek:       dayOfWeek,
-		OverallScore:    jitteredOverall,
+		OverallScore:    dailyScore.Overall,
 		OverallTheme:    overallTheme,
-		Dimensions:      jitteredDimensions,
+		Dimensions:      dimensions,
 		MoonPhase:       moonPhase,
 		MoonSign:        moonSign,
 		HourlyBreakdown: hourlyBreakdown,
@@ -108,11 +99,11 @@ func CalculateWeeklyForecast(chart *models.NatalChart, startDate time.Time, with
 	startDate = startDate.AddDate(0, 0, -(weekday - 1))
 	endDate := startDate.AddDate(0, 0, 6)
 
+	// 使用统一计算逻辑获取周分数（7天平均）
+	weeklyScore := CalculateWeeklyScore(chart, startDate)
+
 	// 计算每日摘要
 	dailySummaries := make([]models.DailySummary, 7)
-	var totalScore float64
-	var totalDimensions models.DailyDimensions
-
 	for i := 0; i < 7; i++ {
 		date := startDate.AddDate(0, 0, i)
 		dailyForecast := CalculateDailyForecast(chart, date, false)
@@ -124,23 +115,15 @@ func CalculateWeeklyForecast(chart *models.NatalChart, startDate time.Time, with
 			MoonSign:     dailyForecast.MoonSign.Sign,
 			KeyTheme:     dailyForecast.OverallTheme,
 		}
-
-		totalScore += dailyForecast.OverallScore
-		totalDimensions.Career += dailyForecast.Dimensions.Career
-		totalDimensions.Relationship += dailyForecast.Dimensions.Relationship
-		totalDimensions.Health += dailyForecast.Dimensions.Health
-		totalDimensions.Finance += dailyForecast.Dimensions.Finance
-		totalDimensions.Spiritual += dailyForecast.Dimensions.Spiritual
 	}
 
-	// 计算平均值
-	overallScore := totalScore / 7
+	// 构建五维分数（从统一计算结果中获取）
 	dimensions := models.DailyDimensions{
-		Career:       totalDimensions.Career / 7,
-		Relationship: totalDimensions.Relationship / 7,
-		Health:       totalDimensions.Health / 7,
-		Finance:      totalDimensions.Finance / 7,
-		Spiritual:    totalDimensions.Spiritual / 7,
+		Career:       weeklyScore.Dimensions["career"],
+		Relationship: weeklyScore.Dimensions["relationship"],
+		Health:       weeklyScore.Dimensions["health"],
+		Finance:      weeklyScore.Dimensions["finance"],
+		Spiritual:    weeklyScore.Dimensions["spiritual"],
 	}
 
 	// 找出关键日期和最佳日期
@@ -165,7 +148,7 @@ func CalculateWeeklyForecast(chart *models.NatalChart, startDate time.Time, with
 	return &models.WeeklyForecast{
 		StartDate:       startDate,
 		EndDate:         endDate,
-		OverallScore:    overallScore,
+		OverallScore:    weeklyScore.Overall,
 		OverallTheme:    overallTheme,
 		Dimensions:      dimensions,
 		DailySummaries:  dailySummaries,
@@ -177,6 +160,28 @@ func CalculateWeeklyForecast(chart *models.NatalChart, startDate time.Time, with
 	}
 }
 
+// calculateUnifiedHourlyBreakdown 使用统一计算逻辑计算小时预测
+func calculateUnifiedHourlyBreakdown(chart *models.NatalChart, date time.Time) []models.HourlyForecast {
+	breakdown := make([]models.HourlyForecast, 24)
+
+	for hour := 0; hour < 24; hour++ {
+		t := time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, date.Location())
+		hourlyScore := CalculateUnifiedHourlyScore(chart, t)
+
+		planetaryHour := CalculatePlanetaryHour(date, hour)
+		bestFor := getBestActivitiesForHour(planetaryHour)
+
+		breakdown[hour] = models.HourlyForecast{
+			Hour:          hour,
+			Score:         hourlyScore.Overall,
+			PlanetaryHour: planetaryHour,
+			BestFor:       bestFor,
+		}
+	}
+
+	return breakdown
+}
+
 // normalizeScore 将原始分数标准化到 0-100
 // 确保输出在 0-100 范围内，保留4位小数
 func normalizeScore(raw float64) float64 {
@@ -186,149 +191,6 @@ func normalizeScore(raw float64) float64 {
 	result := math.Max(0, math.Min(100, normalized))
 	// 保留4位小数
 	return math.Round(result*10000) / 10000
-}
-
-// calculateDailyDimensions 计算每日维度分数
-func calculateDailyDimensions(_ *models.NatalChart, _ []models.PlanetPosition, aspects []models.AspectData, factors *models.FactorResult) models.DailyDimensions {
-	base := 50.0
-
-	// 根据相位调整各维度
-	career := base
-	relationship := base
-	health := base
-	finance := base
-	spiritual := base
-
-	for _, asp := range aspects {
-		weight := asp.Weight * asp.Strength
-
-		// 事业相关：土星、木星、太阳、MC
-		if asp.Planet1 == models.Saturn || asp.Planet2 == models.Saturn ||
-			asp.Planet1 == models.Jupiter || asp.Planet2 == models.Jupiter {
-			switch asp.AspectType {
-			case models.Trine, models.Sextile:
-				career += weight
-			case models.Square, models.Opposition:
-				career -= weight * 0.5
-			}
-		}
-
-		// 关系相关：金星、月亮、7宫主
-		if asp.Planet1 == models.Venus || asp.Planet2 == models.Venus ||
-			asp.Planet1 == models.Moon || asp.Planet2 == models.Moon {
-			switch asp.AspectType {
-			case models.Trine, models.Sextile:
-				relationship += weight
-			case models.Square, models.Opposition:
-				relationship -= weight * 0.3
-			}
-		}
-
-		// 健康相关：火星、太阳、6宫主
-		if asp.Planet1 == models.Mars || asp.Planet2 == models.Mars ||
-			asp.Planet1 == models.Sun || asp.Planet2 == models.Sun {
-			switch asp.AspectType {
-			case models.Trine, models.Sextile:
-				health += weight * 0.5
-			case models.Square, models.Opposition:
-				health -= weight * 0.3
-			}
-		}
-
-		// 财务相关：木星、金星、2/8宫主
-		if asp.Planet1 == models.Jupiter || asp.Planet2 == models.Jupiter ||
-			asp.Planet1 == models.Venus || asp.Planet2 == models.Venus {
-			switch asp.AspectType {
-			case models.Trine, models.Sextile:
-				finance += weight
-			case models.Square, models.Opposition:
-				finance -= weight * 0.4
-			}
-		}
-
-		// 灵性相关：海王星、冥王星、12宫主
-		if asp.Planet1 == models.Neptune || asp.Planet2 == models.Neptune ||
-			asp.Planet1 == models.Pluto || asp.Planet2 == models.Pluto {
-			switch asp.AspectType {
-			case models.Trine, models.Sextile:
-				spiritual += weight
-			case models.Conjunction:
-				spiritual += weight * 0.5
-			}
-		}
-	}
-
-	// 应用因子调整
-	if factors != nil {
-		career += factors.DimensionAdjustments.Career
-		relationship += factors.DimensionAdjustments.Relationship
-		health += factors.DimensionAdjustments.Health
-		finance += factors.DimensionAdjustments.Finance
-		spiritual += factors.DimensionAdjustments.Spiritual
-	}
-
-	return models.DailyDimensions{
-		Career:       normalizeScore(career - 50),
-		Relationship: normalizeScore(relationship - 50),
-		Health:       normalizeScore(health - 50),
-		Finance:      normalizeScore(finance - 50),
-		Spiritual:    normalizeScore(spiritual - 50),
-	}
-}
-
-// calculateHourlyBreakdown 计算小时预测
-func calculateHourlyBreakdown(chart *models.NatalChart, date time.Time, _ []models.PlanetPosition) []models.HourlyForecast {
-	breakdown := make([]models.HourlyForecast, 24)
-
-	for hour := 0; hour < 24; hour++ {
-		planetaryHour := CalculatePlanetaryHour(date, hour)
-		score := calculateHourlyScore(chart, date, hour, planetaryHour)
-		bestFor := getBestActivitiesForHour(planetaryHour)
-
-		breakdown[hour] = models.HourlyForecast{
-			Hour:          hour,
-			Score:         score,
-			PlanetaryHour: planetaryHour,
-			BestFor:       bestFor,
-		}
-	}
-
-	return breakdown
-}
-
-// calculateHourlyScore 计算小时分数
-func calculateHourlyScore(_ *models.NatalChart, _ time.Time, _ int, planetaryHour models.PlanetID) float64 {
-	base := 50.0
-
-	// 根据行星时调整
-	switch planetaryHour {
-	case models.Venus, models.Jupiter:
-		base += 10 // 吉星时
-	case models.Saturn, models.Mars:
-		base -= 5 // 凶星时
-	case models.Sun, models.Moon:
-		base += 5 // 发光体时
-	}
-
-	return normalizeScore(base - 50)
-}
-
-// getBestActivitiesForHour 获取该小时最佳活动
-func getBestActivitiesForHour(planetaryHour models.PlanetID) []string {
-	activities := map[models.PlanetID][]string{
-		models.Saturn:  {"计划", "冥想", "独处", "整理"},
-		models.Jupiter: {"学习", "旅行", "社交", "决策"},
-		models.Mars:    {"运动", "竞争", "启动项目", "主动行动"},
-		models.Sun:     {"领导", "创意", "展示自我", "重要会议"},
-		models.Venus:   {"艺术", "社交", "约会", "美容"},
-		models.Mercury: {"沟通", "写作", "商务", "学习"},
-		models.Moon:    {"家庭", "休息", "情感交流", "直觉决策"},
-	}
-
-	if acts, ok := activities[planetaryHour]; ok {
-		return acts
-	}
-	return []string{"一般活动"}
 }
 
 // generateDailyTheme 生成每日主题
@@ -488,3 +350,20 @@ func getTopFactors(factors *models.FactorResult, n int) []models.InfluenceFactor
 	return sorted
 }
 
+// getBestActivitiesForHour 获取该小时最佳活动
+func getBestActivitiesForHour(planetaryHour models.PlanetID) []string {
+	activities := map[models.PlanetID][]string{
+		models.Saturn:  {"计划", "冥想", "独处", "整理"},
+		models.Jupiter: {"学习", "旅行", "社交", "决策"},
+		models.Mars:    {"运动", "竞争", "启动项目", "主动行动"},
+		models.Sun:     {"领导", "创意", "展示自我", "重要会议"},
+		models.Venus:   {"艺术", "社交", "约会", "美容"},
+		models.Mercury: {"沟通", "写作", "商务", "学习"},
+		models.Moon:    {"家庭", "休息", "情感交流", "直觉决策"},
+	}
+
+	if acts, ok := activities[planetaryHour]; ok {
+		return acts
+	}
+	return []string{"一般活动"}
+}

@@ -81,8 +81,9 @@ export function NatalChartSVG3847AB({
     
     const lines = [];
     
-    // 同心圆引导线
+    // 同心圆引导线 - 更明显
     const concentricCircles = [guideRadius1, guideRadius2, guideRadius3];
+    const circleOpacities = [0.12, 0.10, 0.08];
     concentricCircles.forEach((r, i) => {
       lines.push(
         <circle
@@ -91,14 +92,14 @@ export function NatalChartSVG3847AB({
           cy={center}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.04)"
+          stroke={`rgba(150, 180, 255, ${circleOpacities[i]})`}
           strokeWidth="1"
-          strokeDasharray="3 6"
+          strokeDasharray="4 8"
         />
       );
     });
     
-    // 30度分割线（细线）
+    // 30度分割线（细线）- 更明显
     for (let i = 0; i < 12; i++) {
       const angle = i * 30;
       const start = polarToCartesian(center, center, guideRadius3, angle);
@@ -110,7 +111,7 @@ export function NatalChartSVG3847AB({
           y1={start.y}
           x2={end.x}
           y2={end.y}
-          stroke="rgba(255,255,255,0.03)"
+          stroke="rgba(150, 180, 255, 0.08)"
           strokeWidth="1"
         />
       );
@@ -132,47 +133,65 @@ export function NatalChartSVG3847AB({
     
     return (
       <g className="axis-lines">
+        {/* ASC-DSC 轴线光晕 */}
+        <line
+          x1={polarToCartesian(center, center, innerRadius, ascAngle).x}
+          y1={polarToCartesian(center, center, innerRadius, ascAngle).y}
+          x2={polarToCartesian(center, center, innerRadius, dscAngle).x}
+          y2={polarToCartesian(center, center, innerRadius, dscAngle).y}
+          stroke="rgba(0, 212, 255, 0.15)"
+          strokeWidth="6"
+        />
         {/* ASC-DSC 轴线 */}
         <line
           x1={polarToCartesian(center, center, innerRadius, ascAngle).x}
           y1={polarToCartesian(center, center, innerRadius, ascAngle).y}
           x2={polarToCartesian(center, center, innerRadius, dscAngle).x}
           y2={polarToCartesian(center, center, innerRadius, dscAngle).y}
-          stroke="rgba(0, 212, 255, 0.35)"
+          stroke="rgba(0, 212, 255, 0.6)"
           strokeWidth="2"
-          strokeDasharray="8 4"
+          strokeDasharray="10 5"
         />
         
+        {/* MC-IC 轴线光晕 */}
+        <line
+          x1={polarToCartesian(center, center, innerRadius, mcAngle).x}
+          y1={polarToCartesian(center, center, innerRadius, mcAngle).y}
+          x2={polarToCartesian(center, center, innerRadius, icAngle).x}
+          y2={polarToCartesian(center, center, innerRadius, icAngle).y}
+          stroke="rgba(255, 107, 157, 0.15)"
+          strokeWidth="6"
+        />
         {/* MC-IC 轴线 */}
         <line
           x1={polarToCartesian(center, center, innerRadius, mcAngle).x}
           y1={polarToCartesian(center, center, innerRadius, mcAngle).y}
           x2={polarToCartesian(center, center, innerRadius, icAngle).x}
           y2={polarToCartesian(center, center, innerRadius, icAngle).y}
-          stroke="rgba(255, 107, 157, 0.35)"
+          stroke="rgba(255, 107, 157, 0.6)"
           strokeWidth="2"
-          strokeDasharray="8 4"
+          strokeDasharray="10 5"
         />
         
         {/* ASC 箭头标记 */}
         <polygon
           points={`
-            ${center - innerRadius - 5},${center}
-            ${center - innerRadius + 8},${center - 5}
-            ${center - innerRadius + 8},${center + 5}
+            ${center - innerRadius - 6},${center}
+            ${center - innerRadius + 10},${center - 6}
+            ${center - innerRadius + 10},${center + 6}
           `}
-          fill="rgba(0, 212, 255, 0.6)"
+          fill="rgba(0, 212, 255, 0.8)"
         />
         
         {/* MC 箭头标记 */}
         {(() => {
           const mcPos = polarToCartesian(center, center, innerRadius, mcAngle);
           const arrowAngle = mcAngle * Math.PI / 180;
-          const arrowLen = 8;
-          const arrowWidth = 5;
+          const arrowLen = 10;
+          const arrowWidth = 6;
           // 计算箭头方向（指向外侧）
-          const tipX = mcPos.x + Math.cos(arrowAngle) * 5;
-          const tipY = mcPos.y - Math.sin(arrowAngle) * 5;
+          const tipX = mcPos.x + Math.cos(arrowAngle) * 6;
+          const tipY = mcPos.y - Math.sin(arrowAngle) * 6;
           const baseX = mcPos.x - Math.cos(arrowAngle) * arrowLen;
           const baseY = mcPos.y + Math.sin(arrowAngle) * arrowLen;
           const perpX = Math.sin(arrowAngle) * arrowWidth;
@@ -181,7 +200,7 @@ export function NatalChartSVG3847AB({
           return (
             <polygon
               points={`${tipX},${tipY} ${baseX + perpX},${baseY + perpY} ${baseX - perpX},${baseY - perpY}`}
-              fill="rgba(255, 107, 157, 0.6)"
+              fill="rgba(255, 107, 157, 0.8)"
             />
           );
         })()}
@@ -201,10 +220,10 @@ export function NatalChartSVG3847AB({
     };
     
     const elementColors = {
-      fire: 'rgba(239, 68, 68, 0.12)',   // 红色
-      earth: 'rgba(34, 197, 94, 0.10)',   // 绿色
-      air: 'rgba(234, 179, 8, 0.10)',     // 黄色
-      water: 'rgba(59, 130, 246, 0.12)',  // 蓝色
+      fire: { fill: 'rgba(239, 68, 68, 0.18)', stroke: 'rgba(239, 68, 68, 0.4)' },
+      earth: { fill: 'rgba(34, 197, 94, 0.15)', stroke: 'rgba(34, 197, 94, 0.35)' },
+      air: { fill: 'rgba(234, 179, 8, 0.15)', stroke: 'rgba(234, 179, 8, 0.35)' },
+      water: { fill: 'rgba(59, 130, 246, 0.18)', stroke: 'rgba(59, 130, 246, 0.4)' },
     };
     
     return (
@@ -217,13 +236,15 @@ export function NatalChartSVG3847AB({
             return polarToCartesian(center, center, guideRadius2, angle);
           });
           
+          const colors = elementColors[element as keyof typeof elementColors];
+          
           return (
             <polygon
               key={`triangle-${element}`}
               points={points.map(p => `${p.x},${p.y}`).join(' ')}
-              fill={elementColors[element as keyof typeof elementColors]}
-              stroke={elementColors[element as keyof typeof elementColors].replace('0.1', '0.3')}
-              strokeWidth="1"
+              fill={colors.fill}
+              stroke={colors.stroke}
+              strokeWidth="1.5"
             />
           );
         })}
@@ -259,8 +280,9 @@ export function NatalChartSVG3847AB({
         <path
           key={`zodiac-bg-${sign}`}
           d={path}
-          fill={`${ZODIAC_COLORS[sign]}18`}
-          stroke="none"
+          fill={`${ZODIAC_COLORS[sign]}30`}
+          stroke={`${ZODIAC_COLORS[sign]}20`}
+          strokeWidth="0.5"
         />
       );
     });
@@ -277,33 +299,48 @@ export function NatalChartSVG3847AB({
       const symbolPos = polarToCartesian(center, center, outerRadius - zodiacRingWidth / 2, midAngle);
       const lineStart = polarToCartesian(center, center, zodiacInnerRadius, startAngle);
       const lineEnd = polarToCartesian(center, center, outerRadius, startAngle);
+      const signColor = ZODIAC_COLORS[sign];
       
       return (
         <g key={sign}>
+          {/* 星座分隔线 */}
           <line
             x1={lineStart.x}
             y1={lineStart.y}
             x2={lineEnd.x}
             y2={lineEnd.y}
-            stroke="rgba(255,255,255,0.25)"
+            stroke="rgba(200, 220, 255, 0.4)"
             strokeWidth="1"
           />
+          {/* 星座符号背景光晕 */}
           <circle
             cx={symbolPos.x}
             cy={symbolPos.y}
-            r={size * 0.028}
-            fill={ZODIAC_COLORS[sign]}
-            opacity={0.9}
+            r={size * 0.035}
+            fill={signColor}
+            opacity={0.2}
           />
+          {/* 星座符号背景 */}
+          <circle
+            cx={symbolPos.x}
+            cy={symbolPos.y}
+            r={size * 0.026}
+            fill={signColor}
+            opacity={0.95}
+          />
+          {/* 星座符号 */}
           <text
             x={symbolPos.x}
             y={symbolPos.y + 1}
             fill="white"
-            fontSize={size * 0.028}
+            fontSize={size * 0.026}
             textAnchor="middle"
             dominantBaseline="central"
             className="select-none"
             fontWeight="bold"
+            style={{
+              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+            }}
           >
             {ZODIAC_SYMBOLS[sign]}
           </text>
@@ -333,22 +370,25 @@ export function NatalChartSVG3847AB({
       
       return (
         <g key={`house-${house.house}`}>
+          {/* 宫位分隔线 */}
           <line
             x1={lineStart.x}
             y1={lineStart.y}
             x2={lineEnd.x}
             y2={lineEnd.y}
-            stroke={isAngular ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)'}
-            strokeWidth={isAngular ? 1.5 : 0.5}
+            stroke={isAngular ? 'rgba(200, 220, 255, 0.6)' : 'rgba(150, 180, 255, 0.25)'}
+            strokeWidth={isAngular ? 1.5 : 0.8}
           />
+          {/* 宫位数字 */}
           <text
             x={numPos.x}
             y={numPos.y}
-            fill="rgba(255,255,255,0.5)"
-            fontSize={size * 0.022}
+            fill={isAngular ? 'rgba(200, 220, 255, 0.85)' : 'rgba(180, 200, 255, 0.6)'}
+            fontSize={isAngular ? size * 0.024 : size * 0.020}
             textAnchor="middle"
             dominantBaseline="central"
             className="select-none"
+            fontWeight={isAngular ? '600' : '400'}
           >
             {house.house}
           </text>
@@ -444,7 +484,11 @@ export function NatalChartSVG3847AB({
       const isHighlighted = 
         highlightPlanet === aspect.planet1 || highlightPlanet === aspect.planet2;
       
-      const aspectColor = ASPECT_COLORS[aspect.aspectType as AspectType] || '#666';
+      const aspectColor = ASPECT_COLORS[aspect.aspectType as AspectType] || '#888';
+      
+      // 根据相位类型设置不同的线条样式
+      const isTenseAspect = aspect.aspectType === 'square' || aspect.aspectType === 'opposition';
+      const isHarmoniousAspect = aspect.aspectType === 'trine' || aspect.aspectType === 'sextile';
       
       return (
         <motion.line
@@ -454,15 +498,25 @@ export function NatalChartSVG3847AB({
           x2={pos2.x}
           y2={pos2.y}
           stroke={aspectColor}
-          strokeWidth={isHighlighted ? 2.5 : 1.5}
-          strokeOpacity={isHighlighted ? 0.9 : 0.6}
+          strokeWidth={isHighlighted ? 3 : 2}
+          strokeOpacity={isHighlighted ? 1 : 0.75}
+          strokeDasharray={isTenseAspect ? '6 3' : isHarmoniousAspect ? 'none' : '3 3'}
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: isHighlighted ? 0.9 : 0.6 }}
+          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.75 }}
           transition={{ duration: 0.4, delay: index * 0.015 }}
+          style={{
+            filter: isHighlighted ? `drop-shadow(0 0 4px ${aspectColor})` : 'none',
+          }}
         />
       );
     });
   }, [chart.aspects, planetAngleMap, showAspects, center, aspectRadius, highlightPlanet]);
+
+  // 格式化行星度数（只显示在星座内的度数 0-29°）
+  const formatDegree = (longitude: number): string => {
+    const degreeInSign = Math.floor(longitude % 30);
+    return `${degreeInSign}°`;
+  };
 
   // 渲染行星
   const renderPlanets = useMemo(() => {
@@ -471,6 +525,11 @@ export function NatalChartSVG3847AB({
       const isHighlighted = highlightPlanet === planet.id;
       const retrograde = planet.retrograde;
       const color = PLANET_COLORS[planet.id] || '#fff';
+      const degree = formatDegree(planet.longitude);
+      
+      // 计算度数标签位置（在行星符号右上方）
+      const degreeOffsetX = size * 0.026;
+      const degreeOffsetY = -size * 0.018;
       
       return (
         <motion.g
@@ -481,44 +540,75 @@ export function NatalChartSVG3847AB({
           style={{ cursor: onPlanetClick ? 'pointer' : 'default' }}
           onClick={() => onPlanetClick?.(planet.id)}
         >
+          {/* 行星光晕背景 */}
+          <circle
+            cx={pos.x}
+            cy={pos.y}
+            r={size * 0.028}
+            fill={color}
+            opacity={isHighlighted ? 0.35 : 0.15}
+          />
+          
           {isHighlighted && (
             <circle
               cx={pos.x}
               cy={pos.y}
-              r={size * 0.035}
+              r={size * 0.04}
               fill={color}
-              opacity={0.25}
+              opacity={0.2}
             />
           )}
           
+          {/* 行星符号 */}
           <text
             x={pos.x}
             y={pos.y + 1}
             fill={color}
-            fontSize={isHighlighted ? size * 0.048 : size * 0.038}
+            fontSize={isHighlighted ? size * 0.044 : size * 0.036}
             textAnchor="middle"
             dominantBaseline="central"
             className="select-none"
             style={{
-              filter: isHighlighted ? `drop-shadow(0 0 6px ${color})` : `drop-shadow(0 0 2px ${color}80)`,
+              filter: isHighlighted ? `drop-shadow(0 0 8px ${color})` : `drop-shadow(0 0 4px ${color})`,
               fontWeight: 'bold',
             }}
           >
             {PLANET_SYMBOLS[planet.id]}
           </text>
           
+          {/* 度数标注（上标形式） */}
+          <text
+            x={pos.x + degreeOffsetX}
+            y={pos.y + degreeOffsetY}
+            fill="rgba(220, 230, 255, 0.85)"
+            fontSize={size * 0.016}
+            textAnchor="start"
+            dominantBaseline="central"
+            className="select-none"
+            style={{
+              fontFamily: 'system-ui, sans-serif',
+              fontWeight: '500',
+            }}
+          >
+            {degree}
+          </text>
+          
+          {/* 逆行标记 */}
           {retrograde && (
             <text
-              x={pos.x + size * 0.022}
-              y={pos.y - size * 0.015}
-              fill="#ff5555"
-              fontSize={size * 0.016}
+              x={pos.x + size * 0.024}
+              y={pos.y + size * 0.016}
+              fill="#ff6b6b"
+              fontSize={size * 0.013}
               textAnchor="middle"
               dominantBaseline="central"
               className="select-none"
               fontWeight="bold"
+              style={{
+                fontStyle: 'italic',
+              }}
             >
-              R
+              ℞
             </text>
           )}
         </motion.g>
@@ -534,26 +624,60 @@ export function NatalChartSVG3847AB({
       className="drop-shadow-xl"
     >
       <defs>
+        {/* 深空背景渐变 - 更亮更有层次 */}
         <radialGradient id="chartBg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1a1a2e" />
-          <stop offset="60%" stopColor="#0f0f1a" />
-          <stop offset="100%" stopColor="#0a0a10" />
+          <stop offset="0%" stopColor="#252547" />
+          <stop offset="40%" stopColor="#1a1a35" />
+          <stop offset="70%" stopColor="#141428" />
+          <stop offset="100%" stopColor="#0f0f1e" />
         </radialGradient>
         
+        {/* 中心区域渐变 - 更亮 */}
         <radialGradient id="centerBg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#18182d" />
-          <stop offset="100%" stopColor="#0d0d18" />
+          <stop offset="0%" stopColor="#2a2a4a" />
+          <stop offset="50%" stopColor="#1e1e3a" />
+          <stop offset="100%" stopColor="#16162d" />
         </radialGradient>
+        
+        {/* 星空点缀渐变 */}
+        <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        
+        {/* 外圈光晕渐变 */}
+        <radialGradient id="outerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="85%" stopColor="transparent" />
+          <stop offset="95%" stopColor="rgba(0, 212, 255, 0.15)" />
+          <stop offset="100%" stopColor="rgba(0, 212, 255, 0.05)" />
+        </radialGradient>
+        
+        {/* 内圈光晕 */}
+        <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
       
-      {/* 最外层光晕 */}
+      {/* 最外层光晕 - 多层次 */}
+      <circle
+        cx={center}
+        cy={center}
+        r={outerRadius + 15}
+        fill="none"
+        stroke="rgba(0, 180, 220, 0.08)"
+        strokeWidth="20"
+      />
       <circle
         cx={center}
         cy={center}
         r={outerRadius + 6}
         fill="none"
-        stroke="rgba(0, 180, 220, 0.12)"
-        strokeWidth="10"
+        stroke="rgba(100, 200, 255, 0.2)"
+        strokeWidth="8"
       />
       
       {/* 星座环背景 */}
@@ -567,14 +691,22 @@ export function NatalChartSVG3847AB({
       {/* 星座扇形背景 */}
       {renderZodiacBackground}
       
-      {/* 星座环外圈 */}
+      {/* 星座环外圈 - 双线效果 */}
       <circle
         cx={center}
         cy={center}
         r={outerRadius}
         fill="none"
-        stroke="rgba(0, 212, 255, 0.5)"
-        strokeWidth="2"
+        stroke="rgba(100, 200, 255, 0.7)"
+        strokeWidth="2.5"
+      />
+      <circle
+        cx={center}
+        cy={center}
+        r={outerRadius - 1}
+        fill="none"
+        stroke="rgba(0, 212, 255, 0.3)"
+        strokeWidth="1"
       />
       
       {/* 星座环内圈 */}
@@ -583,8 +715,8 @@ export function NatalChartSVG3847AB({
         cy={center}
         r={zodiacInnerRadius}
         fill="none"
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="1"
+        stroke="rgba(150, 180, 255, 0.4)"
+        strokeWidth="1.5"
       />
       
       {/* 内圈背景 */}
@@ -593,8 +725,8 @@ export function NatalChartSVG3847AB({
         cy={center}
         r={innerRadius}
         fill="url(#centerBg)"
-        stroke="rgba(255,255,255,0.1)"
-        strokeWidth="1"
+        stroke="rgba(150, 180, 255, 0.25)"
+        strokeWidth="1.5"
       />
       
       {/* 辅助线 */}
@@ -606,20 +738,34 @@ export function NatalChartSVG3847AB({
       {/* 主轴线 */}
       {renderAxisLines}
       
-      {/* 中心装饰 */}
+      {/* 中心装饰 - 更精致 */}
       <circle
         cx={center}
         cy={center}
-        r={aspectRadius * 0.12}
+        r={aspectRadius * 0.18}
         fill="none"
-        stroke="rgba(255,255,255,0.1)"
+        stroke="rgba(150, 180, 255, 0.15)"
         strokeWidth="1"
       />
       <circle
         cx={center}
         cy={center}
-        r={3}
-        fill="rgba(255,255,255,0.5)"
+        r={aspectRadius * 0.10}
+        fill="none"
+        stroke="rgba(200, 220, 255, 0.2)"
+        strokeWidth="1"
+      />
+      <circle
+        cx={center}
+        cy={center}
+        r={5}
+        fill="rgba(200, 220, 255, 0.6)"
+      />
+      <circle
+        cx={center}
+        cy={center}
+        r={2}
+        fill="rgba(255, 255, 255, 0.9)"
       />
       
       {/* 星座符号 */}
@@ -639,28 +785,36 @@ export function NatalChartSVG3847AB({
       
       {/* 轴点标记 */}
       <g className="select-none">
+        {/* ASC 标签 */}
         <text
-          x={center - outerRadius - 18}
+          x={center - outerRadius - 22}
           y={center}
           fill="#00D4FF"
-          fontSize={size * 0.032}
+          fontSize={size * 0.030}
           textAnchor="end"
           dominantBaseline="central"
-          fontWeight="bold"
-          style={{ filter: 'drop-shadow(0 0 4px #00D4FF80)' }}
+          fontWeight="600"
+          style={{ 
+            filter: 'drop-shadow(0 0 6px rgba(0, 212, 255, 0.6))',
+            letterSpacing: '0.5px',
+          }}
         >
           ASC
         </text>
         
+        {/* DSC 标签 */}
         <text
-          x={center + outerRadius + 18}
+          x={center + outerRadius + 22}
           y={center}
           fill="#00D4FF"
-          fontSize={size * 0.032}
+          fontSize={size * 0.030}
           textAnchor="start"
           dominantBaseline="central"
-          fontWeight="bold"
-          style={{ filter: 'drop-shadow(0 0 4px #00D4FF80)' }}
+          fontWeight="600"
+          style={{ 
+            filter: 'drop-shadow(0 0 6px rgba(0, 212, 255, 0.6))',
+            letterSpacing: '0.5px',
+          }}
         >
           DSC
         </text>
@@ -668,17 +822,20 @@ export function NatalChartSVG3847AB({
         {/* MC 标记（根据实际位置） */}
         {(() => {
           const mcAngle = longitudeToAngle(chart.midheaven);
-          const mcPos = polarToCartesian(center, center, outerRadius + 20, mcAngle);
+          const mcPos = polarToCartesian(center, center, outerRadius + 24, mcAngle);
           return (
             <text
               x={mcPos.x}
               y={mcPos.y}
               fill="#FF6B9D"
-              fontSize={size * 0.032}
+              fontSize={size * 0.030}
               textAnchor="middle"
               dominantBaseline="central"
-              fontWeight="bold"
-              style={{ filter: 'drop-shadow(0 0 4px #FF6B9D80)' }}
+              fontWeight="600"
+              style={{ 
+                filter: 'drop-shadow(0 0 6px rgba(255, 107, 157, 0.6))',
+                letterSpacing: '0.5px',
+              }}
             >
               MC
             </text>
@@ -688,17 +845,20 @@ export function NatalChartSVG3847AB({
         {/* IC 标记 */}
         {(() => {
           const icAngle = (longitudeToAngle(chart.midheaven) + 180) % 360;
-          const icPos = polarToCartesian(center, center, outerRadius + 20, icAngle);
+          const icPos = polarToCartesian(center, center, outerRadius + 24, icAngle);
           return (
             <text
               x={icPos.x}
               y={icPos.y}
               fill="#FF6B9D"
-              fontSize={size * 0.032}
+              fontSize={size * 0.030}
               textAnchor="middle"
               dominantBaseline="central"
-              fontWeight="bold"
-              style={{ filter: 'drop-shadow(0 0 4px #FF6B9D80)' }}
+              fontWeight="600"
+              style={{ 
+                filter: 'drop-shadow(0 0 6px rgba(255, 107, 157, 0.6))',
+                letterSpacing: '0.5px',
+              }}
             >
               IC
             </text>

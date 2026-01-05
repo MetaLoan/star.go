@@ -304,16 +304,122 @@ export interface LifeTrend {
 
 // ==================== 时间序列数据 ====================
 
-export interface TimeSeriesPoint {
-  timestamp: string;
+// 时间序列响应格式
+export interface TimeSeriesResponse {
   granularity: TimeGranularity;
-  rawScore: number;
-  normalizedScore: number;
+  points: TimeSeriesPoint[];
+}
+
+export interface TimeSeriesRaw {
+  value: number;
+  factors: Record<string, number>;
+}
+
+export interface TimeSeriesPoint {
+  time: string;
+  label: string;
+  granularity: TimeGranularity;
+  raw: TimeSeriesRaw;
+  display: number;
   dimensions: DimensionScores;
-  factors: InfluenceFactor[];
+  // 兼容旧字段
+  timestamp?: string;
+  rawScore?: number;
+  normalizedScore?: number;
+  factors?: InfluenceFactor[];
+}
+
+// ==================== 分数组成（Score Breakdown） ====================
+
+export interface ScoreBreakdownFactorContribution {
+  id: string;
+  name: string;
+  type: string;
+  timeLevel: 'yearly' | 'monthly' | 'weekly' | 'daily' | 'hourly' | 'custom' | string;
+  baseValue: number;
+  strength: number;
+  adjustment: number;
+  weight: number;
+  dimension?: string;
+  description: string;
+  isPositive: boolean;
+}
+
+export interface ScoreBreakdownDimension {
+  dimension: 'career' | 'relationship' | 'health' | 'finance' | 'spiritual' | string;
+  baseScore: number;
+  aspectScore: number;
+  factorScore: number;
+  rawScore: number;
+  finalScore: number;
+  factors: ScoreBreakdownFactorContribution[];
+}
+
+export interface ScoreBreakdownMeta {
+  dataSource: string;
+  visibleLevels: string[];
+  totalFactorCount: number;
+  positiveFactors: number;
+  negativeFactors: number;
+}
+
+export interface ScoreBreakdownResponse {
+  queryTime: string;
+  granularity: 'hour' | 'day' | 'week' | 'month' | 'year' | string;
+  overallScore: number;
+  overallRaw: number;
+  dimensions: ScoreBreakdownDimension[];
+  factorsByLevel: Record<string, ScoreBreakdownFactorContribution[]>;
+  meta: ScoreBreakdownMeta;
+}
+
+export interface ScoreBreakdownAllResponse {
+  queryTime: string;
+  breakdown: Record<string, ScoreBreakdownResponse>;
+}
+
+// ==================== 活跃因子查询 ====================
+
+export interface ActiveFactorInfo {
+  id: string;
+  name: string;
+  type: string;
+  timeLevel: string;
+  baseValue: number;
+  weight: number;
+  description: string;
+  isPositive: boolean;
+  effect: 'positive' | 'negative';
+  startTime?: string;
+  endTime?: string;
+  peakTime?: string;
+  maxStrength: number;
+}
+
+export interface ActiveFactorsResponse {
+  granularity: string;
+  rangeStart: string;
+  rangeEnd: string;
+  infect: string;
+  factors: ActiveFactorInfo[];
+  totalCount: number;
+  positiveCount: number;
+  negativeCount: number;
 }
 
 // ==================== 影响因子 ====================
+
+export interface FactorTimeLevel {
+  level: 'yearly' | 'monthly' | 'weekly' | 'daily' | 'hourly';
+  description: string;
+}
+
+export interface FactorLifecycle {
+  startTime: string;
+  peakTime: string;
+  endTime: string;
+  duration: number; // 小时
+}
 
 export interface InfluenceFactor {
   id: string;
@@ -325,6 +431,12 @@ export interface InfluenceFactor {
   description: string;
   isPositive: boolean;
   dimension?: string;
+  // 新增：时间级别和生命周期
+  timeLevel?: FactorTimeLevel;
+  lifecycle?: FactorLifecycle;
+  sourcePlanet?: PlanetID;
+  baseValue?: number;
+  currentStrength?: number;
 }
 
 export interface InfluenceFactorGroup {

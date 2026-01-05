@@ -2,19 +2,27 @@
  * Star 占星计算平台 - 主应用组件
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, Tab, Spinner, Button, Switch } from '@heroui/react';
 import { useAstroData } from './hooks/useAstroData';
-import { NatalChartSVG3847AB } from './components/chart/NatalChartSVG3847AB';
+import { AstroChartContainer } from './components/chart/AstroChartContainer';
+import { DimensionRadarChart5832XY } from './components/chart/DimensionRadarChart5832XY';
 import { BirthDataForm2943KL } from './components/input/BirthDataForm2943KL';
 import { ScoreCard5612XY, DimensionScoresCard5612XY } from './components/ui/ScoreCard5612XY';
+import { GranularitySelector4721VW, type TimeGranularity } from './components/ui/GranularitySelector4721VW';
 import { DailyForecastCard7821MN } from './components/forecast/DailyForecastCard7821MN';
 import { LifeTimeline4529PQ } from './components/timeline/LifeTimeline4529PQ';
 import { ProfectionWheel6183RS } from './components/timeline/ProfectionWheel6183RS';
+import { InteractiveTrendChart9823EF } from './components/timeline/InteractiveTrendChart9823EF';
 import { InfluenceFactorsPanel8274TU } from './components/factors/InfluenceFactorsPanel8274TU';
-import type { PlanetID, BirthData, InfluenceFactor } from './types';
+import { CustomFactorEditor9456DE } from './components/factors/CustomFactorEditor9456DE';
+import { RealtimeDimensionDashboard7392WZ } from './components/ui/RealtimeDimensionDashboard7392WZ';
+import { MultiGranularityScoreViewer8475QR } from './components/ui/MultiGranularityScoreViewer8475QR';
+import { ScoreBreakdownPopup5932MN } from './components/ui/ScoreBreakdownPopup5932MN';
+import type { PlanetID, BirthData, InfluenceFactor, ScoreBreakdownAllResponse, ActiveFactorsResponse } from './types';
 import { PLANET_NAMES, PLANET_SYMBOLS, PLANET_COLORS, formatDegree } from './utils/astro';
+import { apiClient } from './api/client';
 
 // 模拟影响因子数据（后续从 API 获取）
 const MOCK_INFLUENCE_FACTORS: InfluenceFactor[] = [
@@ -34,6 +42,7 @@ function App() {
     dailyForecast,
     weeklyForecast,
     lifeTrend,
+    timeSeries,
     profection,
     profectionMap,
     currentAge,
@@ -43,6 +52,8 @@ function App() {
     setBirthData,
     refreshWeekly,
     loadLifeTrend,
+    loadTimeSeries,
+    extendTimeSeries,
     loadProfectionMap,
     clearError,
   } = useAstroData();
@@ -51,6 +62,139 @@ function App() {
   const [highlightedPlanet, setHighlightedPlanet] = useState<PlanetID | null>(null);
   const [expandedForecast, setExpandedForecast] = useState<string | null>(null);
   const [showFactorEditor, setShowFactorEditor] = useState(false);
+  
+  // 新增：多粒度趋势图状态
+  const [trendGranularity, setTrendGranularity] = useState<TimeGranularity>('daily');
+  
+  // 时间序列数据范围跟踪（用于动态加载更多数据）
+  const [timeSeriesRange, setTimeSeriesRange] = useState<{
+    start: Date;
+    end: Date;
+  } | null>(null);
+  const [isLoadingMoreData, setIsLoadingMoreData] = useState(false);
+
+  // 分数组成浮窗状态（点击趋势点触发）
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [breakdownPosition, setBreakdownPosition] = useState({ x: 0, y: 0 }); // 浮窗位置
+  const [breakdownQueryTime, setBreakdownQueryTime] = useState<string | null>(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownError, setBreakdownError] = useState<string | null>(null);
+  const [breakdownData, setBreakdownData] = useState<ScoreBreakdownAllResponse | null>(null);
+  const [activeFactorsData, setActiveFactorsData] = useState<ActiveFactorsResponse | null>(null);
+  const [breakdownDimension, setBreakdownDimension] = useState<'overall' | 'career' | 'relationship' | 'health' | 'finance' | 'spiritual'>('overall');
+  const [breakdownGranularity, setBreakdownGranularity] = useState<'hour' | 'day' | 'week' | 'month' | 'year'>('hour');
+  const breakdownReqIdRef = useRef(0);
+  
+  // 格式化日期为本地 ISO 时间字符串（带时区偏移）
+  const formatLocalISO = useCallback((date: Date, timezone: number = 8) => {
+    const offsetHours = Math.floor(Math.abs(timezone));
+    const offsetMins = Math.round((Math.abs(timezone) % 1) * 60);
+    const sign = timezone >= 0 ? '+' : '-';
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${pad(offsetHours)}:${pad(offsetMins)}`;
+  }, []);
+
+  // 新增：实时运势状态
+  const [realtimeScore, setRealtimeScore] = useState<{
+    score: number;
+    dimensions: { career: number; relationship: number; health: number; finance: number; spiritual: number };
+    time: string;
+  } | null>(null);
+  
+  // 新增：自定义因子状态
+  interface CustomFactor {
+    id: string;
+    operation: 'AddScore' | 'SubScore' | 'MulScore' | 'SetScore';
+    value: number;
+    dimension: 'career' | 'relationship' | 'health' | 'finance' | 'spiritual';
+    duration: number;
+    startTime: string;
+    name?: string;
+  }
+  const [customFactors, setCustomFactors] = useState<CustomFactor[]>([]);
+  
+  // 添加自定义因子
+  const handleAddCustomFactor = (factor: Omit<CustomFactor, 'id'>) => {
+    const newFactor = { ...factor, id: Date.now().toString() };
+    setCustomFactors([...customFactors, newFactor]);
+    // TODO: 调用后端 API 保存
+    console.log('添加自定义因子:', newFactor);
+  };
+  
+  // 删除自定义因子
+  const handleRemoveCustomFactor = (id: string) => {
+    setCustomFactors(customFactors.filter(f => f.id !== id));
+    // TODO: 调用后端 API 删除
+    console.log('删除自定义因子:', id);
+  };
+
+  // 加载实时运势（每分钟刷新）
+  useEffect(() => {
+    if (!isReady || !birthData) return;
+    
+    const fetchRealtimeScore = async () => {
+      try {
+        // 获取当前 UTC 时间，然后转换为用户时区的本地时间
+        const nowUtc = Date.now();
+        const userTimezoneOffset = birthData.timezone * 60 * 60 * 1000; // 毫秒
+        const userLocalTime = new Date(nowUtc + userTimezoneOffset + new Date().getTimezoneOffset() * 60 * 1000);
+        
+        const start = new Date(userLocalTime);
+        start.setMinutes(0, 0, 0);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
+        
+        const startStr = formatLocalISO(start, birthData.timezone);
+        const endStr = formatLocalISO(end, birthData.timezone);
+        
+        console.log('[实时运势] 请求时间范围:', startStr, '-', endStr);
+        
+        const response = await fetch('http://localhost:8080/api/calc/time-series', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            birthData: {
+              year: birthData.year,
+              month: birthData.month,
+              day: birthData.day,
+              hour: birthData.hour,
+              minute: birthData.minute,
+              latitude: birthData.latitude,
+              longitude: birthData.longitude,
+              timezone: birthData.timezone,
+            },
+            start: startStr,
+            end: endStr,
+            granularity: 'hour',
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.points && data.points.length > 0) {
+            const point = data.points[0];
+            setRealtimeScore({
+              score: point.display,
+              dimensions: point.dimensions || {
+                career: 50, relationship: 50, health: 50, finance: 50, spiritual: 50,
+              },
+              time: userLocalTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error('获取实时运势失败:', err);
+      }
+    };
+    
+    // 立即获取一次
+    fetchRealtimeScore();
+    
+    // 每分钟刷新
+    const interval = setInterval(fetchRealtimeScore, 60000);
+    return () => clearInterval(interval);
+  }, [isReady, birthData]);
 
   // 加载周预测（当有出生数据时）
   useEffect(() => {
@@ -70,6 +214,268 @@ function App() {
       }
     }
   }, [isReady, selectedTab, lifeTrend, profectionMap, loadLifeTrend, loadProfectionMap]);
+
+  // 加载时间序列数据（当粒度变化时）
+  useEffect(() => {
+    if (isReady && selectedTab === 'trend') {
+      // 年度视图使用 lifeTrend 数据（80年），不需要额外加载
+      if (trendGranularity === 'yearly') {
+        return;
+      }
+      
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+      let granularity: 'hour' | 'day' | 'week' | 'month' | 'year';
+      
+      // 使用用户时区或默认 UTC+8
+      const tz = birthData?.timezone ?? 8;
+      
+      switch (trendGranularity) {
+        case 'hourly':
+          // 显示过去24小时（每小时一个点）- 从整点开始
+          endDate = new Date(now);
+          endDate.setMinutes(0, 0, 0);
+          startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+          granularity = 'hour';
+          break;
+        case 'daily':
+          // 显示最近45天（每天一个点，增加范围减少边界触发）
+          endDate = new Date(now);
+          endDate.setHours(0, 0, 0, 0);
+          endDate.setDate(endDate.getDate() + 1); // 明天00:00（包含今天）
+          startDate = new Date(endDate.getTime() - 45 * 24 * 60 * 60 * 1000);
+          granularity = 'day';
+          break;
+        case 'weekly':
+          // 显示最近16周（每周一个点）
+          endDate = new Date(now);
+          endDate.setHours(0, 0, 0, 0);
+          startDate = new Date(endDate.getTime() - 16 * 7 * 24 * 60 * 60 * 1000);
+          granularity = 'week';
+          break;
+        case 'monthly':
+          // 显示最近18个月（每月一个点）
+          endDate = new Date(now.getFullYear(), now.getMonth() + 2, 1); // 下下月1号
+          startDate = new Date(now.getFullYear() - 1, now.getMonth() - 6, 1);
+          granularity = 'month';
+          break;
+        default:
+          startDate = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+          endDate = new Date(now);
+          granularity = 'day';
+      }
+      
+      console.log(`[趋势图] 初始化 ${trendGranularity} 数据:`, startDate.toISOString(), '-', endDate.toISOString());
+      
+      loadTimeSeries(formatLocalISO(startDate, tz), formatLocalISO(endDate, tz), granularity);
+      
+      // 记录当前数据范围（直接保存 Date 对象，避免时区转换问题）
+      setTimeSeriesRange({
+        start: startDate,
+        end: endDate,
+      });
+    }
+  }, [isReady, selectedTab, trendGranularity, loadTimeSeries, birthData?.timezone, formatLocalISO]);
+
+  // 处理图表可视范围变化 - 动态加载更多数据
+  const handleVisibleRangeChange = useCallback(async (range: {
+    from: Date;
+    to: Date;
+    needsMoreBefore: boolean;
+    needsMoreAfter: boolean;
+  }) => {
+    // 严格的前置条件检查
+    if (isLoadingMoreData) {
+      console.log('[趋势图] 跳过：正在加载中');
+      return;
+    }
+    if (!birthData || !timeSeriesRange) {
+      console.log('[趋势图] 跳过：缺少出生数据或时间范围');
+      return;
+    }
+    if (trendGranularity === 'yearly') {
+      console.log('[趋势图] 跳过：年度视图使用固定数据');
+      return;
+    }
+    
+    const tz = birthData.timezone ?? 8;
+    let newStart = timeSeriesRange.start;
+    let newEnd = timeSeriesRange.end;
+    let hasChange = false;
+    
+    // 计算扩展量（根据粒度不同）
+    const extendDays = {
+      hourly: 1,      // 扩展 1 天
+      daily: 15,      // 扩展 15 天
+      weekly: 28,     // 扩展 4 周
+      monthly: 180,   // 扩展 6 个月
+    }[trendGranularity] || 15;
+    
+    const extendMs = extendDays * 24 * 60 * 60 * 1000;
+    
+    // 限制向过去扩展的最大范围（最多 2 年前）
+    const minPast = new Date();
+    minPast.setFullYear(minPast.getFullYear() - 2);
+    
+    if (range.needsMoreBefore) {
+      const proposedStart = new Date(timeSeriesRange.start.getTime() - extendMs);
+      // 不要超过最小限制
+      if (proposedStart > minPast) {
+        newStart = proposedStart;
+        hasChange = true;
+        console.log('[趋势图] 向左扩展到:', newStart.toISOString());
+      } else if (timeSeriesRange.start > minPast) {
+        newStart = minPast;
+        hasChange = true;
+        console.log('[趋势图] 向左扩展到最大限制:', newStart.toISOString());
+      }
+    }
+    
+    if (range.needsMoreAfter) {
+      // 向右扩展（不超过当前时间太远，最多到未来 1 年）
+      const maxFuture = new Date();
+      maxFuture.setFullYear(maxFuture.getFullYear() + 1);
+      const proposedEnd = new Date(timeSeriesRange.end.getTime() + extendMs);
+      if (proposedEnd < maxFuture) {
+        newEnd = proposedEnd;
+        hasChange = true;
+        console.log('[趋势图] 向右扩展到:', newEnd.toISOString());
+      } else if (timeSeriesRange.end < maxFuture) {
+        newEnd = maxFuture;
+        hasChange = true;
+        console.log('[趋势图] 向右扩展到最大限制:', newEnd.toISOString());
+      }
+    }
+    
+    // 检查是否有变化
+    if (!hasChange) {
+      console.log('[趋势图] 跳过：已达到数据边界');
+      return;
+    }
+    
+    // 加载扩展后的数据
+    setIsLoadingMoreData(true);
+    console.log('[趋势图] 开始加载扩展数据...');
+    
+    const granularityMap: Record<string, 'hour' | 'day' | 'week' | 'month' | 'year'> = {
+      hourly: 'hour',
+      daily: 'day',
+      weekly: 'week',
+      monthly: 'month',
+    };
+    
+    try {
+      const apiGranularity = granularityMap[trendGranularity] || 'day';
+
+      // 增量加载：只请求新增区间，合并去重，避免每次重算整段范围
+      if (range.needsMoreBefore && newStart.getTime() !== timeSeriesRange.start.getTime()) {
+        await extendTimeSeries(
+          formatLocalISO(newStart, tz),
+          formatLocalISO(timeSeriesRange.start, tz),
+          apiGranularity,
+          'before'
+        );
+      }
+      if (range.needsMoreAfter && newEnd.getTime() !== timeSeriesRange.end.getTime()) {
+        await extendTimeSeries(
+          formatLocalISO(timeSeriesRange.end, tz),
+          formatLocalISO(newEnd, tz),
+          apiGranularity,
+          'after'
+        );
+      }
+      
+      // 更新范围
+      setTimeSeriesRange({
+        start: newStart,
+        end: newEnd,
+      });
+      console.log('[趋势图] 数据加载成功');
+    } catch (err) {
+      console.error('[趋势图] 加载失败:', err);
+    } finally {
+      setIsLoadingMoreData(false);
+    }
+  }, [isLoadingMoreData, birthData, timeSeriesRange, trendGranularity, extendTimeSeries, formatLocalISO]);
+
+  // 点击趋势图数据点：所有粒度都显示浮窗
+  // - 小时粒度：调用 score-breakdown-all，显示分数+因子
+  // - 日/周/月/年粒度：调用 active-factors，显示正/负影响因子
+  const handleTrendPointClick = useCallback(async (point: { time: string }, dimension: 'overall' | 'career' | 'relationship' | 'health' | 'finance' | 'spiritual' = 'overall', event?: MouseEvent) => {
+    if (!birthData) return;
+    if (!point?.time) return;
+
+    // 转换粒度格式：hourly -> hour, daily -> day, etc.
+    const granularityMap: Record<string, 'hour' | 'day' | 'week' | 'month' | 'year'> = {
+      hourly: 'hour',
+      daily: 'day',
+      weekly: 'week',
+      monthly: 'month',
+      yearly: 'year',
+    };
+    const apiGranularity = granularityMap[trendGranularity] || 'day';
+
+    // 构建查询时间
+    let queryTime = point.time;
+    let displayTime = point.time;
+    
+    // 年粒度特殊处理：从 label 提取年龄用于显示
+    if (apiGranularity === 'year') {
+      // 时间已经是 ISO 格式（如 "2020-06-15T12:00:00+08:00"），直接使用
+      // 从 ISO 时间中提取年份用于显示
+      const yearMatch = point.time.match(/^(\d{4})/);
+      if (yearMatch) {
+        const year = parseInt(yearMatch[1], 10);
+        const age = year - birthData.year;
+        displayTime = `${year}年 (${age}岁)`;
+      }
+    } else if (!queryTime.includes('T')) {
+      // 其他粒度：如果时间格式不完整，补充为完整格式
+      if (queryTime.match(/^\d{4}$/)) {
+        queryTime = `${queryTime}-01-01T12:00:00+08:00`;
+      } else if (queryTime.match(/^\d{4}-\d{2}$/)) {
+        queryTime = `${queryTime}-15T12:00:00+08:00`;
+      } else if (queryTime.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        queryTime = `${queryTime}T12:00:00+08:00`;
+      }
+    }
+
+    // 记录点击位置（用于浮窗定位）
+    const clickX = event?.clientX ?? window.innerWidth / 2;
+    const clickY = event?.clientY ?? window.innerHeight / 2;
+    setBreakdownPosition({ x: clickX, y: clickY });
+
+    setBreakdownDimension(dimension);
+    setBreakdownGranularity(apiGranularity);
+    setBreakdownOpen(true);
+    setBreakdownQueryTime(displayTime); // 显示用的时间
+    setBreakdownLoading(true);
+    setBreakdownError(null);
+    setBreakdownData(null);
+    setActiveFactorsData(null);
+
+    const reqId = ++breakdownReqIdRef.current;
+    try {
+      if (apiGranularity === 'hour') {
+        // 小时粒度：使用 score-breakdown-all API
+        const res = await apiClient.getScoreBreakdownAll(birthData, queryTime);
+        if (reqId !== breakdownReqIdRef.current) return;
+        setBreakdownData(res);
+      } else {
+        // 日/周/月/年粒度：使用 active-factors API
+        const res = await apiClient.getActiveFactors(birthData, queryTime, apiGranularity, 'all');
+        if (reqId !== breakdownReqIdRef.current) return;
+        setActiveFactorsData(res);
+      }
+    } catch (e) {
+      if (reqId !== breakdownReqIdRef.current) return;
+      setBreakdownError(e instanceof Error ? e.message : '加载失败');
+    } finally {
+      if (reqId !== breakdownReqIdRef.current) return;
+      setBreakdownLoading(false);
+    }
+  }, [birthData, trendGranularity]);
 
   // 处理出生数据提交
   const handleBirthDataSubmit = async (data: BirthData) => {
@@ -154,23 +560,28 @@ function App() {
           {/* Tab 内容 */}
           <AnimatePresence mode="wait">
             {/* ==================== 星盘 Tab ==================== */}
-            {selectedTab === 'chart' && natalChart && (
+            {selectedTab === 'chart' && natalChart && birthData && (
               <motion.div
                 key="chart"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="grid lg:grid-cols-2 gap-6"
+                className="space-y-6"
               >
+                {/* 实时五维运势仪表盘 - 顶部显示 */}
+                <RealtimeDimensionDashboard7392WZ
+                  birthData={birthData}
+                  refreshInterval={60000}
+                />
+                
+                {/* 星盘和详情区域 */}
+                <div className="grid lg:grid-cols-2 gap-6">
                 {/* 星盘 SVG */}
                 <div className="glass-card p-6 flex justify-center">
-                  <NatalChartSVG3847AB
-                    chart={natalChart}
-                    size={Math.min(400, window.innerWidth - 80)}
-                    showAspects={true}
-                    showHouses={true}
-                    highlightPlanet={highlightedPlanet}
-                    onPlanetClick={setHighlightedPlanet}
+                  <AstroChartContainer
+                    data={natalChart}
+                    width={Math.min(600, window.innerWidth - 80)}
+                    height={Math.min(600, window.innerWidth - 80)}
                   />
                 </div>
 
@@ -281,6 +692,7 @@ function App() {
                     </div>
                   )}
                 </div>
+                </div>
               </motion.div>
             )}
 
@@ -297,12 +709,74 @@ function App() {
                 {dailyForecast && (
                   <div>
                     <h3 className="text-xl font-medium text-white mb-4">☀️ 今日预测</h3>
-                    <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="grid md:grid-cols-5 gap-4 mb-4">
+                      {/* 综合运势 */}
                       <ScoreCard5612XY
                         title="综合运势"
                         score={dailyForecast.overallScore}
                         size="lg"
                       />
+                      
+                      {/* 实时运势 - 新增 */}
+                      <div className="glass-card p-4 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-[#00D4FF]/20 to-transparent rounded-bl-full" />
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">⚡</span>
+                          <span className="text-sm text-white/60">实时运势</span>
+                        </div>
+                        {realtimeScore ? (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-3xl font-bold" style={{
+                                color: realtimeScore.score >= 80 ? '#4ADE80' 
+                                     : realtimeScore.score >= 60 ? '#00D4FF' 
+                                     : realtimeScore.score >= 40 ? '#FFE66D' 
+                                     : '#FF6B9D'
+                              }}>
+                                {Math.round(realtimeScore.score)}
+                              </span>
+                              <span className="text-white/40 text-sm">/ 100</span>
+                            </div>
+                            <div className="text-xs text-white/40 mt-1">
+                              更新于 {realtimeScore.time}
+                            </div>
+                            <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full"
+                                style={{
+                                  background: realtimeScore.score >= 80 ? 'linear-gradient(90deg, #4ADE80, #22C55E)'
+                                           : realtimeScore.score >= 60 ? 'linear-gradient(90deg, #00D4FF, #0EA5E9)'
+                                           : realtimeScore.score >= 40 ? 'linear-gradient(90deg, #FFE66D, #EAB308)'
+                                           : 'linear-gradient(90deg, #FF6B9D, #EF4444)',
+                                }}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${realtimeScore.score}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut' }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-white/40 text-sm">加载中...</div>
+                        )}
+                      </div>
+                      
+                      {/* 五维度雷达图 */}
+                      <div className="glass-card p-4 flex items-center justify-center">
+                        <DimensionRadarChart5832XY
+                          scores={dailyForecast.dimensions || {
+                            career: 50,
+                            relationship: 50,
+                            health: 50,
+                            finance: 50,
+                            spiritual: 50,
+                          }}
+                          size={140}
+                          showLabels={true}
+                          showValues={false}
+                        />
+                      </div>
+                      
+                      {/* 五维度详情 */}
                       <div className="md:col-span-2">
                         <DimensionScoresCard5612XY
                           scores={dailyForecast.dimensions || {
@@ -368,6 +842,14 @@ function App() {
                     </div>
                   </div>
                 )}
+
+                {/* 多粒度运势查询 */}
+                {birthData && (
+                  <MultiGranularityScoreViewer8475QR
+                    birthData={birthData}
+                    className="mt-8"
+                  />
+                )}
               </motion.div>
             )}
 
@@ -380,6 +862,105 @@ function App() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-6"
               >
+                {/* 分数组成浮窗（点击趋势图数据点触发） */}
+                <ScoreBreakdownPopup5932MN
+                  open={breakdownOpen}
+                  position={breakdownPosition}
+                  queryTime={breakdownQueryTime}
+                  loading={breakdownLoading}
+                  error={breakdownError}
+                  data={breakdownData}
+                  activeFactorsData={activeFactorsData}
+                  granularity={breakdownGranularity}
+                  dimension={breakdownDimension}
+                  onClose={() => setBreakdownOpen(false)}
+                />
+
+                {/* 新增：多粒度趋势图 */}
+                <div className="glass-card p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-medium text-white">📊 多粒度趋势分析</h3>
+                    <GranularitySelector4721VW
+                      value={trendGranularity}
+                      onChange={setTrendGranularity}
+                    />
+                  </div>
+                  
+                  {/* 交互式时间序列趋势图 - 支持缩放、拖拽、动态Y轴、五维度切换 */}
+                  {trendGranularity === 'yearly' && lifeTrend && lifeTrend.points && lifeTrend.points.length > 0 ? (
+                    <InteractiveTrendChart9823EF
+                      data={lifeTrend.points.map(p => {
+                        // 将年龄转换为实际年份的时间戳（lightweight-charts 需要真实时间）
+                        const year = (birthData?.year ?? 1990) + p.age;
+                        return {
+                          time: `${year}-06-15T12:00:00+08:00`, // 使用年中作为该年的代表时间点
+                          value: p.overallScore,
+                          label: `${p.age}岁 (${year}年)`,
+                          dimensions: p.dimensions,
+                        };
+                      })}
+                      title={`生命趋势 (当前: ${currentAge}岁)`}
+                      color="#A855F7"
+                      height={320}
+                      showDimensions={true}
+                      className="bg-white/5 rounded-lg"
+                      onPointClick={handleTrendPointClick}
+                    />
+                  ) : timeSeries && timeSeries.points && timeSeries.points.length > 0 ? (
+                    (() => {
+                      // 根据粒度选择颜色
+                      const colorMap: Record<string, string> = {
+                        hourly: '#00D4FF',   // 青色
+                        daily: '#4ECDC4',    // 绿色
+                        weekly: '#FFE66D',   // 黄色
+                        monthly: '#FF9F43',  // 橙色
+                        yearly: '#A855F7',   // 紫色
+                      };
+                      const color = colorMap[trendGranularity] || '#00D4FF';
+                      const granularityLabel = { hourly: '小时', daily: '天', weekly: '周', monthly: '月', yearly: '年' }[trendGranularity];
+                      
+                      return (
+                        <InteractiveTrendChart9823EF
+                          data={timeSeries.points.map(p => ({
+                            time: p.time,
+                            value: p.display,
+                            label: p.label,
+                            dimensions: p.dimensions, // 传递五维度数据
+                          }))}
+                          title={`${granularityLabel}趋势 (${timeSeries.points.length}个数据点)`}
+                          color={color}
+                          height={320}
+                          showDimensions={true}
+                          className="bg-white/5 rounded-lg"
+                          onVisibleRangeChange={handleVisibleRangeChange}
+                          isLoading={isLoadingMoreData}
+                          onPointClick={handleTrendPointClick}
+                        />
+                      );
+                    })()
+                  ) : loading ? (
+                    <div className="h-64 flex items-center justify-center bg-white/5 rounded-lg">
+                      <Spinner size="lg" />
+                      <span className="ml-3 text-white/60">加载趋势数据...</span>
+                    </div>
+                  ) : trendGranularity === 'yearly' && !lifeTrend ? (
+                    <div className="h-64 flex items-center justify-center bg-white/5 rounded-lg">
+                      <Spinner size="lg" />
+                      <span className="ml-3 text-white/60">加载生命趋势数据...</span>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center bg-white/5 rounded-lg border border-dashed border-white/20">
+                      <div className="text-center text-white/50">
+                        <p className="text-lg mb-2">📈 多粒度趋势图</p>
+                        <p className="text-sm">当前粒度: {
+                          { hourly: '小时', daily: '日', weekly: '周', monthly: '月', yearly: '年' }[trendGranularity]
+                        }</p>
+                        <p className="text-xs mt-2">暂无数据</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* 生命趋势图 */}
                 {lifeTrend ? (
                   <div>
@@ -479,18 +1060,32 @@ function App() {
                   </div>
                 </div>
 
-                <InfluenceFactorsPanel8274TU
-                  factors={MOCK_INFLUENCE_FACTORS}
-                  editable={showFactorEditor}
-                  onWeightChange={(name, weight) => {
-                    console.log('权重变更:', name, weight);
-                  }}
-                />
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* 左侧：当前因子列表 */}
+                  <div>
+                    <InfluenceFactorsPanel8274TU
+                      factors={MOCK_INFLUENCE_FACTORS}
+                      editable={showFactorEditor}
+                      onWeightChange={(name, weight) => {
+                        console.log('权重变更:', name, weight);
+                      }}
+                    />
+                  </div>
+
+                  {/* 右侧：自定义因子编辑器 */}
+                  <div>
+                    <CustomFactorEditor9456DE
+                      factors={customFactors}
+                      onAdd={handleAddCustomFactor}
+                      onRemove={handleRemoveCustomFactor}
+                    />
+                  </div>
+                </div>
 
                 {/* 因子说明 */}
                 <div className="glass-card p-4">
                   <h4 className="text-lg font-medium text-white mb-3">📖 因子权重说明</h4>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="grid md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="text-white/80 font-medium mb-2">尊贵度 (Dignity)</div>
                       <ul className="text-white/60 space-y-1 list-disc list-inside">
@@ -509,6 +1104,26 @@ function App() {
                         <li>年主星加成: +1.0</li>
                       </ul>
                     </div>
+                    <div>
+                      <div className="text-white/80 font-medium mb-2">时间级别</div>
+                      <ul className="text-white/60 space-y-1 list-disc list-inside">
+                        <li>年度级: 土星回归、木星回归</li>
+                        <li>月度级: 太阳换座、月相</li>
+                        <li>周度级: 水星逆行</li>
+                        <li>日度级: 月亮换座</li>
+                        <li>小时级: 行星时、月空</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 自定义因子格式说明 */}
+                <div className="glass-card p-4">
+                  <h4 className="text-lg font-medium text-white mb-3">💡 自定义因子格式</h4>
+                  <div className="text-sm text-white/60">
+                    <p className="mb-2">格式: <code className="text-cosmic-nova bg-black/30 px-2 py-0.5 rounded">Operation=(value*dimension,duration,startTime)</code></p>
+                    <p className="mb-2">示例: <code className="text-green-400 bg-black/30 px-2 py-0.5 rounded">AddScore=(2*healthScore,2.5,202517301212)</code></p>
+                    <p>含义: 从2025年1月17日30分12秒开始，健康值+2，持续2.5小时</p>
                   </div>
                 </div>
               </motion.div>

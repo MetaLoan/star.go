@@ -13,9 +13,10 @@ import (
 // HealthCheck 健康检查
 func HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "ok",
-		"service": "Star API (Go)",
-		"version": "1.0.0",
+		"status":     "ok",
+		"service":    "Star API (Go)",
+		"version":    "1.0.0",
+		"dataSource": astro.GetDataSource(), // 显示天文数据唯一来源
 		"features": []string{
 			"natal-chart",
 			"daily-forecast",
@@ -48,6 +49,7 @@ func CalculateDailyForecast(c *gin.Context) {
 	var req struct {
 		BirthData   models.BirthData `json:"birthData"`
 		Date        string           `json:"date"`
+		TargetDate  string           `json:"targetDate"`
 		WithFactors bool             `json:"withFactors"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,16 +57,26 @@ func CalculateDailyForecast(c *gin.Context) {
 		return
 	}
 
-	// 解析日期
+	// 解析日期 - 支持多种格式
 	date := time.Now()
-	if req.Date != "" {
-		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
+	dateStr := req.Date
+	if dateStr == "" {
+		dateStr = req.TargetDate
+	}
+	if dateStr != "" {
+		// 尝试 ISO 格式 (带时区)
+		if parsed, err := time.Parse(time.RFC3339, dateStr); err == nil {
+			date = parsed
+		} else if parsed, err := time.Parse("2006-01-02T15:04:05-07:00", dateStr); err == nil {
+			date = parsed
+		} else if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
 			date = parsed
 		}
 	}
 
 	chart := astro.CalculateNatalChart(req.BirthData)
-	forecast := astro.CalculateDailyForecast(chart, date, req.WithFactors)
+	// 默认启用 factors 计算，以确保与时间序列 API 一致
+	forecast := astro.CalculateDailyForecast(chart, date, true)
 	c.JSON(http.StatusOK, forecast)
 }
 
@@ -455,7 +467,7 @@ func UpdateDimensionWeights(c *gin.Context) {
 	total := req.Career + req.Relationship + req.Health + req.Finance + req.Spiritual
 	if total < 0.99 || total > 1.01 {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "维度权重之和必须为1.0",
+			"error":         "维度权重之和必须为1.0",
 			"current_total": total,
 		})
 		return
@@ -564,3 +576,250 @@ func ClearCustomFactors(c *gin.Context) {
 	})
 }
 
+// ==================== 分值组成查询 API ====================
+
+// GetScoreBreakdown 获取指定时间点的分值组成详情
+// POST /api/calc/score-breakdown
+// 请求体：
+//
+//	{
+//	  "birthData": {...},
+//	  "queryTime": "2026-01-05T12:00:00+08:00",
+//	  "granularity": "hour" | "day" | "week" | "month" | "year",
+//	  "userId": "optional"
+//	}
+func GetScoreBreakdown(c *gin.Context) {
+	var req struct {
+		BirthData   models.BirthData `json:"birthData"`
+		QueryTime   string           `json:"queryTime"`
+		Granularity string           `json:"granularity"`
+		UserID      string           `json:"userId,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 验证粒度
+	validGranularities := map[string]bool{
+		"hour": true, "day": true, "week": true, "month": true, "year": true,
+	}
+	if !validGranularities[req.Granularity] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的粒度参数",
+			"valid": []string{"hour", "day", "week", "month", "year"},
+		})
+		return
+	}
+
+	// 解析时间
+	queryTime, err := time.Parse(time.RFC3339, req.QueryTime)
+	if err != nil {
+		// 尝试其他格式
+		queryTime, err = time.Parse("2006-01-02T15:04:05", req.QueryTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "无效的时间格式",
+				"example": "2026-01-05T12:00:00+08:00",
+			})
+			return
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 计算分值组成
+	breakdown := astro.CalculateScoreBreakdown(chart, queryTime, req.Granularity, req.UserID)
+
+	c.JSON(http.StatusOK, breakdown)
+}
+
+// GetMultiGranularityBreakdown 获取多粒度分值组成
+// POST /api/calc/score-breakdown-all
+// 一次返回 hour/day/month/year 四个粒度的分值组成
+func GetMultiGranularityBreakdown(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+		UserID    string           `json:"userId,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 解析时间
+	queryTime, err := time.Parse(time.RFC3339, req.QueryTime)
+	if err != nil {
+		queryTime, err = time.Parse("2006-01-02T15:04:05", req.QueryTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "无效的时间格式",
+				"example": "2026-01-05T12:00:00+08:00",
+			})
+			return
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 获取多粒度分值组成
+	result := astro.GetMultiGranularityBreakdown(chart, queryTime, req.UserID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"breakdown": result,
+	})
+}
+
+// GetActiveFactorsInRange 获取时间范围内活跃的所有因子
+// POST /api/calc/active-factors
+// 查询指定时间范围内（年/月/周/日）活跃的所有影响因子
+// infect 参数：
+//   - "all": 返回所有因子（不过滤）
+//   - "core": 按可见性规则过滤（年度级在年/月/周/日/小时可见，月级在月/周/日/小时可见...）
+func GetActiveFactorsInRange(c *gin.Context) {
+	var req struct {
+		BirthData   models.BirthData `json:"birthData"`
+		QueryTime   string           `json:"queryTime"`   // 范围内任意时间点
+		Granularity string           `json:"granularity"` // year/month/week/day
+		Infect      string           `json:"infect"`      // all/core，默认 all
+		UserID      string           `json:"userId,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 验证粒度参数
+	validGranularities := map[string]bool{"year": true, "month": true, "week": true, "day": true, "hour": true}
+	if !validGranularities[req.Granularity] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "无效的粒度参数",
+			"valid":   []string{"year", "month", "week", "day", "hour"},
+			"example": "week",
+		})
+		return
+	}
+
+	// 验证 infect 参数，默认为 all
+	if req.Infect == "" {
+		req.Infect = "all"
+	}
+	validInfect := map[string]bool{"all": true, "core": true}
+	if !validInfect[req.Infect] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "无效的 infect 参数",
+			"valid":   []string{"all", "core"},
+			"example": "core",
+			"description": map[string]string{
+				"all":  "返回所有因子（不过滤）",
+				"core": "按可见性规则过滤（年度级在年/月/周/日/小时可见，月级在月/周/日/小时可见...）",
+			},
+		})
+		return
+	}
+
+	// 解析时间
+	queryTime, err := time.Parse(time.RFC3339, req.QueryTime)
+	if err != nil {
+		queryTime, err = time.Parse("2006-01-02T15:04:05", req.QueryTime)
+		if err != nil {
+			queryTime, err = time.Parse("2006-01-02", req.QueryTime)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":   "无效的时间格式",
+					"example": "2026-01-05 或 2026-01-05T12:00:00+08:00",
+				})
+				return
+			}
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 获取时间范围内活跃的因子
+	result := astro.GetActiveFactorsInRange(chart, queryTime, req.Granularity, req.Infect, req.UserID)
+
+	c.JSON(http.StatusOK, result)
+}
+
+// ==================== C端用户友好接口 ====================
+
+// GetScoreExplanation 获取分数解释（面向C端用户）
+// POST /api/calc/score-explain
+// 用通俗易懂的语言解释分数是如何计算的，受哪些天文现象影响
+func GetScoreExplanation(c *gin.Context) {
+	var req struct {
+		BirthData   models.BirthData `json:"birthData"`
+		QueryTime   string           `json:"queryTime"`
+		Granularity string           `json:"granularity"` // hour, day, week, month, year
+		Dimension   string           `json:"dimension"`   // career, relationship, health, finance, spiritual, overall
+		UserID      string           `json:"userId,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 默认值
+	if req.Granularity == "" {
+		req.Granularity = "hour"
+	}
+	if req.Dimension == "" {
+		req.Dimension = "overall"
+	}
+
+	// 验证粒度
+	validGranularities := map[string]bool{
+		"hour": true, "day": true, "week": true, "month": true, "year": true,
+	}
+	if !validGranularities[req.Granularity] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的粒度参数",
+			"valid": []string{"hour", "day", "week", "month", "year"},
+		})
+		return
+	}
+
+	// 验证维度
+	validDimensions := map[string]bool{
+		"career": true, "relationship": true, "health": true,
+		"finance": true, "spiritual": true, "overall": true,
+	}
+	if !validDimensions[req.Dimension] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的维度参数",
+			"valid": []string{"career", "relationship", "health", "finance", "spiritual", "overall"},
+		})
+		return
+	}
+
+	// 解析时间
+	queryTime, err := time.Parse(time.RFC3339, req.QueryTime)
+	if err != nil {
+		queryTime, err = time.Parse("2006-01-02T15:04:05", req.QueryTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "无效的时间格式",
+				"example": "2026-01-05T12:00:00+08:00",
+			})
+			return
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 获取分数解释
+	explanation := astro.GetScoreExplanation(chart, queryTime, req.Granularity, req.Dimension, req.UserID)
+
+	c.JSON(http.StatusOK, explanation)
+}

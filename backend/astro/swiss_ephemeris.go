@@ -6,7 +6,6 @@ package astro
 import (
 	"math"
 	"star/models"
-	"time"
 
 	"github.com/mshafiee/swephgo"
 )

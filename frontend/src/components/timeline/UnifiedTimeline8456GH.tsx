@@ -41,12 +41,25 @@ export function UnifiedTimeline8456GH({
   const [showRaw, setShowRaw] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<TimeSeriesPoint | null>(null);
 
+  // 获取分数 - 兼容新旧格式
+  const getScore = (point: TimeSeriesPoint): number => {
+    return point.display ?? point.normalizedScore ?? 0;
+  };
+  
+  const getRawScore = (point: TimeSeriesPoint): number => {
+    return point.raw?.value ?? point.rawScore ?? 0;
+  };
+  
+  const getTime = (point: TimeSeriesPoint): string => {
+    return point.time ?? point.timestamp ?? '';
+  };
+
   // 计算统计信息
   const stats = useMemo(() => {
     if (data.length === 0) return null;
 
-    const scores = data.map((d) => d.normalizedScore);
-    const rawScores = data.map((d) => d.rawScore);
+    const scores = data.map((d) => getScore(d));
+    const rawScores = data.map((d) => getRawScore(d));
     const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
     const variance =
       scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length;
@@ -164,10 +177,10 @@ export function UnifiedTimeline8456GH({
             points={data
               .map((point, i) => {
                 const score = showRaw
-                  ? Math.min(100, Math.max(0, point.rawScore))
-                  : point.normalizedScore;
+                  ? Math.min(100, Math.max(0, getRawScore(point)))
+                  : getScore(point);
                 const x = 50 + i * 20;
-                const y = 180 - score * 1.6;
+                const y = 180 - Math.min(100, Math.max(0, score)) * 1.6;
                 return `${x},${y}`;
               })
               .join(' ')}
@@ -183,8 +196,8 @@ export function UnifiedTimeline8456GH({
               `50,180`,
               ...data.map((point, i) => {
                 const score = showRaw
-                  ? Math.min(100, Math.max(0, point.rawScore))
-                  : point.normalizedScore;
+                  ? Math.min(100, Math.max(0, getRawScore(point)))
+                  : Math.min(100, Math.max(0, getScore(point)));
                 return `${50 + i * 20},${180 - score * 1.6}`;
               }),
               `${50 + (data.length - 1) * 20},180`,
@@ -196,9 +209,10 @@ export function UnifiedTimeline8456GH({
 
           {/* 数据点 */}
           {data.map((point, i) => {
+            const displayScore = getScore(point);
             const score = showRaw
-              ? Math.min(100, Math.max(0, point.rawScore))
-              : point.normalizedScore;
+              ? Math.min(100, Math.max(0, getRawScore(point)))
+              : Math.min(100, Math.max(0, displayScore));
             const x = 50 + i * 20;
             const y = 180 - score * 1.6;
 
@@ -207,8 +221,8 @@ export function UnifiedTimeline8456GH({
                 key={i}
                 cx={x}
                 cy={y}
-                r={selectedPoint?.timestamp === point.timestamp ? 6 : 4}
-                fill={getScoreColor(point.normalizedScore)}
+                r={getTime(selectedPoint ?? {} as TimeSeriesPoint) === getTime(point) ? 6 : 4}
+                fill={getScoreColor(displayScore)}
                 stroke="rgba(255,255,255,0.5)"
                 strokeWidth="1"
                 style={{ cursor: 'pointer' }}
@@ -243,7 +257,7 @@ export function UnifiedTimeline8456GH({
           animate={{ opacity: 1, y: 0 }}
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="font-medium">{selectedPoint.timestamp}</div>
+            <div className="font-medium">{selectedPoint.label || getTime(selectedPoint)}</div>
             <button
               onClick={() => setSelectedPoint(null)}
               className="text-celestial-silver/60 hover:text-celestial-silver"
@@ -256,15 +270,15 @@ export function UnifiedTimeline8456GH({
               <div className="text-sm text-celestial-silver/60">标准化分数</div>
               <div
                 className="text-2xl font-bold"
-                style={{ color: getScoreColor(selectedPoint.normalizedScore) }}
+                style={{ color: getScoreColor(getScore(selectedPoint)) }}
               >
-                {selectedPoint.normalizedScore.toFixed(1)}
+                {getScore(selectedPoint).toFixed(1)}
               </div>
             </div>
             <div>
               <div className="text-sm text-celestial-silver/60">原始分数</div>
               <div className="text-2xl font-bold">
-                {selectedPoint.rawScore.toFixed(1)}
+                {getRawScore(selectedPoint).toFixed(1)}
               </div>
             </div>
           </div>

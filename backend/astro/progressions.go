@@ -22,9 +22,9 @@ func CalculateProgressions(chart *models.NatalChart, targetDateStr string) *mode
 	daysProgressed := yearsFromBirth
 	progressedDate := birthDate.AddDate(0, 0, int(daysProgressed))
 
-	// 计算推运行星位置
+	// 计算推运行星位置 - 使用 Swiss Ephemeris
 	progressedJd := DateToJulianDay(progressedDate)
-	progressedPositions := GetAllPlanetPositions(progressedJd)
+	progressedPositions := GetPlanetPositionsUnified(progressedJd)
 
 	// 创建推运行星列表
 	progressedPlanets := make([]models.ProgressedPlanet, len(progressedPositions))
@@ -54,8 +54,8 @@ func CalculateProgressions(chart *models.NatalChart, targetDateStr string) *mode
 		}
 	}
 
-	// 计算推运ASC和MC
-	progressedHouses, progressedAsc, progressedMc := CalculateHouses(
+	// 计算推运ASC和MC - 使用 Swiss Ephemeris
+	progressedHouses, progressedAsc, progressedMc := CalculateHousesUnified(
 		progressedJd,
 		chart.BirthData.Latitude,
 		chart.BirthData.Longitude,

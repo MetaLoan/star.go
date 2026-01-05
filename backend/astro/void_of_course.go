@@ -21,11 +21,11 @@ type VoidOfCourseInfo struct {
 // CalculateVoidOfCourse 计算月亮空亡
 // 月亮空亡：月亮在当前星座内不再形成主要相位，直到进入下一个星座
 func CalculateVoidOfCourse(jd float64, natalPositions []models.PlanetPosition) VoidOfCourseInfo {
-	moonPos := CalculatePlanetPosition(models.Moon, jd)
+	moonPos := CalculatePlanetPositionUnified(models.Moon, jd)
 	currentSign := moonPos.Sign
 
-	// 获取当前行运行星位置
-	transitPositions := GetAllPlanetPositions(jd)
+	// 获取当前行运行星位置 - 使用 Swiss Ephemeris
+	transitPositions := GetPlanetPositionsUnified(jd)
 
 	// 月亮在当前星座内剩余的度数
 	degreesLeftInSign := 30 - moonPos.SignDegree
@@ -42,7 +42,7 @@ func CalculateVoidOfCourse(jd float64, natalPositions []models.PlanetPosition) V
 	searchSteps := 48 // 搜索 48 小时
 	for step := 1; step <= searchSteps; step++ {
 		futureJd := jd + float64(step)/24.0 // 每小时一步
-		futureMoonPos := CalculatePlanetPosition(models.Moon, futureJd)
+		futureMoonPos := CalculatePlanetPositionUnified(models.Moon, futureJd)
 
 		// 如果月亮已经换座，停止搜索
 		if futureMoonPos.Sign != currentSign {

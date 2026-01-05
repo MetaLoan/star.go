@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+/*
+统一时间序列计算
+
+层级聚合规则：
+- 小时：直接计算即时分数
+- 日：24小时平均
+- 周：7天平均
+- 月：当月所有天平均
+- 年：12个月平均
+
+所有粒度使用相同的统一分数计算架构
+*/
+
 // CalculateTimeSeries 计算统一时间序列
 func CalculateTimeSeries(chart *models.NatalChart, startStr, endStr, granularity string) *models.TimeSeries {
 	// 解析时间范围
@@ -36,8 +49,8 @@ func CalculateTimeSeries(chart *models.NatalChart, startStr, endStr, granularity
 		g = models.GranularityDay
 	}
 
-	// 生成数据点
-	points := generateTimeSeriesPoints(chart, start, end, g)
+	// 生成数据点 - 使用统一计算逻辑
+	points := generateUnifiedTimeSeriesPoints(chart, start, end, g)
 
 	// 计算统计信息
 	stats := calculateTimeSeriesStats(points)
@@ -49,13 +62,48 @@ func CalculateTimeSeries(chart *models.NatalChart, startStr, endStr, granularity
 	}
 }
 
-// generateTimeSeriesPoints 生成时间序列数据点
-func generateTimeSeriesPoints(chart *models.NatalChart, start, end time.Time, granularity models.TimeGranularity) []models.TimeSeriesPoint {
+// generateUnifiedTimeSeriesPoints 使用统一计算逻辑生成时间序列数据点
+func generateUnifiedTimeSeriesPoints(chart *models.NatalChart, start, end time.Time, granularity models.TimeGranularity) []models.TimeSeriesPoint {
 	var points []models.TimeSeriesPoint
 	current := start
 
 	for current.Before(end) || current.Equal(end) {
-		point := calculateTimeSeriesPoint(chart, current, granularity)
+		var score UnifiedScore
+		var label string
+
+		switch granularity {
+		case models.GranularityHour:
+			score = CalculateUnifiedHourlyScore(chart, current)
+			label = current.Format("15:00")
+
+		case models.GranularityDay:
+			score = CalculateDailyScore(chart, current)
+			label = current.Format("01-02")
+
+		case models.GranularityWeek:
+			score = CalculateWeeklyScore(chart, current)
+			label = current.Format("01-02") + "周"
+
+		case models.GranularityMonth:
+			score = CalculateMonthlyScore(chart, current.Year(), current.Month())
+			label = current.Format("2006-01")
+
+		case models.GranularityYear:
+			score = CalculateYearlyScore(chart, current.Year())
+			label = current.Format("2006")
+		}
+
+		point := models.TimeSeriesPoint{
+			Time:        current,
+			Label:       label,
+			Granularity: granularity,
+			Raw: models.RawScore{
+				Value: score.RawValue,
+			},
+			Display:    score.Overall,
+			Dimensions: score.Dimensions,
+		}
+
 		points = append(points, point)
 
 		// 移动到下一个时间点
@@ -74,151 +122,6 @@ func generateTimeSeriesPoints(chart *models.NatalChart, start, end time.Time, gr
 	}
 
 	return points
-}
-
-// calculateTimeSeriesPoint 计算单个时间序列点
-func calculateTimeSeriesPoint(chart *models.NatalChart, t time.Time, granularity models.TimeGranularity) models.TimeSeriesPoint {
-	// 获取行运位置
-	transitPositions := GetTransitPositions(t)
-
-	// 计算行运相位
-	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
-	transitScore := CalculateTransitScore(aspects)
-
-	// 计算因子
-	factors := CalculateInfluenceFactors(chart, t, transitPositions)
-
-	// 构建分数因子
-	// 从因子列表中提取尊贵度和逆行的总调整
-	var dignityTotal, retrogradeTotal float64
-	for _, f := range factors.Factors {
-		switch f.Type {
-		case models.FactorDignity:
-			dignityTotal += f.Adjustment
-		case models.FactorRetrograde:
-			retrogradeTotal += f.Adjustment
-		}
-	}
-	scoreFactors := models.ScoreFactors{
-		Aspects:    transitScore.Total,
-		Dignity:    dignityTotal,
-		Retrograde: retrogradeTotal,
-	}
-
-	// 根据粒度添加特定因子
-	switch granularity {
-	case models.GranularityHour:
-		planetaryHour := CalculatePlanetaryHour(t, t.Hour())
-		scoreFactors.PlanetaryHour = getPlanetaryHourValue(planetaryHour)
-	case models.GranularityDay, models.GranularityWeek:
-		scoreFactors.MoonSign = getMoonSignInfluence(transitPositions, chart)
-		scoreFactors.MoonPhase = getMoonPhaseInfluence(transitPositions)
-	}
-
-	// 计算原始分数
-	rawValue := transitScore.Total + factors.TotalAdjustment
-
-	// 标准化显示分数
-	displayScore := normalizeScore(rawValue)
-
-	// 计算维度分数
-	dimensions := map[string]float64{
-		"career":       normalizeScore(rawValue * 0.9),
-		"relationship": normalizeScore(rawValue * 1.1),
-		"health":       normalizeScore(rawValue * 0.85),
-		"finance":      normalizeScore(rawValue * 0.95),
-		"spiritual":    normalizeScore(rawValue * 1.05),
-	}
-
-	// 生成标签
-	label := generateTimeLabel(t, granularity)
-
-	return models.TimeSeriesPoint{
-		Time:        t,
-		Label:       label,
-		Granularity: granularity,
-		Raw: models.RawScore{
-			Value:   rawValue,
-			Factors: scoreFactors,
-		},
-		Display:    displayScore,
-		Dimensions: dimensions,
-	}
-}
-
-// getPlanetaryHourValue 获取行星时影响值
-func getPlanetaryHourValue(planet models.PlanetID) float64 {
-	values := map[models.PlanetID]float64{
-		models.Sun:     5,
-		models.Moon:    3,
-		models.Mercury: 2,
-		models.Venus:   5,
-		models.Mars:    -2,
-		models.Jupiter: 5,
-		models.Saturn:  -3,
-	}
-	if v, ok := values[planet]; ok {
-		return v
-	}
-	return 0
-}
-
-// getMoonSignInfluence 获取月亮星座影响
-func getMoonSignInfluence(transitPositions []models.PlanetPosition, chart *models.NatalChart) float64 {
-	for _, p := range transitPositions {
-		if p.ID == models.Moon {
-			// 检查是否与本命盘有吉相位
-			natalMoon := GetPlanetFromChart(chart, models.Moon)
-			if natalMoon != nil {
-				if p.Sign == natalMoon.Sign {
-					return 5 // 回归本命月亮星座
-				}
-				// 检查元素相合
-				transitZodiac := GetZodiacInfo(p.Sign)
-				natalZodiac := GetZodiacInfo(natalMoon.Sign)
-				if transitZodiac != nil && natalZodiac != nil {
-					if transitZodiac.Element == natalZodiac.Element {
-						return 3
-					}
-				}
-			}
-			return 0
-		}
-	}
-	return 0
-}
-
-// getMoonPhaseInfluence 获取月相影响
-func getMoonPhaseInfluence(transitPositions []models.PlanetPosition) float64 {
-	var sunLon, moonLon float64
-	for _, p := range transitPositions {
-		if p.ID == models.Sun {
-			sunLon = p.Longitude
-		}
-		if p.ID == models.Moon {
-			moonLon = p.Longitude
-		}
-	}
-
-	angle := NormalizeAngle(moonLon - sunLon)
-	phaseInfo := GetLunarPhase(angle)
-
-	// 月相影响值
-	values := map[string]float64{
-		"new":          2,
-		"crescent":     3,
-		"firstQuarter": 0,
-		"gibbous":      2,
-		"full":         5,
-		"disseminating": 1,
-		"lastQuarter":  -2,
-		"balsamic":     -1,
-	}
-
-	if v, ok := values[phaseInfo.Phase]; ok {
-		return v
-	}
-	return 0
 }
 
 // generateTimeLabel 生成时间标签
@@ -314,7 +217,18 @@ func CalculateHourlyTimeSeries(chart *models.NatalChart, date time.Time) []model
 
 	for hour := 0; hour < 24; hour++ {
 		t := time.Date(date.Year(), date.Month(), date.Day(), hour, 0, 0, 0, date.Location())
-		point := calculateTimeSeriesPoint(chart, t, models.GranularityHour)
+		score := CalculateUnifiedHourlyScore(chart, t)
+
+		point := models.TimeSeriesPoint{
+			Time:        t,
+			Label:       t.Format("15:00"),
+			Granularity: models.GranularityHour,
+			Raw: models.RawScore{
+				Value: score.RawValue,
+			},
+			Display:    score.Overall,
+			Dimensions: score.Dimensions,
+		}
 		points = append(points, point)
 	}
 
@@ -366,4 +280,3 @@ func AggregateToDaily(hourlyPoints []models.TimeSeriesPoint) models.TimeSeriesPo
 		Volatility: volatility,
 	}
 }
-

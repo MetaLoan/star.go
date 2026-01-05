@@ -1,12 +1,18 @@
 /**
  * 人生趋势时间线组件
  * 组件命名规范：LifeTimeline + 4529 + PQ
+ * 
+ * 数据说明：
+ * - 年度分数由12个月分平均聚合
+ * - 月分由该月所有日分平均聚合
+ * - 日分由24个小时分平均聚合
+ * - 小时分是基于 Swiss Ephemeris 的原始计算
  */
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { LifeTrend, LifeTrendPoint, Dimension } from '../../types';
-import { DIMENSION_COLORS, DIMENSION_NAMES } from '../../utils/astro';
+import { DIMENSION_COLORS, DIMENSION_NAMES, DIMENSION_ICONS } from '../../utils/astro';
 
 interface LifeTimelineProps {
   data: LifeTrend;
@@ -16,6 +22,16 @@ interface LifeTimelineProps {
   onPointClick?: (point: LifeTrendPoint) => void;
   className?: string;
 }
+
+// 维度选项配置
+const DIMENSION_OPTIONS: Array<{ id: Dimension | 'overall'; label: string; icon: string }> = [
+  { id: 'overall', label: '综合', icon: '📊' },
+  { id: 'career', label: '事业', icon: '💼' },
+  { id: 'relationship', label: '关系', icon: '❤️' },
+  { id: 'health', label: '健康', icon: '🏃' },
+  { id: 'finance', label: '财务', icon: '💰' },
+  { id: 'spiritual', label: '灵性', icon: '🧘' },
+];
 
 export function LifeTimeline4529PQ({
   data,
@@ -27,8 +43,6 @@ export function LifeTimeline4529PQ({
 }: LifeTimelineProps) {
   const [hoveredAge, setHoveredAge] = useState<number | null>(null);
   const [selectedDimension, setSelectedDimension] = useState<Dimension | 'overall'>('overall');
-
-  const dimensions: Array<Dimension | 'overall'> = ['overall', 'career', 'relationship', 'health', 'finance', 'spiritual'];
 
   // 计算图表尺寸
   const padding = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -110,22 +124,32 @@ export function LifeTimeline4529PQ({
 
   return (
     <div className={`glass-card p-4 ${className}`}>
-      {/* 维度选择器 */}
+      {/* 维度选择器 - 增强样式 */}
       {showDimensions && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {dimensions.map(dim => (
-            <button
-              key={dim}
-              className={`px-3 py-1 rounded-full text-sm transition-all ${
-                selectedDimension === dim
-                  ? 'bg-white/20 text-white'
-                  : 'bg-white/5 text-white/60 hover:bg-white/10'
-              }`}
-              onClick={() => setSelectedDimension(dim)}
-            >
-              {dim === 'overall' ? '综合' : DIMENSION_NAMES[dim]}
-            </button>
-          ))}
+          {DIMENSION_OPTIONS.map(dim => {
+            const isSelected = selectedDimension === dim.id;
+            const dimColor = dim.id === 'overall' ? '#00D4FF' : DIMENSION_COLORS[dim.id];
+            return (
+              <button
+                key={dim.id}
+                className={`px-3 py-1.5 rounded-full text-sm transition-all flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'text-white shadow-lg'
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+                style={{
+                  backgroundColor: isSelected ? `${dimColor}30` : 'rgba(255,255,255,0.05)',
+                  border: isSelected ? `1px solid ${dimColor}` : '1px solid transparent',
+                  boxShadow: isSelected ? `0 0 12px ${dimColor}40` : 'none',
+                }}
+                onClick={() => setSelectedDimension(dim.id)}
+              >
+                <span>{dim.icon}</span>
+                <span>{dim.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -303,47 +327,111 @@ export function LifeTimeline4529PQ({
         })}
       </svg>
 
-      {/* 悬停信息提示 */}
+      {/* 悬停信息提示 - 增强版 */}
       {hoveredPoint && (
         <motion.div
-          className="absolute bg-cosmic-dust/90 backdrop-blur-md rounded-lg p-3 text-sm border border-white/10 shadow-lg"
+          className="absolute bg-cosmic-dust/95 backdrop-blur-md rounded-xl p-4 text-sm border border-white/20 shadow-2xl z-20"
           style={{
-            left: xScale(hoveredPoint.age),
-            top: padding.top,
+            left: Math.min(Math.max(xScale(hoveredPoint.age), 120), chartWidth - 120),
+            top: padding.top + 10,
             transform: 'translateX(-50%)',
+            minWidth: '200px',
           }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
         >
-          <div className="font-medium text-white mb-1">
-            {hoveredPoint.age}岁 ({hoveredPoint.year}年)
+          {/* 头部 */}
+          <div className="font-bold text-white mb-3 flex items-center justify-between">
+            <span>{hoveredPoint.age}岁</span>
+            <span className="text-white/50 text-xs">{hoveredPoint.year}年</span>
           </div>
-          <div className="text-white/60">
-            综合分数: <span className="text-cosmic-nova">{Math.round(hoveredPoint.overallScore)}</span>
+          
+          {/* 综合分数 */}
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+            <span className="text-white/60">综合分数</span>
+            <span className="text-xl font-bold text-cosmic-nova">{Math.round(hoveredPoint.overallScore)}</span>
           </div>
+          
+          {/* 五维度分数 */}
+          <div className="space-y-1.5">
+            {(Object.keys(hoveredPoint.dimensions) as Dimension[]).map((dim) => {
+              const score = hoveredPoint.dimensions[dim];
+              const icon = DIMENSION_ICONS[dim];
+              const name = DIMENSION_NAMES[dim];
+              const color = DIMENSION_COLORS[dim];
+              return (
+                <div key={dim} className="flex items-center gap-2">
+                  <span className="text-xs">{icon}</span>
+                  <span className="text-xs text-white/60 w-8">{name}</span>
+                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ 
+                        width: `${Math.min(score, 100)}%`,
+                        backgroundColor: color,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs w-6 text-right" style={{ color }}>{Math.round(score)}</span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* 重大行运 */}
           {hoveredPoint.isMajorTransit && hoveredPoint.majorTransits && hoveredPoint.majorTransits.length > 0 && (
-            <div className="mt-1 text-pink-400 text-xs">
-              🌟 {hoveredPoint.majorTransits[0]}
+            <div className="mt-3 pt-2 border-t border-white/10">
+              <div className="text-pink-400 text-xs flex items-center gap-1">
+                <span>🌟</span>
+                <span>{hoveredPoint.majorTransits[0]}</span>
+              </div>
             </div>
           )}
+          
+          {/* 数据来源说明 */}
+          <div className="mt-2 text-[10px] text-white/30 text-center">
+            年度分数 = 12个月平均
+          </div>
         </motion.div>
       )}
 
-      {/* 峰值/谷值标记 */}
-      {data.summary && (
-        <div className="flex justify-between mt-4 text-xs text-white/60">
-          <div className="flex items-center gap-4">
+      {/* 图例和峰值/谷值标记 */}
+      <div className="flex flex-wrap justify-between items-center mt-4 gap-4">
+        {/* 当前选中维度说明 */}
+        <div className="flex items-center gap-2 text-xs text-white/60">
+          <span>当前显示:</span>
+          <span 
+            className="px-2 py-0.5 rounded-full"
+            style={{ 
+              backgroundColor: `${lineColor}20`,
+              border: `1px solid ${lineColor}`,
+              color: lineColor,
+            }}
+          >
+            {selectedDimension === 'overall' ? '综合' : DIMENSION_NAMES[selectedDimension]}
+          </span>
+          <span className="text-white/40">| 数据来源: Swiss Ephemeris</span>
+        </div>
+        
+        {/* 峰值/谷值标记 */}
+        {data.summary && (
+          <div className="flex items-center gap-4 text-xs text-white/60">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]"></span>
               高峰年: {data.summary.peakYears?.slice(0, 3).map(y => `${y}年`).join(', ') || '无'}
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]"></span>
               挑战年: {data.summary.challengeYears?.slice(0, 3).map(y => `${y}年`).join(', ') || '无'}
             </span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      
+      {/* 计算说明 */}
+      <div className="mt-3 text-[10px] text-white/30 text-center">
+        年度分数聚合逻辑: 12个月分 → 平均 → 年分 | 月分 = 该月日分平均 | 日分 = 24小时分平均
+      </div>
     </div>
   );
 }

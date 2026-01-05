@@ -272,6 +272,11 @@ func GetOrbitalElements(planet models.PlanetID, T float64) OrbitalElements {
 
 // CalculatePlanetPosition 计算行星位置（简化算法）
 func CalculatePlanetPosition(planet models.PlanetID, jd float64) models.PlanetPosition {
+	// Debug print for 1990-06-15 (JD approx 2448057.5)
+	if planet == models.Saturn && jd > 2448000 && jd < 2448100 {
+		// fmt.Printf("DEBUG: Calculating Saturn for JD=%f\n", jd)
+	}
+
 	T := (jd - J2000) / 36525.0
 
 	var longitude float64
@@ -347,7 +352,11 @@ func calculateHeliocentricPosition(elem OrbitalElements) (x, y, z, r float64) {
 	r = elem.A * (1 - elem.E*math.Cos(E))
 
 	// 近日点幅角 (弧度)
-	wRad := elem.W * DEG_TO_RAD
+	// W 是近日点黄经 (Longitude of Perihelion, varpi)
+	// O 是升交点黄经 (Longitude of Ascending Node, Omega)
+	// w 是近日点幅角 (Argument of Perihelion, omega) = varpi - Omega
+	w := elem.W - elem.O
+	wRad := w * DEG_TO_RAD
 	oRad := elem.O * DEG_TO_RAD
 	iRad := elem.I * DEG_TO_RAD
 
@@ -555,8 +564,9 @@ func GetAllPlanetPositions(jd float64) []models.PlanetPosition {
 }
 
 // GetTransitPositions 获取当前行运行星位置
+// 使用 Swiss Ephemeris 作为唯一数据源
 func GetTransitPositions(date time.Time) []models.PlanetPosition {
 	jd := DateToJulianDay(date)
-	return GetAllPlanetPositions(jd)
+	return GetPlanetPositionsUnified(jd)
 }
 

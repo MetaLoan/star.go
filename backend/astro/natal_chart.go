@@ -9,11 +9,11 @@ func CalculateNatalChart(birthData models.BirthData) *models.NatalChart {
 	// 计算儒略日
 	jd := DateToJulianDay(birthData.ToTime())
 
-	// 计算行星位置
-	planets := GetAllPlanetPositions(jd)
+	// 计算行星位置 - 使用 Swiss Ephemeris
+	planets := GetPlanetPositionsUnified(jd)
 
-	// 计算宫位
-	houses, ascendant, midheaven := CalculateHouses(jd, birthData.Latitude, birthData.Longitude)
+	// 计算宫位 - 使用 Swiss Ephemeris
+	houses, ascendant, midheaven := CalculateHousesUnified(jd, birthData.Latitude, birthData.Longitude)
 
 	// 为行星分配宫位
 	planets = AssignHousesToPlanets(planets, houses)

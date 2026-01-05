@@ -10,7 +10,7 @@ import type {
   DailyForecast,
   WeeklyForecast,
   LifeTrend,
-  TimeSeriesPoint,
+  TimeSeriesResponse,
   AnnualProfection,
   ProfectionMap,
   InfluenceFactor,
@@ -23,7 +23,7 @@ interface AstroDataState {
   dailyForecast: DailyForecast | null;
   weeklyForecast: WeeklyForecast | null;
   lifeTrend: LifeTrend | null;
-  timeSeries: TimeSeriesPoint[];
+  timeSeries: TimeSeriesResponse | null;
   profection: AnnualProfection | null;
   profectionMap: ProfectionMap | null;
   influenceFactors: InfluenceFactor[];
@@ -36,7 +36,13 @@ interface UseAstroDataReturn extends AstroDataState {
   refreshDaily: () => Promise<void>;
   refreshWeekly: () => Promise<void>;
   loadLifeTrend: (startAge?: number, endAge?: number) => Promise<void>;
-  loadTimeSeries: (start: string, end: string, granularity: 'hour' | 'day' | 'week') => Promise<void>;
+  loadTimeSeries: (start: string, end: string, granularity: 'hour' | 'day' | 'week' | 'month' | 'year') => Promise<void>;
+  extendTimeSeries: (
+    start: string,
+    end: string,
+    granularity: 'hour' | 'day' | 'week' | 'month' | 'year',
+    mode: 'before' | 'after'
+  ) => Promise<void>;
   loadProfectionMap: (startAge?: number, endAge?: number) => Promise<void>;
   currentAge: number;
   clearError: () => void;
@@ -50,7 +56,7 @@ export function useAstroData(): UseAstroDataReturn {
     dailyForecast: null,
     weeklyForecast: null,
     lifeTrend: null,
-    timeSeries: [],
+    timeSeries: null,
     profection: null,
     profectionMap: null,
     influenceFactors: [],
@@ -147,7 +153,7 @@ export function useAstroData(): UseAstroDataReturn {
   const loadTimeSeries = useCallback(async (
     start: string,
     end: string,
-    granularity: 'hour' | 'day' | 'week'
+    granularity: 'hour' | 'day' | 'week' | 'month' | 'year'
   ) => {
     if (!state.birthData) return;
     
@@ -164,6 +170,67 @@ export function useAstroData(): UseAstroDataReturn {
       setError(error instanceof Error ? error.message : '加载失败');
     }
   }, [state.birthData, setLoading, setError]);
+
+  const extendTimeSeries = useCallback(async (
+    start: string,
+    end: string,
+    granularity: 'hour' | 'day' | 'week' | 'month' | 'year',
+    mode: 'before' | 'after'
+  ) => {
+    if (!state.birthData) return;
+
+    try {
+      const next = await apiClient.getTimeSeries(
+        state.birthData,
+        start,
+        end,
+        granularity
+      );
+
+      setState(prev => {
+        const prevSeries = prev.timeSeries;
+        if (!prevSeries) {
+          return { ...prev, timeSeries: next };
+        }
+        if (prevSeries.granularity !== next.granularity) {
+          return { ...prev, timeSeries: next };
+        }
+
+        // 用 timestamp(ms) 作为 key 去重并排序
+        const toKey = (t: string) => {
+          const ms = Date.parse(t);
+          return Number.isFinite(ms) ? String(ms) : t;
+        };
+
+        const map = new Map<string, typeof next.points[number]>();
+        const push = (p: typeof next.points[number]) => map.set(toKey(p.time), p);
+
+        if (mode === 'before') {
+          next.points.forEach(push);
+          prevSeries.points.forEach(push);
+        } else {
+          prevSeries.points.forEach(push);
+          next.points.forEach(push);
+        }
+
+        const mergedPoints = Array.from(map.values()).sort((a, b) => {
+          const ma = Date.parse(a.time);
+          const mb = Date.parse(b.time);
+          return (Number.isFinite(ma) ? ma : 0) - (Number.isFinite(mb) ? mb : 0);
+        });
+
+        return {
+          ...prev,
+          timeSeries: {
+            ...prevSeries,
+            points: mergedPoints,
+          },
+        };
+      });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '加载失败');
+    }
+  }, [state.birthData, setError]);
 
   // 加载年限法地图
   const loadProfectionMap = useCallback(async (startAge = 0, endAge = 80) => {
@@ -197,6 +264,7 @@ export function useAstroData(): UseAstroDataReturn {
     refreshWeekly,
     loadLifeTrend,
     loadTimeSeries,
+    extendTimeSeries,
     loadProfectionMap,
     currentAge,
     clearError,
