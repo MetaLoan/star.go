@@ -179,8 +179,14 @@ func buildFactorResult(factors []models.InfluenceFactor, date time.Time) *models
 	for i := range factors {
 		factor := &factors[i]
 
-		// 生成ID
-		factor.ID = generateFactorID(factor.Type, i)
+		// 生成ID（基于类型和名称，确保去重）
+		// 确保 Name 存在再生成 ID
+		if factor.Name != "" {
+			factor.ID = generateFactorID(factor.Type, factor.Name)
+		} else {
+			// 如果 Name 为空，使用备用方案
+			factor.ID = string(factor.Type) + "_unnamed_" + itoa(i)
+		}
 
 		// 计算当前强度（根据生命周期）
 		factor.CurrentStrength = CalculateFactorStrength(factor.Lifecycle, date)
@@ -235,9 +241,10 @@ func calculateDimensionAdjustment(factor *models.InfluenceFactor) models.Dimensi
 	}
 }
 
-// generateFactorID 生成因子ID
-func generateFactorID(factorType models.InfluenceFactorType, index int) string {
-	return string(factorType) + "_" + itoa(index)
+// generateFactorID 生成因子ID（基于类型和名称，确保唯一性）
+func generateFactorID(factorType models.InfluenceFactorType, name string) string {
+	// 使用类型+名称作为唯一标识，确保去重
+	return string(factorType) + "_" + name
 }
 
 // itoa 简单的整数转字符串
@@ -414,6 +421,14 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 			Spiritual:    (transitImpact.Spiritual + natalImpact.Spiritual) / 2,
 		}
 
+		// 判断正负：harmonious=正, tense=负, neutral=根据baseValue判断
+		isPositive := aspectDef.Nature == "harmonious"
+		if aspectDef.Nature == "neutral" {
+			// 合相：根据最终 baseValue 正负判断
+			// 吉星（木星、金星）的合相倾向正面，凶星倾向负面
+			isPositive = baseValue > 0
+		}
+
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorAspectPhase,
 			Name:            transitInfo.Name + aspectDef.Name + natalInfo.Name,
@@ -424,7 +439,7 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 			Weight:          weight,
 			DimensionImpact: combinedImpact,
 			SourcePlanet:    asp.Planet1,
-			IsPositive:      aspectDef.Nature == "harmonious",
+			IsPositive:      isPositive,
 			AstroReason:     "行运" + transitInfo.Name + "与本命" + natalInfo.Name + "形成" + aspectDef.Name,
 		})
 	}
