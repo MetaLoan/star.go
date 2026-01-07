@@ -65,9 +65,9 @@ func CalculateVoidOfCourse(jd float64, natalPositions []models.PlanetPosition) V
 			for _, angle := range []float64{0, 60, 90, 120, 180} {
 				if math.Abs(diff-angle) < 1.0 {
 					hasUpcomingAspect = true
-					aspectName := getVocAspectName(angle)
-					planetInfo := GetPlanetInfo(transit.ID)
-					lastAspectDesc = "月亮" + aspectName + planetInfo.Name
+				aspectName := getVocAspectName(angle)
+				planetInfo := GetPlanetInfo(transit.ID)
+				lastAspectDesc = "Moon " + aspectName + " " + planetInfo.Name
 					break
 				}
 			}
@@ -108,19 +108,19 @@ func IsVoidOfCourseMoon(jd float64) bool {
 	return info.IsVoid
 }
 
-// getVocAspectName 获取相位中文名
+// getVocAspectName 获取相位名
 func getVocAspectName(angle float64) string {
 	switch int(angle) {
 	case 0:
-		return "合"
+		return "Conjunction"
 	case 60:
-		return "六分"
+		return "Sextile"
 	case 90:
-		return "刑"
+		return "Square"
 	case 120:
-		return "拱"
+		return "Trine"
 	case 180:
-		return "冲"
+		return "Opposition"
 	default:
 		return ""
 	}

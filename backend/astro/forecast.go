@@ -197,30 +197,30 @@ func normalizeScore(raw float64) float64 {
 func generateDailyTheme(moonSign models.MoonSignInfo, _ []models.AspectData) string {
 	// 基于月亮星座生成主题
 	themes := map[models.ZodiacID]string{
-		models.Aries:       "行动与开始",
-		models.Taurus:      "稳定与享受",
-		models.Gemini:      "沟通与学习",
-		models.Cancer:      "情感与家庭",
-		models.Leo:         "表达与创造",
-		models.Virgo:       "分析与服务",
-		models.Libra:       "关系与平衡",
-		models.Scorpio:     "转化与深度",
-		models.Sagittarius: "探索与扩张",
-		models.Capricorn:   "成就与责任",
-		models.Aquarius:    "创新与自由",
-		models.Pisces:      "灵性与直觉",
+		models.Aries:       "Action & Initiative",
+		models.Taurus:      "Stability & Enjoyment",
+		models.Gemini:      "Communication & Learning",
+		models.Cancer:      "Emotion & Family",
+		models.Leo:         "Expression & Creativity",
+		models.Virgo:       "Analysis & Service",
+		models.Libra:       "Relationships & Balance",
+		models.Scorpio:     "Transformation & Depth",
+		models.Sagittarius: "Exploration & Expansion",
+		models.Capricorn:   "Achievement & Responsibility",
+		models.Aquarius:    "Innovation & Freedom",
+		models.Pisces:      "Spirituality & Intuition",
 	}
 
 	if theme, ok := themes[moonSign.Sign]; ok {
 		return theme
 	}
-	return "一般日子"
+	return "Normal Day"
 }
 
 // generateWeeklyTheme 生成每周主题
 func generateWeeklyTheme(transits []models.WeeklyTransit) string {
 	if len(transits) == 0 {
-		return "平稳的一周"
+		return "Steady Week"
 	}
 
 	// 根据最重要的行运生成主题
@@ -232,12 +232,12 @@ func generateWeeklyTheme(transits []models.WeeklyTransit) string {
 	if len(themes) > 0 {
 		return themes[0]
 	}
-	return "多元发展的一周"
+	return "Week of Diverse Development"
 }
 
-// getDayOfWeekChinese 获取中文星期
+// getDayOfWeekChinese 获取星期名称
 func getDayOfWeekChinese(day time.Weekday) string {
-	days := []string{"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"}
+	days := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
 	return days[day]
 }
 
@@ -249,13 +249,13 @@ func findKeyDates(summaries []models.DailySummary) []models.KeyDate {
 		if s.OverallScore >= 75 {
 			keyDates = append(keyDates, models.KeyDate{
 				Date:         s.Date,
-				Event:        "高能量日",
+				Event:        "High Energy Day",
 				Significance: "high",
 			})
 		} else if s.OverallScore <= 35 {
 			keyDates = append(keyDates, models.KeyDate{
 				Date:         s.Date,
-				Event:        "挑战日",
+				Event:        "Challenge Day",
 				Significance: "medium",
 			})
 		}
@@ -353,17 +353,17 @@ func getTopFactors(factors *models.FactorResult, n int) []models.InfluenceFactor
 // getBestActivitiesForHour 获取该小时最佳活动
 func getBestActivitiesForHour(planetaryHour models.PlanetID) []string {
 	activities := map[models.PlanetID][]string{
-		models.Saturn:  {"计划", "冥想", "独处", "整理"},
-		models.Jupiter: {"学习", "旅行", "社交", "决策"},
-		models.Mars:    {"运动", "竞争", "启动项目", "主动行动"},
-		models.Sun:     {"领导", "创意", "展示自我", "重要会议"},
-		models.Venus:   {"艺术", "社交", "约会", "美容"},
-		models.Mercury: {"沟通", "写作", "商务", "学习"},
-		models.Moon:    {"家庭", "休息", "情感交流", "直觉决策"},
+		models.Saturn:  {"planning", "meditation", "solitude", "organizing"},
+		models.Jupiter: {"learning", "travel", "networking", "decision-making"},
+		models.Mars:    {"exercise", "competition", "initiating projects", "taking action"},
+		models.Sun:     {"leadership", "creativity", "self-expression", "important meetings"},
+		models.Venus:   {"art", "socializing", "dating", "beauty"},
+		models.Mercury: {"communication", "writing", "business", "learning"},
+		models.Moon:    {"family", "rest", "emotional connection", "intuitive decisions"},
 	}
 
 	if acts, ok := activities[planetaryHour]; ok {
 		return acts
 	}
-	return []string{"一般活动"}
+	return []string{"general activities"}
 }

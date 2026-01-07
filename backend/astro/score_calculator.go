@@ -282,24 +282,24 @@ func calculateDignityFactorsV2(transitPositions []models.PlanetPosition, weight 
 
 		switch dignity {
 		case models.DignityDomicile:
-			name = planetInfo.Name + "入庙"
-			description = planetInfo.Name + "在" + zodiacInfo.Name + "入庙，能量强大"
-			reason = "行星在自己主管的星座，表达最自然有力"
+			name = planetInfo.Name + " in Domicile"
+			description = planetInfo.Name + " in " + zodiacInfo.Name + " - domicile position, powerful energy"
+			reason = "Planet in its ruling sign, most natural and powerful expression"
 			isPositive = true
 		case models.DignityExaltation:
-			name = planetInfo.Name + "旺相"
-			description = planetInfo.Name + "在" + zodiacInfo.Name + "旺相，能量提升"
-			reason = "行星在提升其能量的星座"
+			name = planetInfo.Name + " Exalted"
+			description = planetInfo.Name + " in " + zodiacInfo.Name + " - exalted position, enhanced energy"
+			reason = "Planet in the sign that elevates its energy"
 			isPositive = true
 		case models.DignityDetriment:
-			name = planetInfo.Name + "落陷"
-			description = planetInfo.Name + "在" + zodiacInfo.Name + "落陷，能量受限"
-			reason = "行星在对宫星座，表达受阻"
+			name = planetInfo.Name + " in Detriment"
+			description = planetInfo.Name + " in " + zodiacInfo.Name + " - detriment position, restricted energy"
+			reason = "Planet in opposite sign, expression is hindered"
 			isPositive = false
 		case models.DignityFall:
-			name = planetInfo.Name + "失势"
-			description = planetInfo.Name + "在" + zodiacInfo.Name + "失势，需要额外努力"
-			reason = "行星在旺相的对宫，能量最弱"
+			name = planetInfo.Name + " in Fall"
+			description = planetInfo.Name + " in " + zodiacInfo.Name + " - fall position, requires extra effort"
+			reason = "Planet in opposite of exaltation, weakest energy"
 			isPositive = false
 		}
 
@@ -331,25 +331,25 @@ func calculateRetrogradeFactorsV2(transitPositions []models.PlanetPosition, weig
 
 		planetInfo := GetPlanetInfo(p.ID)
 		value := -2.0
-		reason := "逆行期间能量内转，相关事务需要回顾"
+		reason := "During retrograde, energy turns inward, related matters need review"
 
 		// 根据行星类型调整
 		switch p.ID {
 		case models.Mercury:
 			value = -3.0
-			reason = "水星主管沟通交流，逆行时沟通容易出错，合同签署需谨慎"
+			reason = "Mercury rules communication, retrograde may cause miscommunication, be cautious with contracts"
 		case models.Venus:
 			value = -2.5
-			reason = "金星主管关系与价值，逆行时需要重新审视感情和财务决定"
+			reason = "Venus rules relationships and values, retrograde requires reassessing emotional and financial decisions"
 		case models.Mars:
 			value = -2.5
-			reason = "火星主管行动力，逆行时行动容易受阻，不宜开展新计划"
+			reason = "Mars rules action, retrograde may hinder progress, not ideal for new initiatives"
 		case models.Saturn, models.Jupiter:
 			value = -1.5
-			reason = "外行星逆行周期较长，影响相对温和但持久"
+			reason = "Outer planet retrograde lasts longer, impact is moderate but persistent"
 		case models.Uranus, models.Neptune, models.Pluto:
 			value = -1.0
-			reason = "超外行星逆行近半年，属于常态，影响较为缓和"
+			reason = "Trans-Saturnian planet retrograde nearly half year, normal phenomenon, milder impact"
 		}
 
 		// 创建生命周期
@@ -358,8 +358,8 @@ func calculateRetrogradeFactorsV2(transitPositions []models.PlanetPosition, weig
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorRetrograde,
-			Name:            planetInfo.Name + "逆行",
-			Description:     planetInfo.Name + "正在逆行，相关领域可能需要回顾和调整",
+			Name:            planetInfo.Name + " Retrograde",
+			Description:     planetInfo.Name + " is retrograde, related areas may need review and adjustment",
 			TimeLevel:       models.TimeLevelWeekly,
 			Lifecycle:       lifecycle,
 			BaseValue:       value,
@@ -431,7 +431,7 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorAspectPhase,
-			Name:            transitInfo.Name + aspectDef.Name + natalInfo.Name,
+			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
 			Description:     asp.Interpretation,
 			TimeLevel:       models.TimeLevelDaily,
 			Lifecycle:       lifecycle,
@@ -440,7 +440,7 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 			DimensionImpact: combinedImpact,
 			SourcePlanet:    asp.Planet1,
 			IsPositive:      isPositive,
-			AstroReason:     "行运" + transitInfo.Name + "与本命" + natalInfo.Name + "形成" + aspectDef.Name,
+			AstroReason:     "Transit " + transitInfo.Name + " forms " + aspectDef.Name + " with natal " + natalInfo.Name,
 		})
 	}
 
@@ -486,7 +486,7 @@ func calculateLunarPhaseFactorsV2(transitPositions []models.PlanetPosition, weig
 	factors = append(factors, models.InfluenceFactor{
 		Type:            models.FactorLunarPhase,
 		Name:            phaseInfo.Name,
-		Description:     "当前月相为" + phaseInfo.Name + "，" + phaseInfo.Keywords[0],
+		Description:     "Current lunar phase: " + phaseInfo.Name + ", " + phaseInfo.Keywords[0],
 		TimeLevel:       models.TimeLevelDaily,
 		Lifecycle:       lifecycle,
 		BaseValue:       value,
@@ -494,7 +494,7 @@ func calculateLunarPhaseFactorsV2(transitPositions []models.PlanetPosition, weig
 		DimensionImpact: moonImpact,
 		SourcePlanet:    models.Moon,
 		IsPositive:      value > 0,
-		AstroReason:     "月相反映太阳与月亮的相对位置，影响情绪和能量节律",
+		AstroReason:     "Lunar phase reflects the relative position of Sun and Moon, affecting mood and energy rhythms",
 	})
 
 	return factors
@@ -529,8 +529,8 @@ func calculatePlanetaryHourFactorsV2(chart *models.NatalChart, date time.Time, w
 
 	factors = append(factors, models.InfluenceFactor{
 		Type:            models.FactorPlanetaryHour,
-		Name:            dayRulerInfo.Name + "日 " + hourRulerInfo.Name + "时",
-		Description:     "今天是" + dayRulerInfo.Name + "日，当前是第" + itoa(hourInfo.PlanetaryHour) + "个行星时，由" + hourRulerInfo.Name + "主管",
+		Name:            dayRulerInfo.Name + " Day " + hourRulerInfo.Name + " Hour",
+		Description:     "Today is " + dayRulerInfo.Name + " day, planetary hour #" + itoa(hourInfo.PlanetaryHour) + " ruled by " + hourRulerInfo.Name,
 		TimeLevel:       models.TimeLevelHourly,
 		Lifecycle:       lifecycle,
 		BaseValue:       value,
@@ -538,7 +538,7 @@ func calculatePlanetaryHourFactorsV2(chart *models.NatalChart, date time.Time, w
 		DimensionImpact: GetPlanetDimensionImpact(hourInfo.Ruler),
 		SourcePlanet:    hourInfo.Ruler,
 		IsPositive:      value > 0,
-		AstroReason:     "行星时源自古巴比伦，认为每个小时由不同行星主管，影响该时段的能量",
+		AstroReason:     "Planetary hours originate from ancient Babylon, each hour ruled by a different planet affecting that period's energy",
 	})
 
 	return factors
@@ -610,8 +610,8 @@ func calculateProfectionLordFactorsV2(chart *models.NatalChart, date time.Time, 
 
 	factors = append(factors, models.InfluenceFactor{
 		Type:            models.FactorProfectionLord,
-		Name:            "年主星" + lordInfo.Name + "状态",
-		Description:     "今年的年主星是" + lordInfo.Name + "，当前状态影响年度主题「" + profection.HouseTheme + "」",
+		Name:            "Annual Lord " + lordInfo.Name + " Status",
+		Description:     "This year's annual lord is " + lordInfo.Name + ", current state affects annual theme: " + profection.HouseTheme,
 		TimeLevel:       models.TimeLevelYearly,
 		Lifecycle:       lifecycle,
 		BaseValue:       value,
@@ -619,7 +619,7 @@ func calculateProfectionLordFactorsV2(chart *models.NatalChart, date time.Time, 
 		DimensionImpact: impact,
 		SourcePlanet:    profection.LordOfYear,
 		IsPositive:      value > 0,
-		AstroReason:     "年限法(Annual Profections)是古典占星技法，每年激活不同宫位",
+		AstroReason:     "Annual Profections is a classical astrology technique, activating different houses each year",
 	})
 
 	return factors
@@ -637,8 +637,8 @@ func calculateVoidOfCourseFactorsV2(jd float64, weight float64, date time.Time) 
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorVoidOfCourse,
-			Name:            "月亮空亡",
-			Description:     "月亮空亡中，持续" + formatDuration(vocInfo.Duration) + "后进入" + vocInfo.NextSign + "。此时不宜开始新事务",
+			Name:            "Moon Void of Course",
+			Description:     "Moon is void of course, lasting " + formatDuration(vocInfo.Duration) + " before entering " + vocInfo.NextSign + ". Not ideal for starting new matters",
 			TimeLevel:       models.TimeLevelHourly,
 			Lifecycle:       lifecycle,
 			BaseValue:       vocInfo.Influence,
@@ -646,7 +646,7 @@ func calculateVoidOfCourseFactorsV2(jd float64, weight float64, date time.Time) 
 			DimensionImpact: GetPlanetDimensionImpact(models.Moon),
 			SourcePlanet:    models.Moon,
 			IsPositive:      false,
-			AstroReason:     "月亮空亡指月亮在离开当前星座前不再形成任何主要相位，传统认为此时开始的事情难以按预期发展",
+			AstroReason:     "Void of course means Moon won't form any major aspects before leaving current sign, traditionally believed that things started now may not develop as expected",
 		})
 	}
 
@@ -656,13 +656,13 @@ func calculateVoidOfCourseFactorsV2(jd float64, weight float64, date time.Time) 
 // formatDuration 格式化持续时间
 func formatDuration(hours float64) string {
 	if hours < 1 {
-		return itoa(int(hours*60)) + "分钟"
+		return itoa(int(hours*60)) + " minutes"
 	}
 	h := int(hours)
 	m := int((hours - float64(h)) * 60)
 	if m > 0 {
-		return itoa(h) + "小时" + itoa(m) + "分钟"
+		return itoa(h) + "h " + itoa(m) + "m"
 	}
-	return itoa(h) + "小时"
+	return itoa(h) + " hours"
 }
 

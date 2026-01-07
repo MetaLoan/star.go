@@ -157,15 +157,15 @@ func buildOverallExplanation(breakdown ScoreBreakdownResponse, t time.Time, gran
 		QueryTime:   t.Format(time.RFC3339),
 		TimeLabel:   formatTimeLabel(t, granularity),
 		Granularity: getGranularityLabel(granularity),
-		Dimension:   "综合运势",
+		Dimension:   "Overall Fortune",
 		Score:       score,
 		ScoreLevel:  scoreLevel,
 		ScoreEmoji:  scoreEmoji,
 		Explanation: ScoreExplanationDetail{
-			Formula:     "五维度加权平均 → 标准化 → 最终分",
+			Formula:     "Five Dimension Weighted Average → Normalization → Final Score",
 			BaseScore:   50,
 			RawScore:    breakdown.OverallRaw,
-			Description: "综合运势由事业、关系、健康、财务、灵性五个维度各占20%加权计算得出",
+			Description: "Overall fortune is calculated from career, relationship, health, finance, and spiritual dimensions, each weighted at 20%",
 		},
 		AstronomicalFactors: astroFactors,
 		Summary:             buildOverallSummary(score, astroFactors),
@@ -222,9 +222,9 @@ func getFactorFriendlyName(f FactorContribution) string {
 	case "planetaryHour":
 		return f.Name // 如 "月亮日 土星时"
 	case "voidOfCourse":
-		return "月亮空亡期"
+		return "Moon Void of Course"
 	case "custom":
-		return "个人设定: " + f.Name
+		return "Personal Setting: " + f.Name
 	default:
 		return f.Name
 	}
@@ -234,21 +234,21 @@ func getFactorFriendlyName(f FactorContribution) string {
 func getFactorCategory(factorType string) string {
 	switch factorType {
 	case "dignity":
-		return "行星状态"
+		return "Planetary Dignity"
 	case "retrograde":
-		return "行星逆行"
+		return "Planetary Retrograde"
 	case "aspectPhase":
-		return "行星相位"
+		return "Planetary Aspect"
 	case "lunarPhase":
-		return "月相"
+		return "Lunar Phase"
 	case "planetaryHour":
-		return "行星时"
+		return "Planetary Hour"
 	case "voidOfCourse":
-		return "月亮空亡"
+		return "Moon Void of Course"
 	case "custom":
-		return "个人因素"
+		return "Personal Factor"
 	default:
-		return "其他"
+		return "Other"
 	}
 }
 
@@ -290,20 +290,20 @@ func getPlanetEmoji(planet string) string {
 // getEffectLabel 获取影响标签
 func getEffectLabel(isPositive bool) string {
 	if isPositive {
-		return "增强"
+		return "Enhance"
 	}
-	return "减弱"
+	return "Weaken"
 }
 
 // getIntensity 获取强度
 func getIntensity(value float64) string {
 	absVal := abs(value)
 	if absVal >= 0.5 {
-		return "强"
+		return "Strong"
 	} else if absVal >= 0.2 {
-		return "中"
+		return "Medium"
 	}
-	return "弱"
+	return "Weak"
 }
 
 // getFactorDescription 获取因素描述
@@ -311,22 +311,22 @@ func getFactorDescription(f FactorContribution) string {
 	switch f.Type {
 	case "dignity":
 		if f.IsPositive {
-			return "行星处于有利位置，能量得到提升"
+			return "Planet in favorable position, energy enhanced"
 		}
-		return "行星处于不利位置，能量有所削弱"
+		return "Planet in unfavorable position, energy weakened"
 	case "retrograde":
-		return "行星逆行期间，相关领域需要回顾和反思"
+		return "During planetary retrograde, related areas need review and reflection"
 	case "aspectPhase":
 		if f.IsPositive {
-			return "行星之间形成和谐角度，带来积极能量"
+			return "Planets form harmonious angle, bringing positive energy"
 		}
-		return "行星之间形成紧张角度，带来挑战"
+		return "Planets form tense angle, bringing challenges"
 	case "lunarPhase":
 		return getLunarPhaseDescription(f.Name)
 	case "planetaryHour":
-		return "当前时段的行星能量影响"
+		return "Current planetary hour energy influence"
 	case "custom":
-		return "个人设定的调整因素"
+		return "Personal adjustment factor"
 	default:
 		return f.Description
 	}
@@ -335,33 +335,33 @@ func getFactorDescription(f FactorContribution) string {
 // getLunarPhaseDescription 获取月相描述
 func getLunarPhaseDescription(name string) string {
 	descriptions := map[string]string{
-		"新月期": "新月时期，适合设立新目标和播种意图",
-		"上弦月期": "月亮渐盈，能量上升，适合采取行动",
-		"盈凸月期": "接近满月，准备收获的时期",
-		"满月期": "满月高峰，情绪和能量达到顶点，适合展现成果",
-		"亏凸月期": "满月后，适合分享和传播",
-		"下弦月期": "能量下降，适合释放和放手",
-		"残月期": "月亮即将隐没，适合休息和反思",
+		"New Moon":           "New Moon period, ideal for setting new goals and planting intentions",
+		"Crescent Moon":      "Moon waxing, energy rising, good time for action",
+		"Gibbous Moon":       "Approaching full moon, time to prepare for harvest",
+		"Full Moon":          "Full Moon peak, emotions and energy at their height, ideal for showcasing results",
+		"Disseminating Moon": "After full moon, good for sharing and spreading",
+		"Last Quarter":       "Energy decreasing, time for release and letting go",
+		"Balsamic Moon":      "Moon about to disappear, time for rest and reflection",
 	}
 	if desc, ok := descriptions[name]; ok {
 		return desc
 	}
-	return "月相影响当日能量和情绪"
+	return "Lunar phase influences daily energy and emotions"
 }
 
 // getAstroExplanation 获取占星学解释
 func getAstroExplanation(f FactorContribution) string {
 	switch f.Type {
 	case "dignity":
-		return "根据托勒密尊贵度系统，行星在特定星座的能量表达有强弱之分"
+		return "According to Ptolemy's dignity system, planets have varying energy expression in different signs"
 	case "retrograde":
-		return "从地球视角观察，行星呈现逆向移动，象征内省和重新评估"
+		return "From Earth's perspective, planet appears to move backward, symbolizing introspection and reassessment"
 	case "aspectPhase":
-		return "行星之间的角度关系决定了能量的互动方式"
+		return "Angular relationships between planets determine how energies interact"
 	case "lunarPhase":
-		return "月亮周期影响情绪、身体节律和日常事务"
+		return "Lunar cycle influences mood, body rhythms, and daily affairs"
 	case "planetaryHour":
-		return "古典占星的行星时系统，每个时段由不同行星主管"
+		return "Classical astrology's planetary hour system, each period ruled by a different planet"
 	default:
 		return ""
 	}
@@ -370,11 +370,11 @@ func getAstroExplanation(f FactorContribution) string {
 // getTimeLevelLabel 获取时间级别标签
 func getTimeLevelLabel(level string) string {
 	labels := map[string]string{
-		"yearly":  "长期",
-		"monthly": "月度",
-		"weekly":  "本周",
-		"daily":   "今日",
-		"hourly":  "当前小时",
+		"yearly":  "Long-term",
+		"monthly": "Monthly",
+		"weekly":  "This Week",
+		"daily":   "Today",
+		"hourly":  "Current Hour",
 	}
 	if l, ok := labels[level]; ok {
 		return l
@@ -385,40 +385,40 @@ func getTimeLevelLabel(level string) string {
 // getValidPeriod 获取有效期描述
 func getValidPeriod(level string) string {
 	periods := map[string]string{
-		"yearly":  "持续全年",
-		"monthly": "持续整月",
-		"weekly":  "本周有效",
-		"daily":   "今日有效",
-		"hourly":  "当前小时有效",
+		"yearly":  "Lasts all year",
+		"monthly": "Lasts all month",
+		"weekly":  "Valid this week",
+		"daily":   "Valid today",
+		"hourly":  "Valid this hour",
 	}
 	if p, ok := periods[level]; ok {
 		return p
 	}
-	return "持续中"
+	return "Ongoing"
 }
 
 // getScoreLevel 获取分数等级
 func getScoreLevel(score float64) (string, string) {
 	if score >= 85 {
-		return "极佳", "🌟"
+		return "Excellent", "🌟"
 	} else if score >= 70 {
-		return "良好", "✨"
+		return "Good", "✨"
 	} else if score >= 55 {
-		return "平稳", "💫"
+		return "Stable", "💫"
 	} else if score >= 40 {
-		return "需注意", "🌙"
+		return "Caution", "🌙"
 	}
-	return "挑战", "⚡"
+	return "Challenge", "⚡"
 }
 
 // getGranularityLabel 获取粒度标签
 func getGranularityLabel(g string) string {
 	labels := map[string]string{
-		"hour":  "小时",
-		"day":   "日",
-		"week":  "周",
-		"month": "月",
-		"year":  "年",
+		"hour":  "Hourly",
+		"day":   "Daily",
+		"week":  "Weekly",
+		"month": "Monthly",
+		"year":  "Yearly",
 	}
 	if l, ok := labels[g]; ok {
 		return l
@@ -429,12 +429,12 @@ func getGranularityLabel(g string) string {
 // getDimensionLabel 获取维度标签
 func getDimensionLabel(d string) string {
 	labels := map[string]string{
-		"career":       "事业运",
-		"relationship": "关系运",
-		"health":       "健康运",
-		"finance":      "财务运",
-		"spiritual":    "灵性运",
-		"overall":      "综合运势",
+		"career":       "Career Fortune",
+		"relationship": "Relationship Fortune",
+		"health":       "Health Fortune",
+		"finance":      "Finance Fortune",
+		"spiritual":    "Spiritual Fortune",
+		"overall":      "Overall Fortune",
 	}
 	if l, ok := labels[d]; ok {
 		return l
@@ -446,15 +446,15 @@ func getDimensionLabel(d string) string {
 func formatTimeLabel(t time.Time, granularity string) string {
 	switch granularity {
 	case "hour":
-		return fmt.Sprintf("%d年%d月%d日 %02d:00", t.Year(), t.Month(), t.Day(), t.Hour())
+		return fmt.Sprintf("%s %d, %d %02d:00", t.Month().String()[:3], t.Day(), t.Year(), t.Hour())
 	case "day":
-		return fmt.Sprintf("%d年%d月%d日", t.Year(), t.Month(), t.Day())
+		return fmt.Sprintf("%s %d, %d", t.Month().String()[:3], t.Day(), t.Year())
 	case "week":
-		return fmt.Sprintf("%d年第%d周", t.Year(), getWeekNumber(t))
+		return fmt.Sprintf("%d Week %d", t.Year(), getWeekNumber(t))
 	case "month":
-		return fmt.Sprintf("%d年%d月", t.Year(), t.Month())
+		return fmt.Sprintf("%s %d", t.Month().String(), t.Year())
 	case "year":
-		return fmt.Sprintf("%d年", t.Year())
+		return fmt.Sprintf("%d", t.Year())
 	default:
 		return t.Format("2006-01-02 15:04")
 	}
@@ -469,14 +469,14 @@ func getWeekNumber(t time.Time) int {
 // buildExplanationDetail 构建解释详情
 func buildExplanationDetail(dim DimensionBreakdown) ScoreExplanationDetail {
 	return ScoreExplanationDetail{
-		Formula:      "基础分 + 行星相位影响 + 其他天文因素 → 原始分 → 标准化 → 最终分",
+		Formula:      "Base Score + Planetary Aspects + Other Factors → Raw Score → Normalization → Final Score",
 		BaseScore:    dim.BaseScore,
 		AspectEffect: round2(dim.AspectScore),
 		FactorEffect: round2(dim.FactorScore),
 		RawScore:     round2(dim.RawScore),
 		Description: fmt.Sprintf(
-			"基础分%.0f，行星相位带来%+.1f的影响，其他天文因素带来%+.1f的影响，"+
-				"原始分%.1f经过标准化后得到最终分%.1f",
+			"Base score %.0f, planetary aspects contribute %+.1f, other factors contribute %+.1f, "+
+				"raw score %.1f normalized to final score %.1f",
 			dim.BaseScore, dim.AspectScore, dim.FactorScore, dim.RawScore, dim.FinalScore),
 	}
 }
@@ -489,21 +489,21 @@ func buildSummary(dimension string, score float64, factors []AstronomicalFactor)
 	// 找出最强的正负因素
 	var strongestPositive, strongestNegative string
 	for _, f := range factors {
-		if f.IsPositive && strongestPositive == "" && f.Intensity == "强" {
+		if f.IsPositive && strongestPositive == "" && f.Intensity == "Strong" {
 			strongestPositive = f.Name
 		}
-		if !f.IsPositive && strongestNegative == "" && f.Intensity == "强" {
+		if !f.IsPositive && strongestNegative == "" && f.Intensity == "Strong" {
 			strongestNegative = f.Name
 		}
 	}
 	
-	summary := fmt.Sprintf("您的%s当前状态为「%s」(%.0f分)。", dimLabel, level, score)
+	summary := fmt.Sprintf("Your %s status is '%s' (%.0f points). ", dimLabel, level, score)
 	
 	if strongestPositive != "" {
-		summary += fmt.Sprintf("「%s」为您带来积极能量。", strongestPositive)
+		summary += fmt.Sprintf("'%s' brings you positive energy. ", strongestPositive)
 	}
 	if strongestNegative != "" {
-		summary += fmt.Sprintf("需注意「%s」带来的挑战。", strongestNegative)
+		summary += fmt.Sprintf("Pay attention to challenges from '%s'. ", strongestNegative)
 	}
 	
 	return summary
@@ -515,19 +515,19 @@ func buildSuggestions(dimension string, score float64, factors []AstronomicalFac
 	
 	// 根据分数给出基础建议
 	if score >= 80 {
-		suggestions = append(suggestions, "运势极佳，可以大胆推进重要事项")
+		suggestions = append(suggestions, "Excellent fortune, good time to push forward on important matters")
 	} else if score >= 60 {
-		suggestions = append(suggestions, "运势良好，保持积极心态继续努力")
+		suggestions = append(suggestions, "Good fortune, maintain positive attitude and keep going")
 	} else if score >= 40 {
-		suggestions = append(suggestions, "运势平稳，适合稳扎稳打")
+		suggestions = append(suggestions, "Stable fortune, suitable for steady progress")
 	} else {
-		suggestions = append(suggestions, "运势有挑战，建议谨慎行事，等待时机")
+		suggestions = append(suggestions, "Challenging period, proceed with caution and wait for better timing")
 	}
 	
 	// 根据因素给出具体建议
 	for _, f := range factors {
 		if f.Type == "retrograde" && !f.IsPositive {
-			suggestions = append(suggestions, "有行星逆行，重要决定建议三思后行")
+			suggestions = append(suggestions, "Planetary retrograde present, think twice before major decisions")
 			break
 		}
 	}
@@ -536,15 +536,15 @@ func buildSuggestions(dimension string, score float64, factors []AstronomicalFac
 	switch dimension {
 	case "health":
 		if score < 60 {
-			suggestions = append(suggestions, "注意休息，避免过度劳累")
+			suggestions = append(suggestions, "Get adequate rest, avoid overexertion")
 		}
 	case "finance":
 		if score < 60 {
-			suggestions = append(suggestions, "财务方面保持谨慎，避免冲动消费")
+			suggestions = append(suggestions, "Be cautious with finances, avoid impulsive spending")
 		}
 	case "relationship":
 		if score >= 70 {
-			suggestions = append(suggestions, "适合社交和增进感情")
+			suggestions = append(suggestions, "Good time for socializing and deepening relationships")
 		}
 	}
 	
@@ -566,7 +566,7 @@ func buildOverallSummary(score float64, factors []AstronomicalFactor) string {
 	}
 	
 	return fmt.Sprintf(
-		"您的综合运势为「%s」(%.0f分)。当前有%d个积极因素和%d个需注意的因素在影响您。",
+		"Your overall fortune is '%s' (%.0f points). Currently %d positive factors and %d factors requiring attention are influencing you.",
 		level, score, positiveCount, negativeCount)
 }
 
@@ -574,23 +574,23 @@ func buildOverallSummary(score float64, factors []AstronomicalFactor) string {
 func buildOverallSuggestions(score float64) []string {
 	if score >= 80 {
 		return []string{
-			"整体运势极佳，是推进重要事项的好时机",
-			"保持积极心态，把握当下机遇",
+			"Excellent overall fortune, great time to push forward on important matters",
+			"Maintain positive attitude and seize current opportunities",
 		}
 	} else if score >= 60 {
 		return []string{
-			"运势良好，稳步推进各项事务",
-			"关注高分维度，发挥优势领域",
+			"Good fortune, steadily advance various affairs",
+			"Focus on high-scoring dimensions, leverage your strengths",
 		}
 	} else if score >= 40 {
 		return []string{
-			"运势平稳，适合处理日常事务",
-			"避免做出重大决定，等待更好时机",
+			"Stable fortune, suitable for handling daily affairs",
+			"Avoid major decisions, wait for better timing",
 		}
 	}
 	return []string{
-		"当前有较多挑战因素，建议谨慎行事",
-		"专注于必要事务，保持耐心",
+		"Multiple challenging factors present, proceed with caution",
+		"Focus on essential matters, maintain patience",
 	}
 }
 

@@ -14,7 +14,7 @@ func CalculateAnnualProfection(chart *models.NatalChart, age int) *models.Annual
 	// 获取宫位信息
 	houseInfo := GetHouseInfo(house)
 	if houseInfo == nil {
-		houseInfo = &HouseInfo{House: house, Name: "未知宫", Theme: "未知", Keywords: []string{}}
+		houseInfo = &HouseInfo{House: house, Name: "Unknown House", Theme: "Unknown", Keywords: []string{}}
 	}
 
 	// 获取该宫位的星座
@@ -71,9 +71,9 @@ func CalculateAnnualProfection(chart *models.NatalChart, age int) *models.Annual
 // generateProfectionDescription 生成年限法描述
 func generateProfectionDescription(house int, houseInfo *HouseInfo, _ *ZodiacInfo, lordInfo *PlanetInfo) string {
 	return fmt.Sprintf(
-		"今年是%d宫年（%s），主题是「%s」。年主星是%s（%s），"+
-			"今年的主要能量集中在%s相关的领域。需要关注：%s。",
-		house, houseInfo.Name, houseInfo.Theme,
+		"This is a %s year, theme: %s. Annual lord is %s (%s), "+
+			"main energy focuses on %s related areas. Key areas: %s.",
+		houseInfo.Name, houseInfo.Theme,
 		lordInfo.Name, lordInfo.Symbol,
 		houseInfo.Theme,
 		joinKeywords(houseInfo.Keywords),
@@ -87,7 +87,7 @@ func joinKeywords(keywords []string) string {
 	}
 	result := keywords[0]
 	for i := 1; i < len(keywords); i++ {
-		result += "、" + keywords[i]
+		result += ", " + keywords[i]
 	}
 	return result
 }
@@ -137,17 +137,17 @@ func CalculateProfectionMap(chart *models.NatalChart) *models.LifeProfectionMap 
 		FirstCycle: map[string]interface{}{
 			"startAge": 0,
 			"endAge":   11,
-			"theme":    "探索与学习",
+			"theme":    "Exploration & Learning",
 		},
 		SecondCycle: map[string]interface{}{
 			"startAge": 12,
 			"endAge":   23,
-			"theme":    "建立自我",
+			"theme":    "Building Self",
 		},
 		ThirdCycle: map[string]interface{}{
 			"startAge": 24,
 			"endAge":   35,
-			"theme":    "成就与责任",
+			"theme":    "Achievement & Responsibility",
 		},
 		CurrentCycleNumber:    currentCycleNumber,
 		YearsIntoCurrentCycle: yearsIntoCurrentCycle,

@@ -262,8 +262,8 @@ func generateLifeCycles(chart *models.NatalChart, _, _ int) models.LifeCycles {
 
 	// 土星周期
 	saturnCycles := []models.SaturnCycle{
-		{Age: 29, Year: birthYear + 29, Description: "第一次土星回归"},
-		{Age: 58, Year: birthYear + 58, Description: "第二次土星回归"},
+		{Age: 29, Year: birthYear + 29, Description: "First Saturn Return"},
+		{Age: 58, Year: birthYear + 58, Description: "Second Saturn Return"},
 	}
 
 	// 木星周期
@@ -272,18 +272,18 @@ func generateLifeCycles(chart *models.NatalChart, _, _ int) models.LifeCycles {
 		jupiterCycles = append(jupiterCycles, map[string]interface{}{
 			"age":         age,
 			"year":        birthYear + age,
-			"description": "木星回归",
+			"description": "Jupiter Return",
 		})
 	}
 
 	// 年限法周期
 	profectionCycles := []map[string]interface{}{
-		{"startAge": 0, "endAge": 11, "theme": "第一轮周期 - 探索与学习"},
-		{"startAge": 12, "endAge": 23, "theme": "第二轮周期 - 建立自我"},
-		{"startAge": 24, "endAge": 35, "theme": "第三轮周期 - 成就与责任"},
-		{"startAge": 36, "endAge": 47, "theme": "第四轮周期 - 整合与深化"},
-		{"startAge": 48, "endAge": 59, "theme": "第五轮周期 - 智慧与传承"},
-		{"startAge": 60, "endAge": 71, "theme": "第六轮周期 - 超越与觉醒"},
+		{"startAge": 0, "endAge": 11, "theme": "First Cycle - Exploration & Learning"},
+		{"startAge": 12, "endAge": 23, "theme": "Second Cycle - Building Self"},
+		{"startAge": 24, "endAge": 35, "theme": "Third Cycle - Achievement & Responsibility"},
+		{"startAge": 36, "endAge": 47, "theme": "Fourth Cycle - Integration & Deepening"},
+		{"startAge": 48, "endAge": 59, "theme": "Fifth Cycle - Wisdom & Legacy"},
+		{"startAge": 60, "endAge": 71, "theme": "Sixth Cycle - Transcendence & Awakening"},
 	}
 
 	return models.LifeCycles{

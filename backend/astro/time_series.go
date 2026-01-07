@@ -82,7 +82,7 @@ func generateUnifiedTimeSeriesPoints(chart *models.NatalChart, start, end time.T
 
 		case models.GranularityWeek:
 			score = CalculateWeeklyScore(chart, current)
-			label = current.Format("01-02") + "周"
+			label = current.Format("01-02") + " Week"
 
 		case models.GranularityMonth:
 			score = CalculateMonthlyScore(chart, current.Year(), current.Month())
@@ -132,7 +132,7 @@ func generateTimeLabel(t time.Time, granularity models.TimeGranularity) string {
 	case models.GranularityDay:
 		return t.Format("01-02")
 	case models.GranularityWeek:
-		return t.Format("01-02") + "周"
+		return t.Format("01-02") + " Week"
 	case models.GranularityMonth:
 		return t.Format("2006-01")
 	case models.GranularityYear:

@@ -37,13 +37,13 @@ var dayRulers = map[time.Weekday]models.PlanetID{
 
 // 行星时适合的活动
 var planetaryHourActivities = map[models.PlanetID][]string{
-	models.Sun:     {"领导", "创意", "展示自我", "重要会议"},
-	models.Moon:    {"情感", "家庭", "直觉", "休息"},
-	models.Mercury: {"沟通", "写作", "商务", "学习"},
-	models.Venus:   {"艺术", "社交", "约会", "美容"},
-	models.Mars:    {"运动", "竞争", "启动项目", "主动行动"},
-	models.Jupiter: {"学习", "旅行", "社交", "决策"},
-	models.Saturn:  {"计划", "冥想", "独处", "整理"},
+	models.Sun:     {"leadership", "creativity", "self-expression", "important meetings"},
+	models.Moon:    {"emotions", "family", "intuition", "rest"},
+	models.Mercury: {"communication", "writing", "business", "learning"},
+	models.Venus:   {"art", "socializing", "dating", "beauty"},
+	models.Mars:    {"exercise", "competition", "initiating projects", "taking action"},
+	models.Jupiter: {"learning", "travel", "networking", "decision-making"},
+	models.Saturn:  {"planning", "meditation", "solitude", "organizing"},
 }
 
 // CalculatePlanetaryHourEnhanced 计算行星时（增强版）

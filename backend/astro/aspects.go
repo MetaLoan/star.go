@@ -84,8 +84,8 @@ func CalculateTransitToNatalAspects(transitPositions, natalPositions []models.Pl
 					p2Weight := PlanetWeights[natal.ID]
 					weight := strength * def.Weight * (p1Weight + p2Weight) / 20.0
 
-					interpretation := fmt.Sprintf("行运%s与本命%s形成%s",
-						transit.Name, natal.Name, def.Name)
+				interpretation := fmt.Sprintf("Transit %s forms %s with natal %s",
+					transit.Name, def.Name, natal.Name)
 
 					aspects = append(aspects, models.AspectData{
 						Planet1:        transit.ID,
@@ -127,7 +127,7 @@ func generateAspectInterpretation(p1, p2 models.PlanetPosition, def AspectDefini
 		return ""
 	}
 
-	return fmt.Sprintf("%s与%s形成%s", p1Info.Name, p2Info.Name, def.Name)
+	return fmt.Sprintf("%s forms %s with %s", p1Info.Name, def.Name, p2Info.Name)
 }
 
 // DetectPatterns 检测图形相位
@@ -136,22 +136,22 @@ func DetectPatterns(aspects []models.AspectData, planets []models.PlanetPosition
 
 	// 检测大三角 (三个三分相)
 	if hasGrandTrine(aspects) {
-		patterns = append(patterns, "大三角")
+		patterns = append(patterns, "Grand Trine")
 	}
 
 	// 检测T三角 (两个四分相和一个对分相)
 	if hasTSquare(aspects) {
-		patterns = append(patterns, "T三角")
+		patterns = append(patterns, "T-Square")
 	}
 
 	// 检测大十字 (四个四分相和两个对分相)
 	if hasGrandCross(aspects) {
-		patterns = append(patterns, "大十字")
+		patterns = append(patterns, "Grand Cross")
 	}
 
 	// 检测风筝
 	if hasKite(aspects) {
-		patterns = append(patterns, "风筝")
+		patterns = append(patterns, "Kite")
 	}
 
 	return patterns
