@@ -1,14 +1,28 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
 /* ==================== 自定义主题变量 ==================== */
 @theme {
-  /* 宇宙主题色彩系统 */
+  /* 宇宙主题色彩系统 (Dark Mode) */
   --color-cosmic-nova: #00D4FF;
   --color-cosmic-aurora: #FF6B9D;
   --color-cosmic-nebula: #A855F7;
   --color-cosmic-void: #0A0A0F;
   --color-cosmic-dust: #1a1a2e;
+  
+  /* Freya 极简色彩系统 (Light Mode / MiniApp) */
+  --color-freya-background: oklch(1 0 0);
+  --color-freya-foreground: oklch(0.15 0 0);
+  --color-freya-border: oklch(0.92 0 0);
+  --color-freya-input: oklch(0.95 0 0);
+  --color-freya-muted: oklch(0.50 0 0);
+  
+  /* Freya 镭射彩色系统 */
+  --color-laser-pink: oklch(0.65 0.25 320);
+  --color-laser-blue: oklch(0.70 0.22 200);
+  --color-laser-cyan: oklch(0.75 0.20 160);
+  --color-laser-yellow: oklch(0.80 0.20 90);
+  --color-laser-green: oklch(0.72 0.18 140);
   
   /* 行星颜色 */
   --color-planet-sun: #ffd700;
@@ -38,12 +52,15 @@
   
   /* 字体 */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-serif: 'Playfair Display', serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
   /* 动画 */
   --animate-glow: glow 2s ease-in-out infinite alternate;
   --animate-float: float 6s ease-in-out infinite;
+  --animate-laser: laser-gradient 8s linear infinite;
+  --animate-ink: ink-reveal 0.8s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 
 /* ==================== 基础样式 ==================== */
@@ -66,6 +83,125 @@
   /* 标准化阴影 */
   --shadow-glow: 0 0 20px rgba(0, 212, 255, 0.3);
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  
+  /* Freya 变量 */
+  --radius-freya: 1rem;
+}
+
+/* ==================== 镭射动画 ==================== */
+@keyframes laser-gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes ink-reveal {
+  from { clip-path: inset(0 100% 0 0); opacity: 0; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+/* ==================== 极简模式 (MiniApp) Utility Classes ==================== */
+/* ==================== Freya 极简美学系统 (亮色优先) ==================== */
+.freya-mode {
+  --freya-bg: #ffffff;
+  --freya-fg: #000000;
+  --freya-border: rgba(0, 0, 0, 0.1);
+  --freya-hairline: rgba(0, 0, 0, 0.05);
+  
+  background-color: var(--freya-bg);
+  color: var(--freya-fg);
+  font-family: 'Playfair Display', serif;
+}
+
+.freya-mode .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--freya-border);
+}
+
+.freya-mode .hairline {
+  border-width: 0.5px;
+  border-color: var(--freya-hairline);
+}
+
+.freya-mode input, .freya-mode button {
+  border-radius: 0px; /* Freya 倾向于直角或极小圆角 */
+}
+
+/* 3ye 核心样式适配 */
+.box-frame {
+  border: 0.5px solid var(--freya-fg);
+  background: white;
+  padding: 1rem;
+}
+
+.holographic {
+  background: linear-gradient(
+    135deg,
+    #ffafbd 0%,
+    #ffc3a0 20%,
+    #2193b0 40%,
+    #6dd5ed 60%,
+    #ee9ca7 80%,
+    #ffdde1 100%
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.holographic-animate {
+  animation: holographic-move 10s ease infinite;
+}
+
+@keyframes holographic-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 强制亮色模式下的文字颜色 */
+.freya-mode .text-foreground { color: #000000; }
+.freya-mode .bg-background { background-color: #ffffff; }
+.freya-mode .border-foreground { border-color: rgba(0,0,0,0.1); }
+
+/* 隐藏 TradingView 标志 */
+div[class*="tv-lightweight-charts-logo"] {
+  display: none !important;
+}
+
+@layer utilities {
+  .laser-gradient {
+    background: linear-gradient(
+      135deg,
+      oklch(0.65 0.25 30) /* Red */,
+      oklch(0.6 0.25 280) /* Blue */,
+      oklch(0.65 0.22 300) /* Purple */,
+      oklch(0.8 0.2 90) /* Yellow */,
+      oklch(0.65 0.25 30) /* Red again for smooth loop */
+    );
+    background-size: 200% 200%;
+    animation: laser-gradient 8s ease infinite;
+  }
+
+  .laser-text {
+    background: linear-gradient(
+      135deg,
+      oklch(0.65 0.25 30) /* Red */,
+      oklch(0.6 0.25 280) /* Blue */,
+      oklch(0.65 0.22 300) /* Purple */,
+      oklch(0.8 0.2 90) /* Yellow */
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: laser-gradient 8s ease infinite;
+  }
+
+  .ink-effect {
+    animation: ink-reveal 0.8s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
 }
 
 /* ==================== 宇宙主题背景 ==================== */
@@ -75,6 +211,12 @@ body {
   font-family: var(--font-body);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+/* MiniApp 模式下的 body 样式（可选，取决于如何切换） */
+body.miniapp-mode {
+  background: var(--color-freya-background);
+  color: var(--color-freya-foreground);
 }
 
 /* ==================== 玻璃拟态组件 ==================== */

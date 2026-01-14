@@ -20,6 +20,7 @@ import { CustomFactorEditor9456DE } from './components/factors/CustomFactorEdito
 import { RealtimeDimensionDashboard7392WZ } from './components/ui/RealtimeDimensionDashboard7392WZ';
 import { MultiGranularityScoreViewer8475QR } from './components/ui/MultiGranularityScoreViewer8475QR';
 import { ScoreBreakdownPopup5932MN } from './components/ui/ScoreBreakdownPopup5932MN';
+import MiniAppDemo from './miniapp/MiniAppDemo';
 import type { PlanetID, BirthData, InfluenceFactor, ScoreBreakdownAllResponse, ActiveFactorsResponse } from './types';
 import { PLANET_NAMES, PLANET_SYMBOLS, PLANET_COLORS, formatDegree } from './utils/astro';
 import { apiClient } from './api/client';
@@ -59,6 +60,7 @@ function App() {
   } = useAstroData();
 
   const [selectedTab, setSelectedTab] = useState('chart');
+  const [showMiniApp, setShowMiniApp] = useState(false);
   const [highlightedPlanet, setHighlightedPlanet] = useState<PlanetID | null>(null);
   const [expandedForecast, setExpandedForecast] = useState<string | null>(null);
   const [showFactorEditor, setShowFactorEditor] = useState(false);
@@ -481,6 +483,20 @@ function App() {
   const handleBirthDataSubmit = async (data: BirthData) => {
     await setBirthData(data);
   };
+
+  if (showMiniApp) {
+    return (
+      <div className="relative">
+        <MiniAppDemo />
+        <button 
+          onClick={() => setShowMiniApp(false)}
+          className="fixed top-4 right-4 z-[100] bg-black/10 hover:bg-black/20 text-black px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm transition-all"
+        >
+          ← 返回平台
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -1200,9 +1216,23 @@ function App() {
       )}
 
       {/* 页脚 */}
-      <footer className="text-center text-white/30 text-sm mt-12">
-        <p>Star 占星计算验证平台 v1.0.0</p>
-        <p className="mt-1">数据基于天文算法计算，仅供研究参考</p>
+      <footer className="text-center text-white/30 text-sm mt-12 space-y-4">
+        <div>
+          <p>Star 占星计算验证平台 v1.0.0</p>
+          <p className="mt-1">数据基于天文算法计算，仅供研究参考</p>
+        </div>
+        
+        {/* MiniApp 入口 */}
+        <div className="pt-4 flex justify-center">
+          <Button
+            variant="flat"
+            className="bg-[#24A1DE]/10 hover:bg-[#24A1DE]/20 text-[#24A1DE] border border-[#24A1DE]/30"
+            onPress={() => setShowMiniApp(true)}
+          >
+            <span className="mr-2">✈️</span>
+            进入Telegram MiniAPP （演示模式）
+          </Button>
+        </div>
       </footer>
     </div>
   );

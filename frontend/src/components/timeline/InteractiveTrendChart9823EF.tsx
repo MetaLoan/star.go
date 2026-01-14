@@ -8,9 +8,11 @@
  * - 支持五维度数据展示
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { createChart, AreaSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, AreaData, Time } from 'lightweight-charts';
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button } from "@heroui/react";
+import { ChevronDown } from "lucide-react";
 import type { DimensionScores, Dimension } from '../../types';
 import { DIMENSION_NAMES, DIMENSION_COLORS } from '../../utils/astro';
 
@@ -34,21 +36,22 @@ interface InteractiveTrendChartProps {
   title?: string;
   color?: string;
   height?: number;
+  aspectRatio?: number; // 新增：宽高比，默认为 2 (即 2:1)
   showVolume?: boolean;
-  showDimensions?: boolean; // 新增：是否显示维度选择器
+  showDimensions?: boolean;
   className?: string;
   onPointHover?: (point: TrendDataPoint | null) => void;
   onPointClick?: (point: TrendDataPoint, dimension: Dimension | 'overall', event?: MouseEvent) => void;
-  onVisibleRangeChange?: (range: VisibleRangeChange) => void; // 新增：可视范围变化回调
-  isLoading?: boolean; // 新增：是否正在加载更多数据
+  onVisibleRangeChange?: (range: VisibleRangeChange) => void;
+  isLoading?: boolean;
 }
 
 // 颜色主题
 const CHART_COLORS = {
   background: 'transparent',
-  textColor: 'rgba(255, 255, 255, 0.6)',
-  gridColor: 'rgba(255, 255, 255, 0.1)',
-  crosshairColor: 'rgba(255, 255, 255, 0.5)',
+  textColor: 'rgba(0, 0, 0, 0.4)',
+  gridColor: 'rgba(0, 0, 0, 0.05)',
+  crosshairColor: 'rgba(0, 0, 0, 0.2)',
 };
 
 // 维度配置
@@ -70,7 +73,8 @@ export function InteractiveTrendChart9823EF({
   data,
   title,
   color = '#00D4FF',
-  height = 300,
+  height: initialHeight,
+  aspectRatio = 2,
   showDimensions = false,
   className = '',
   onPointHover,
@@ -85,6 +89,7 @@ export function InteractiveTrendChart9823EF({
   const onVisibleRangeChangeRef = useRef<typeof onVisibleRangeChange>(onVisibleRangeChange);
   const onPointClickRef = useRef<typeof onPointClick>(onPointClick);
   const [selectedDimension, setSelectedDimension] = useState<Dimension | 'overall'>('overall');
+  const [chartHeight, setChartHeight] = useState(initialHeight || 200);
   const selectedDimensionRef = useRef<Dimension | 'overall'>(selectedDimension); // 用于点击回调
   const lastRangeCheckRef = useRef<number>(0); // 防抖：上次检查时间
   const lastClickEventRef = useRef<MouseEvent | null>(null); // 记录最后一次点击的 MouseEvent
@@ -239,6 +244,12 @@ export function InteractiveTrendChart9823EF({
     });
   }, [getValueForDimension]);
 
+  useEffect(() => {
+    if (containerRef.current && !initialHeight) {
+      setChartHeight(containerRef.current.clientWidth / aspectRatio);
+    }
+  }, [aspectRatio, initialHeight]);
+
   // 初始化图表
   useEffect(() => {
     if (!containerRef.current) return;
@@ -246,7 +257,7 @@ export function InteractiveTrendChart9823EF({
     // 创建图表
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height,
+      height: chartHeight,
       layout: {
         background: { color: CHART_COLORS.background },
         textColor: CHART_COLORS.textColor,
@@ -392,32 +403,52 @@ export function InteractiveTrendChart9823EF({
 
     // 订阅十字准线移动事件
     chart.subscribeCrosshairMove((param) => {
-      if (param.time && param.seriesData.size > 0) {
-        const price = param.seriesData.get(areaSeries);
-        if (price && tooltipRef.current) {
-          const t = typeof param.time === 'number' ? param.time : 0;
-          const point = timeToPointRef.current.get(t);
-          if (point) {
-            tooltipRef.current.style.display = 'block';
-            const displayValue = getValueForDimension(point);
-            const dimensionLabel = selectedDimension === 'overall' ? '综合' : DIMENSION_NAMES[selectedDimension];
-            // 格式化时间显示（使用 UTC，与图表底部保持一致）
-            let timeDisplay = point.label || point.time;
-            if (point.time.includes('T')) {
-              const d = new Date(point.time);
-              if (!isNaN(d.getTime())) {
-                const h = d.getUTCHours().toString().padStart(2, '0');
-                const m = d.getUTCMinutes().toString().padStart(2, '0');
-                timeDisplay = `${h}:${m}`;
-              }
-            }
-            tooltipRef.current.innerHTML = `
-              <div class="font-bold" style="color: ${currentColor}">${displayValue.toFixed(1)}</div>
-              <div class="text-xs text-white/60">${timeDisplay}</div>
-              ${showDimensions ? `<div class="text-xs text-white/40">${dimensionLabel}</div>` : ''}
-            `;
-            onPointHover?.(point);
+      if (param.time && param.seriesData.size > 0 && param.point && tooltipRef.current) {
+        const t = typeof param.time === 'number' ? param.time : 0;
+        const point = timeToPointRef.current.get(t);
+        
+        if (point) {
+          tooltipRef.current.style.display = 'block';
+          const displayValue = getValueForDimension(point);
+          const dimensionLabel = selectedDimension === 'overall' ? '综合' : DIMENSION_NAMES[selectedDimension];
+          
+          // 获取坐标并计算绝对定位
+          const toolTipWidth = 80;
+          const toolTipHeight = 80;
+          const toolTipMargin = 15;
+          
+          let left = param.point.x + toolTipMargin;
+          if (left > containerRef.current!.clientWidth - toolTipWidth) {
+            left = param.point.x - toolTipWidth - toolTipMargin;
           }
+
+          let top = param.point.y + toolTipMargin;
+          if (top > chartHeight - toolTipHeight) {
+            top = param.point.y - toolTipHeight - toolTipMargin;
+          }
+
+          tooltipRef.current.style.left = left + 'px';
+          tooltipRef.current.style.top = top + 'px';
+          
+          // 格式化时间显示
+          let timeDisplay = point.label || point.time;
+          if (point.time.includes('T')) {
+            const d = new Date(point.time);
+            if (!isNaN(d.getTime())) {
+              const h = d.getHours().toString().padStart(2, '0');
+              const m = d.getMinutes().toString().padStart(2, '0');
+              timeDisplay = `${h}:${m}`;
+            }
+          }
+
+          tooltipRef.current.innerHTML = `
+            <div class="flex flex-col items-center justify-center text-center">
+              <div class="text-xl font-serif font-bold" style="color: ${currentColor}">${displayValue.toFixed(1)}</div>
+              <div class="text-[10px] text-black/40 mt-1">${timeDisplay}</div>
+              <div class="text-[10px] text-black/20 font-sans uppercase tracking-widest">${dimensionLabel}</div>
+            </div>
+          `;
+          onPointHover?.(point);
         }
       } else {
         if (tooltipRef.current) {
@@ -448,8 +479,12 @@ export function InteractiveTrendChart9823EF({
     // 监听窗口大小变化
     const handleResize = () => {
       if (containerRef.current && chartRef.current) {
+        const width = containerRef.current.clientWidth;
+        const newHeight = initialHeight || width / aspectRatio;
+        setChartHeight(newHeight);
         chartRef.current.applyOptions({
-          width: containerRef.current.clientWidth,
+          width: width,
+          height: newHeight,
         });
       }
     };
@@ -464,7 +499,7 @@ export function InteractiveTrendChart9823EF({
       seriesRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [height, currentColor, selectedDimension, showDimensions]);
+  }, [currentColor, selectedDimension, showDimensions]);
 
   // 更新数据（保持当前视图位置，不自动 fitContent）
   useEffect(() => {
@@ -517,67 +552,92 @@ export function InteractiveTrendChart9823EF({
 
   return (
     <div className={`relative ${className}`}>
-      {/* 标题栏 */}
-      <div className="flex items-center justify-between mb-2 px-2">
-        {/* 标题 */}
-        {title && (
-          <div className="text-sm font-medium text-white/80">
-            {title}
+      {/* 标题栏 - 针对手机优化，减少误触 */}
+      <div className="flex items-end justify-between mb-6 px-4 pt-2">
+        {/* 标题与当前值状态 */}
+        <div className="flex flex-col">
+          {title && <div className="text-[9px] uppercase tracking-[0.2em] text-black/30 font-sans mb-1.5">{title}</div>}
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-serif font-light text-black">
+              {selectedDimension === 'overall' ? '综合趋势' : `${DIMENSION_NAMES[selectedDimension]}指数`}
+            </span>
           </div>
-        )}
+        </div>
         
-        {/* 维度选择器 */}
+        {/* 维度选择器 - 下拉菜单，防止 Tab 过多导致误触 */}
         {showDimensions && (
-          <div className="flex gap-1">
-            {DIMENSION_OPTIONS.map((dim) => (
-              <button
-                key={dim.id}
-                onClick={() => setSelectedDimension(dim.id)}
-                className={`px-2 py-1 text-xs rounded-lg transition-all ${
-                  selectedDimension === dim.id
-                    ? 'text-white'
-                    : 'text-white/50 hover:text-white/70'
-                }`}
-                style={{
-                  backgroundColor: selectedDimension === dim.id ? `${dim.color}30` : 'transparent',
-                  border: selectedDimension === dim.id ? `1px solid ${dim.color}` : '1px solid transparent',
-                }}
+          <Dropdown 
+            placement="bottom-end" 
+            classNames={{ 
+              content: "freya-mode min-w-[140px] rounded-none border-[0.5px] border-black/10 shadow-xl p-0" 
+            }}
+          >
+            <DropdownTrigger>
+              <Button 
+                variant="bordered" 
+                size="md" 
+                endContent={<ChevronDown size={14} className="opacity-40" />}
+                className="text-[10px] uppercase tracking-[0.15em] font-bold h-10 px-4 rounded-none border-black/10 hover:bg-black/5"
               >
-                {dim.label}
-              </button>
-            ))}
-          </div>
+                {DIMENSION_OPTIONS.find(d => d.id === selectedDimension)?.label || '维度'}
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu 
+              aria-label="Dimension Selection"
+              variant="light"
+              disallowEmptySelection
+              selectionMode="single"
+              selectedKeys={new Set([selectedDimension])}
+              onSelectionChange={(keys) => {
+                const key = Array.from(keys)[0] as Dimension | 'overall';
+                setSelectedDimension(key);
+              }}
+              className="p-1"
+            >
+              {DIMENSION_OPTIONS.map((dim) => (
+                <DropdownItem 
+                  key={dim.id} 
+                  startContent={<div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dim.color }} />}
+                  className="rounded-none py-3"
+                  classNames={{ 
+                    title: cn(
+                      "text-[10px] uppercase tracking-widest",
+                      selectedDimension === dim.id ? "font-bold text-black" : "text-black/60"
+                    )
+                  }}
+                >
+                  {dim.label}
+                </DropdownItem>
+              ))}
+            </DropdownMenu>
+          </Dropdown>
         )}
-
-        {/* 提示框 */}
-        <div
-          ref={tooltipRef}
-          className="glass-card px-3 py-2 hidden"
-        />
       </div>
       
       {/* 图表容器 */}
-      <div className="relative">
+      <div className="relative px-2">
         <div
           ref={containerRef}
-          className="w-full rounded-lg overflow-hidden"
-          style={{ height }}
+          className="w-full overflow-hidden"
+          style={{ height: chartHeight }}
+        />
+
+        {/* 提示框 - 绝对定位 */}
+        <div
+          ref={tooltipRef}
+          className="absolute z-50 pointer-events-none bg-white/90 backdrop-blur-md shadow-xl border border-black/5 rounded-xl px-4 py-3 hidden flex flex-col items-center justify-center min-w-[80px]"
+          style={{ transition: 'left 0.1s ease-out, top 0.1s ease-out' }}
         />
         
         {/* 加载中指示器 */}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
-              <span className="text-xs text-white/80">加载更多数据...</span>
+            <div className="flex items-center gap-2 bg-black/5 backdrop-blur-sm px-4 py-2 rounded-lg">
+              <div className="w-4 h-4 border-2 border-black/10 border-t-black/40 rounded-full animate-spin" />
+              <span className="text-xs text-black/40 font-sans tracking-wider">加载更多数据...</span>
             </div>
           </div>
         )}
-      </div>
-      
-      {/* 操作提示 */}
-      <div className="absolute bottom-2 left-2 z-10 text-xs text-white/40">
-        拖拽平移 | 滚轮缩放 | 双击重置
       </div>
     </div>
   );
