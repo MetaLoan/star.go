@@ -84,6 +84,58 @@ func CalculateUnifiedHourlyScore(chart *models.NatalChart, t time.Time) UnifiedS
 	return CalculateUnifiedHourlyScoreWithUser(chart, t, "")
 }
 
+// CalculateUnifiedHourlyScoreLite 轻量版小时分数计算（用于时间序列，跳过精确相位时间搜索）
+func CalculateUnifiedHourlyScoreLite(chart *models.NatalChart, t time.Time) UnifiedScore {
+	// 1. 获取行运位置
+	transitPositions := GetTransitPositions(t)
+
+	// 2. 计算行运相位
+	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
+
+	// 3. 计算每个维度的相位分数
+	dimensionScores := calculateDimensionAspectScores(aspects)
+
+	// 4. 计算轻量版影响因子（跳过精确相位时间搜索）
+	factors := CalculateInfluenceFactorsLite(chart, t, transitPositions)
+	factorDetails := distributeFactorsToDimensions(factors)
+
+	// 5. 应用因子调整到各维度
+	for _, fd := range factorDetails {
+		for dim, contrib := range fd.Dimensions {
+			dimensionScores[dim] += contrib
+		}
+	}
+
+	// 6. 标准化各维度分数
+	normalizedDimensions := make(map[string]float64)
+	for dim, score := range dimensionScores {
+		normalizedDimensions[dim] = NormalizeScoreV2(score)
+	}
+
+	// 7. 计算综合分（五维度加权平均）
+	overallRaw := (dimensionScores["career"]*0.2 +
+		dimensionScores["relationship"]*0.2 +
+		dimensionScores["health"]*0.2 +
+		dimensionScores["finance"]*0.2 +
+		dimensionScores["spiritual"]*0.2)
+
+	overall := NormalizeScoreV2(overallRaw)
+
+	// 8. 应用视觉抖动
+	jitterSeed := GenerateSeedFromTime(t.Year(), int(t.Month()), t.Day(), t.Hour())
+	overall = ApplyJitter(overall, jitterSeed)
+	for dim := range normalizedDimensions {
+		normalizedDimensions[dim] = ApplyJitter(normalizedDimensions[dim], jitterSeed+int64(dim[0]))
+	}
+
+	return UnifiedScore{
+		Overall:    overall,
+		Dimensions: normalizedDimensions,
+		RawValue:   overallRaw,
+		Factors:    factorDetails,
+	}
+}
+
 // CalculateUnifiedHourlyScoreWithUser 计算小时级别分数（支持自定义因子）
 func CalculateUnifiedHourlyScoreWithUser(chart *models.NatalChart, t time.Time, userID string) UnifiedScore {
 	// 1. 获取行运位置
@@ -313,6 +365,83 @@ func CalculateYearlyScore(chart *models.NatalChart, year int) UnifiedScore {
 		Dimensions: avgDimensions,
 		RawValue:   avgOverall,
 	}
+}
+
+// =============================================================================
+// 轻量版分数计算函数（用于时间序列，跳过精确相位时间搜索）
+// =============================================================================
+
+// CalculateDailyScoreLite 轻量版日分数计算（跳过精确相位时间搜索）
+func CalculateDailyScoreLite(chart *models.NatalChart, date time.Time) UnifiedScore {
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+
+	// 性能优化：不再计算24小时平均，只计算正午时刻作为代表
+	// 这样可以将性能提升24倍，同时保持数据合理性
+	noonTime := startOfDay.Add(12 * time.Hour)
+	return CalculateUnifiedHourlyScoreLite(chart, noonTime)
+	avgDimensions := make(map[string]float64)
+	for _, d := range dimensions {
+		avgDimensions[d] = totalDimensions[d] / 24
+	}
+
+	return UnifiedScore{
+		Overall:    math.Round(avgOverall*10000) / 10000,
+		Dimensions: avgDimensions,
+		RawValue:   avgOverall,
+	}
+}
+
+// CalculateWeeklyScoreLite 轻量版周分数计算
+func CalculateWeeklyScoreLite(chart *models.NatalChart, startDate time.Time) UnifiedScore {
+	weekday := int(startDate.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	monday := startDate.AddDate(0, 0, -(weekday - 1))
+	monday = time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
+
+	// 性能优化：不再计算7天平均，只计算周三正午作为代表
+	// 周三是一周的中间点，更有代表性
+	wednesdayNoon := monday.AddDate(0, 0, 2).Add(12 * time.Hour)
+	return CalculateUnifiedHourlyScoreLite(chart, wednesdayNoon)
+
+	avgOverall := totalOverall / 7
+	avgDimensions := make(map[string]float64)
+	for _, d := range dimensions {
+		avgDimensions[d] = totalDimensions[d] / 7
+	}
+
+	return UnifiedScore{
+		Overall:    math.Round(avgOverall*10000) / 10000,
+		Dimensions: avgDimensions,
+		RawValue:   avgOverall,
+	}
+}
+
+// CalculateMonthlyScoreLite 轻量版月分数计算
+func CalculateMonthlyScoreLite(chart *models.NatalChart, year int, month time.Month) UnifiedScore {
+	// 性能优化：不再计算30天平均，只计算月中（15号）正午作为代表
+	// 这样可以将性能从720次计算降低到1次，提升720倍
+	midMonthNoon := time.Date(year, month, 15, 12, 0, 0, 0, time.UTC)
+	return CalculateUnifiedHourlyScoreLite(chart, midMonthNoon)
+	avgDimensions := make(map[string]float64)
+	for _, d := range dimensions {
+		avgDimensions[d] = totalDimensions[d] / float64(daysInMonth)
+	}
+
+	return UnifiedScore{
+		Overall:    math.Round(avgOverall*10000) / 10000,
+		Dimensions: avgDimensions,
+		RawValue:   avgOverall,
+	}
+}
+
+// CalculateYearlyScoreLite 轻量版年分数计算
+func CalculateYearlyScoreLite(chart *models.NatalChart, year int) UnifiedScore {
+	// 性能优化：不再计算12个月平均，只计算年中（7月1日）正午作为代表
+	// 这样可以将性能从8760次计算降低到1次，提升8760倍
+	midYearNoon := time.Date(year, time.July, 1, 12, 0, 0, 0, time.UTC)
+	return CalculateUnifiedHourlyScoreLite(chart, midYearNoon)
 }
 
 // =============================================================================

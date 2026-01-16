@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"star/astro"
 	"star/models"
@@ -57,19 +58,28 @@ func CalculateDailyForecast(c *gin.Context) {
 		return
 	}
 
-	// 解析日期 - 支持多种格式
+	// 解析日期 - 优先使用更精确的 targetDate
+	// 优先级：targetDate (ISO 8601 带时间) > date (可能是纯日期)
 	date := time.Now()
-	dateStr := req.Date
-	if dateStr == "" {
-		dateStr = req.TargetDate
-	}
-	if dateStr != "" {
-		// 尝试 ISO 格式 (带时区)
-		if parsed, err := time.Parse(time.RFC3339, dateStr); err == nil {
+
+	// 首先尝试解析 targetDate（更精确的时间）
+	if req.TargetDate != "" {
+		if parsed, err := time.Parse(time.RFC3339, req.TargetDate); err == nil {
 			date = parsed
-		} else if parsed, err := time.Parse("2006-01-02T15:04:05-07:00", dateStr); err == nil {
+		} else if parsed, err := time.Parse("2006-01-02T15:04:05-07:00", req.TargetDate); err == nil {
 			date = parsed
-		} else if parsed, err := time.Parse("2006-01-02", dateStr); err == nil {
+		} else if parsed, err := time.Parse("2006-01-02T15:04:05", req.TargetDate); err == nil {
+			date = parsed
+		} else if parsed, err := time.Parse("2006-01-02", req.TargetDate); err == nil {
+			date = parsed
+		}
+	} else if req.Date != "" {
+		// 如果没有 targetDate，则使用 date
+		if parsed, err := time.Parse(time.RFC3339, req.Date); err == nil {
+			date = parsed
+		} else if parsed, err := time.Parse("2006-01-02T15:04:05-07:00", req.Date); err == nil {
+			date = parsed
+		} else if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
 			date = parsed
 		}
 	}
@@ -128,6 +138,8 @@ func CalculateTimeSeries(c *gin.Context) {
 		BirthData   models.BirthData `json:"birthData"`
 		Start       string           `json:"start"`
 		End         string           `json:"end"`
+		StartTime   string           `json:"startTime"`   // 兼容前端字段名
+		EndTime     string           `json:"endTime"`     // 兼容前端字段名
 		Granularity string           `json:"granularity"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -135,8 +147,22 @@ func CalculateTimeSeries(c *gin.Context) {
 		return
 	}
 
+	// 兼容两种字段名（优先使用有值的字段）
+	start := req.Start
+	if req.StartTime != "" {
+		start = req.StartTime
+	}
+	end := req.End
+	if req.EndTime != "" {
+		end = req.EndTime
+	}
+
+	// 调试日志 - 总是打印
+	fmt.Printf("DEBUG Handler: start='%s', end='%s', startTime='%s', endTime='%s', final_start='%s', final_end='%s'\n", 
+		req.Start, req.End, req.StartTime, req.EndTime, start, end)
+
 	chart := astro.CalculateNatalChart(req.BirthData)
-	series := astro.CalculateTimeSeries(chart, req.Start, req.End, req.Granularity)
+	series := astro.CalculateTimeSeries(chart, start, end, req.Granularity)
 	c.JSON(http.StatusOK, series)
 }
 
@@ -750,6 +776,63 @@ func GetActiveFactorsInRange(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// GetTotalFactors 获取全因子数据
+// POST /api/calc/total-factors
+// 返回指定时间点的所有影响因子，按粒度过滤，包含正负影响和出相时间
+func GetTotalFactors(c *gin.Context) {
+	var req struct {
+		BirthData   models.BirthData `json:"birthData"`
+		QueryTime   string           `json:"queryTime"`   // ISO 8601 格式
+		Granularity string           `json:"granularity"` // hour, day, week, month, year
+		UserID      string           `json:"userId,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 验证粒度参数
+	validGranularities := map[string]bool{
+		"hour": true, "day": true, "week": true, "month": true, "year": true,
+	}
+	if req.Granularity == "" {
+		req.Granularity = "day" // 默认为天级别
+	}
+	if !validGranularities[req.Granularity] {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "无效的粒度参数",
+			"valid":   []string{"hour", "day", "week", "month", "year"},
+			"example": "day",
+		})
+		return
+	}
+
+	// 解析时间
+	queryTime, err := time.Parse(time.RFC3339, req.QueryTime)
+	if err != nil {
+		queryTime, err = time.Parse("2006-01-02T15:04:05", req.QueryTime)
+		if err != nil {
+			queryTime, err = time.Parse("2006-01-02", req.QueryTime)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":   "无效的时间格式",
+					"example": "2026-01-15 或 2026-01-15T12:00:00+08:00",
+				})
+				return
+			}
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 获取全因子数据
+	result := astro.GetTotalFactors(chart, queryTime, req.Granularity, req.UserID)
+
+	c.JSON(http.StatusOK, result)
+}
+
 // ==================== C端用户友好接口 ====================
 
 // GetScoreExplanation 获取分数解释（面向C端用户）
@@ -822,4 +905,397 @@ func GetScoreExplanation(c *gin.Context) {
 	explanation := astro.GetScoreExplanation(chart, queryTime, req.Granularity, req.Dimension, req.UserID)
 
 	c.JSON(http.StatusOK, explanation)
+}
+
+// ==================== 高级因子查询接口 ====================
+
+// GetAdvancedFactors 获取所有高级因子
+func GetAdvancedFactors(c *gin.Context) {
+	var req struct {
+		BirthData  models.BirthData `json:"birthData"`
+		QueryTime  string           `json:"queryTime"`
+		FactorType string           `json:"factorType"` // 可选：指定查询的因子类型
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 解析时间
+	queryTime := time.Now()
+	if req.QueryTime != "" {
+		if parsed, err := time.Parse(time.RFC3339, req.QueryTime); err == nil {
+			queryTime = parsed
+		} else if parsed, err := time.Parse("2006-01-02", req.QueryTime); err == nil {
+			queryTime = parsed
+		}
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 构建出生时间
+	birthTime := time.Date(
+		req.BirthData.Year, time.Month(req.BirthData.Month), req.BirthData.Day,
+		req.BirthData.Hour, req.BirthData.Minute, req.BirthData.Second,
+		0, time.FixedZone("", int(req.BirthData.Timezone*3600)),
+	)
+
+	// 计算所有高级因子
+	allFactors := astro.CalculateAllAdvancedFactors(chart, birthTime, queryTime)
+
+	// 如果指定了因子类型，进行过滤
+	if req.FactorType != "" {
+		var filtered []models.InfluenceFactor
+		for _, f := range allFactors {
+			if string(f.Type) == req.FactorType {
+				filtered = append(filtered, f)
+			}
+		}
+		allFactors = filtered
+	}
+
+	// 按类型分组
+	grouped := make(map[string][]models.InfluenceFactor)
+	for _, f := range allFactors {
+		key := string(f.Type)
+		grouped[key] = append(grouped[key], f)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime":  queryTime.Format(time.RFC3339),
+		"totalCount": len(allFactors),
+		"factors":    allFactors,
+		"grouped":    grouped,
+		"summary":    getFactorTypeSummary(allFactors),
+	})
+}
+
+// GetEclipseFactors 获取日月食因子
+func GetEclipseFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateEclipseFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+	})
+}
+
+// GetLunarNodeFactors 获取月交点因子
+func GetLunarNodeFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateLunarNodeFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+	})
+}
+
+// GetCombustionFactors 获取燃烧因子
+func GetCombustionFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateCombustionFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+	})
+}
+
+// GetStationFactors 获取停滞因子
+func GetStationFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateStationFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+	})
+}
+
+// GetReceptionFactors 获取互容因子
+func GetReceptionFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateReceptionFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+	})
+}
+
+// GetFixedStarFactors 获取恒星因子
+func GetFixedStarFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateFixedStarFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+		"starList":  astro.ImportantFixedStars, // 返回支持的恒星列表
+	})
+}
+
+// GetArabicPartFactors 获取阿拉伯点因子
+func GetArabicPartFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+	factors := astro.CalculateArabicPartFactors(chart, queryTime)
+
+	// 计算福点和精神点位置
+	asc := chart.Ascendant
+	sunPos := astro.GetPlanetFromChart(chart, models.Sun)
+	moonPos := astro.GetPlanetFromChart(chart, models.Moon)
+	var sun, moon float64
+	if sunPos != nil {
+		sun = sunPos.Longitude
+	}
+	if moonPos != nil {
+		moon = moonPos.Longitude
+	}
+	var fortunePart, spiritPart float64
+	if sun > 180 {
+		fortunePart = float64(int(asc+sun-moon+360) % 360)
+		spiritPart = float64(int(asc+moon-sun+360) % 360)
+	} else {
+		fortunePart = float64(int(asc+moon-sun+360) % 360)
+		spiritPart = float64(int(asc+sun-moon+360) % 360)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime": queryTime.Format(time.RFC3339),
+		"count":     len(factors),
+		"factors":   factors,
+		"parts": gin.H{
+			"fortune": gin.H{
+				"longitude": fortunePart,
+				"sign":      astro.GetSignFromLongitude(fortunePart),
+			},
+			"spirit": gin.H{
+				"longitude": spiritPart,
+				"sign":      astro.GetSignFromLongitude(spiritPart),
+			},
+		},
+	})
+}
+
+// GetTermDecanFactors 获取界限和十度面因子
+func GetTermDecanFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	termFactors := astro.CalculateTermFactors(chart, queryTime)
+	decanFactors := astro.CalculateDecanFactors(chart, queryTime)
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime":    queryTime.Format(time.RFC3339),
+		"termCount":    len(termFactors),
+		"decanCount":   len(decanFactors),
+		"termFactors":  termFactors,
+		"decanFactors": decanFactors,
+	})
+}
+
+// GetSolarArcFactors 获取太阳弧推进因子
+func GetSolarArcFactors(c *gin.Context) {
+	var req struct {
+		BirthData models.BirthData `json:"birthData"`
+		QueryTime string           `json:"queryTime"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	queryTime := parseQueryTime(req.QueryTime)
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 构建出生时间
+	birthTime := time.Date(
+		req.BirthData.Year, time.Month(req.BirthData.Month), req.BirthData.Day,
+		req.BirthData.Hour, req.BirthData.Minute, req.BirthData.Second,
+		0, time.FixedZone("", int(req.BirthData.Timezone*3600)),
+	)
+
+	factors := astro.CalculateSolarArcFactors(chart, birthTime, queryTime)
+
+	// 计算当前太阳弧度数
+	age := queryTime.Sub(birthTime).Hours() / 24 / 365.25
+	solarArc := age * 0.9856
+
+	c.JSON(http.StatusOK, gin.H{
+		"queryTime":      queryTime.Format(time.RFC3339),
+		"count":          len(factors),
+		"factors":        factors,
+		"age":            age,
+		"solarArcDegree": solarArc,
+	})
+}
+
+// GetFactorTypes 获取所有支持的因子类型
+func GetFactorTypes(c *gin.Context) {
+	types := []gin.H{
+		// 基础因子
+		{"type": "dignity", "name": "尊贵度", "description": "行星入庙、旺、弱、陷状态"},
+		{"type": "retrograde", "name": "逆行", "description": "行星逆行状态"},
+		{"type": "aspectPhase", "name": "相位", "description": "行星间主要相位"},
+		{"type": "aspectOrb", "name": "相位容许度", "description": "相位精确度"},
+		{"type": "outerPlanet", "name": "外行星过境", "description": "外行星过境影响"},
+		{"type": "profectionLord", "name": "年主星", "description": "小限法年主星"},
+		{"type": "lunarPhase", "name": "月相", "description": "月相周期"},
+		{"type": "planetaryHour", "name": "行星时", "description": "当前行星时"},
+		{"type": "voidOfCourse", "name": "月空亡", "description": "月亮空亡期"},
+		{"type": "personal", "name": "个人因子", "description": "太阳回归等个人技术"},
+		{"type": "custom", "name": "自定义", "description": "用户自定义因子"},
+		// 高级因子
+		{"type": "eclipse", "name": "日月食", "description": "日食、月食影响"},
+		{"type": "lunarNode", "name": "月交点", "description": "北交/南交点过境"},
+		{"type": "combustion", "name": "燃烧", "description": "行星被太阳灼烧"},
+		{"type": "station", "name": "停滞", "description": "行星逆行前后停滞"},
+		{"type": "reception", "name": "互容", "description": "行星互容关系"},
+		{"type": "fixedStar", "name": "恒星", "description": "重要恒星影响"},
+		{"type": "arabicPart", "name": "阿拉伯点", "description": "福点、精神点等"},
+		{"type": "midpoint", "name": "中点", "description": "中点技术"},
+		{"type": "antiscion", "name": "反生点", "description": "反生点技术"},
+		{"type": "term", "name": "界限", "description": "埃及界限"},
+		{"type": "decan", "name": "十度面", "description": "迦勒底十度面"},
+		{"type": "solarArc", "name": "太阳弧", "description": "太阳弧推进"},
+		{"type": "primary", "name": "主限推进", "description": "主限方向"},
+		{"type": "firdaria", "name": "法达", "description": "法达时间主星"},
+		{"type": "zodiacal", "name": "黄道释放", "description": "黄道释放技术"},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"count": len(types),
+		"types": types,
+	})
+}
+
+// ==================== 辅助函数 ====================
+
+func parseQueryTime(timeStr string) time.Time {
+	if timeStr == "" {
+		return time.Now()
+	}
+	if parsed, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return parsed
+	}
+	if parsed, err := time.Parse("2006-01-02", timeStr); err == nil {
+		return parsed
+	}
+	return time.Now()
+}
+
+func getFactorTypeSummary(factors []models.InfluenceFactor) gin.H {
+	summary := make(gin.H)
+
+	for _, f := range factors {
+		key := string(f.Type)
+		if _, exists := summary[key]; !exists {
+			summary[key] = gin.H{
+				"count":           0,
+				"totalAdjustment": 0.0,
+				"positiveCount":   0,
+				"negativeCount":   0,
+			}
+		}
+
+		s := summary[key].(gin.H)
+		s["count"] = s["count"].(int) + 1
+		s["totalAdjustment"] = s["totalAdjustment"].(float64) + f.Adjustment
+		if f.IsPositive {
+			s["positiveCount"] = s["positiveCount"].(int) + 1
+		} else {
+			s["negativeCount"] = s["negativeCount"].(int) + 1
+		}
+		summary[key] = s
+	}
+
+	return summary
 }

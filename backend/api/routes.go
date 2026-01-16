@@ -1,6 +1,8 @@
 package api
 
 import (
+	"star/middleware"
+	
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -9,6 +11,9 @@ import (
 func SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
+
+	// Metrics 中间件 - 收集所有请求的监控数据
+	router.Use(middleware.MetricsMiddleware())
 
 	// CORS 配置 - 支持多客户端
 	config := cors.DefaultConfig()
@@ -37,14 +42,33 @@ func SetupRouter() *gin.Engine {
 			calc.POST("/progressions", CalculateProgressions)
 			calc.POST("/void-of-course", CalculateVoidOfCourse)
 			calc.POST("/planetary-hour", CalculatePlanetaryHour)
-			
+
 			// 分值组成查询（详细因子分解）
-			calc.POST("/score-breakdown", GetScoreBreakdown)         // 单粒度（开发调试用）
+			calc.POST("/score-breakdown", GetScoreBreakdown)                // 单粒度（开发调试用）
 			calc.POST("/score-breakdown-all", GetMultiGranularityBreakdown) // 多粒度（开发调试用）
-			calc.POST("/active-factors", GetActiveFactorsInRange)    // 时间范围内活跃因子
-			
+			calc.POST("/active-factors", GetActiveFactorsInRange)           // 时间范围内活跃因子
+
 			// C端用户友好接口
 			calc.POST("/score-explain", GetScoreExplanation) // 分数解释（面向用户）
+
+			// 全因子数据接口
+			calc.POST("/total-factors", GetTotalFactors) // 全因子数据（按粒度过滤，包含出相时间）
+		}
+
+		// 高级因子查询接口
+		factors := api.Group("/factors")
+		{
+			factors.GET("/types", GetFactorTypes)              // 获取所有支持的因子类型
+			factors.POST("/all", GetAdvancedFactors)           // 获取所有高级因子
+			factors.POST("/eclipse", GetEclipseFactors)        // 日月食因子
+			factors.POST("/lunar-node", GetLunarNodeFactors)   // 月交点因子
+			factors.POST("/combustion", GetCombustionFactors)  // 燃烧因子
+			factors.POST("/station", GetStationFactors)        // 停滞因子
+			factors.POST("/reception", GetReceptionFactors)    // 互容因子
+			factors.POST("/fixed-star", GetFixedStarFactors)   // 恒星因子
+			factors.POST("/arabic-part", GetArabicPartFactors) // 阿拉伯点因子
+			factors.POST("/term-decan", GetTermDecanFactors)   // 界限和十度面因子
+			factors.POST("/solar-arc", GetSolarArcFactors)     // 太阳弧推进因子
 		}
 
 		// 用户管理
@@ -86,8 +110,18 @@ func SetupRouter() *gin.Engine {
 			admin.GET("/custom-factors/:userId", GetCustomFactors)
 			admin.DELETE("/custom-factors/:userId", ClearCustomFactors)
 		}
+
+		// 监控接口 ⭐ 新增
+		monitor := api.Group("/monitor")
+		{
+			monitor.GET("/dashboard", GetMonitorDashboard)       // 监控仪表板页面
+			monitor.GET("/summary", GetMonitorSummary)           // 概览统计
+			monitor.GET("/stats", GetMonitorStats)               // API统计
+			monitor.GET("/recent", GetMonitorRecentRequests)     // 最近请求
+			monitor.GET("/realtime", GetMonitorRealtime)         // 实时统计
+			monitor.POST("/reset", ResetMonitorStats)            // 重置统计（管理员）
+		}
 	}
 
 	return router
 }
-

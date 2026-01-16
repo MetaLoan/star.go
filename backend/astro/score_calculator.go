@@ -162,10 +162,48 @@ func CalculateInfluenceFactorsV2(chart *models.NatalChart, date time.Time, trans
 	return buildFactorResult(factors, date)
 }
 
+// CalculateInfluenceFactorsLite 轻量版影响因子计算（用于时间序列，跳过精确相位时间搜索）
+func CalculateInfluenceFactorsLite(chart *models.NatalChart, date time.Time, transitPositions []models.PlanetPosition) *models.FactorResult {
+	weights := DefaultFactorWeights
+	var factors []models.InfluenceFactor
+
+	// 1. 尊贵度因子
+	dignityFactors := calculateDignityFactorsV2(transitPositions, weights.Dignity)
+	factors = append(factors, dignityFactors...)
+
+	// 2. 逆行因子（使用估算方法，不搜索精确时间）
+	retrogradeFactors := calculateRetrogradeFactorsV2(transitPositions, weights.Retrograde, date)
+	factors = append(factors, retrogradeFactors...)
+
+	// 3. 相位因子（使用轻量版，跳过精确时间搜索）
+	aspectFactors := calculateAspectFactorsLite(chart, transitPositions, weights.AspectPhase, date)
+	factors = append(factors, aspectFactors...)
+
+	// 4. 月相因子
+	lunarPhaseFactors := calculateLunarPhaseFactorsV2(transitPositions, weights.LunarPhase, date)
+	factors = append(factors, lunarPhaseFactors...)
+
+	// 5. 行星时因子
+	planetaryHourFactors := calculatePlanetaryHourFactorsV2(chart, date, weights.PlanetaryHour)
+	factors = append(factors, planetaryHourFactors...)
+
+	// 6. 年主星因子
+	profectionFactors := calculateProfectionLordFactorsV2(chart, date, transitPositions, weights.ProfectionLord)
+	factors = append(factors, profectionFactors...)
+
+	// 7. 月亮空亡因子
+	jd := DateToJulianDay(date)
+	vocFactors := calculateVoidOfCourseFactorsV2(jd, weights.VoidOfCourse, date)
+	factors = append(factors, vocFactors...)
+
+	// 构建结果
+	return buildFactorResult(factors, date)
+}
+
 // buildFactorResult 构建因子计算结果
 func buildFactorResult(factors []models.InfluenceFactor, date time.Time) *models.FactorResult {
 	result := &models.FactorResult{
-		Factors:              factors,
+		Factors:              []models.InfluenceFactor{}, // 初始化为空，只添加活跃因子
 		YearlyFactors:        []models.InfluenceFactor{},
 		MonthlyFactors:       []models.InfluenceFactor{},
 		WeeklyFactors:        []models.InfluenceFactor{},
@@ -179,10 +217,10 @@ func buildFactorResult(factors []models.InfluenceFactor, date time.Time) *models
 	for i := range factors {
 		factor := &factors[i]
 
-		// 生成ID（基于类型和名称，确保去重）
+		// 生成ID（基于类型、名称和生命周期时间戳，确保唯一性）
 		// 确保 Name 存在再生成 ID
 		if factor.Name != "" {
-			factor.ID = generateFactorID(factor.Type, factor.Name)
+			factor.ID = generateFactorIDWithLifecycle(factor.Type, factor.Name, factor.Lifecycle)
 		} else {
 			// 如果 Name 为空，使用备用方案
 			factor.ID = string(factor.Type) + "_unnamed_" + itoa(i)
@@ -191,8 +229,31 @@ func buildFactorResult(factors []models.InfluenceFactor, date time.Time) *models
 		// 计算当前强度（根据生命周期）
 		factor.CurrentStrength = CalculateFactorStrength(factor.Lifecycle, date)
 
+		// 计算剩余天数
+		factor.RemainingDays = CalculateRemainingDays(factor.Lifecycle, date)
+
+		// ⚠️ 过滤已结束或未开始的因子：只保留当前活跃的因子
+		if factor.Lifecycle != nil {
+			// 如果有生命周期信息，检查是否已结束
+			if date.After(factor.Lifecycle.EndTime) {
+				continue // 跳过已结束的因子
+			}
+			// 如果还没开始，也跳过
+			if date.Before(factor.Lifecycle.StartTime) {
+				continue // 跳过尚未开始的因子
+			}
+		}
+
+		// 额外检查：如果计算出的剩余天数 <= 0，说明因子已结束
+		if factor.RemainingDays <= 0 && factor.Lifecycle != nil {
+			continue // 跳过剩余天数为0的因子
+		}
+
 		// 计算最终调整值
 		factor.Adjustment = factor.BaseValue * factor.Weight * factor.CurrentStrength
+
+		// 添加到活跃因子列表
+		result.Factors = append(result.Factors, *factor)
 
 		// 分配到各维度
 		dimAdj := calculateDimensionAdjustment(factor)
@@ -230,21 +291,55 @@ func buildFactorResult(factors []models.InfluenceFactor, date time.Time) *models
 	return result
 }
 
-// calculateDimensionAdjustment 计算因子对各维度的调整
+// calculateDimensionAdjustment 计算因子对各维度的调整（使用有符号影响）
 func calculateDimensionAdjustment(factor *models.InfluenceFactor) models.DimensionScoresV2 {
+	// 获取该因子的有符号维度影响
+	signedImpact := GetFactorDimensionImpact(factor)
+	
+	// 计算调整值的基数（不包含符号）
+	// 使用BaseValue和CurrentStrength，因为符号已经在signedImpact中
+	baseAdjustment := absValue(factor.BaseValue) * factor.Weight * factor.CurrentStrength
+	
+	// 应用有符号影响：每个维度独立计算，保留正负
 	return models.DimensionScoresV2{
-		Career:       factor.Adjustment * factor.DimensionImpact.Career,
-		Relationship: factor.Adjustment * factor.DimensionImpact.Relationship,
-		Health:       factor.Adjustment * factor.DimensionImpact.Health,
-		Finance:      factor.Adjustment * factor.DimensionImpact.Finance,
-		Spiritual:    factor.Adjustment * factor.DimensionImpact.Spiritual,
+		Career:       baseAdjustment * signedImpact.Career,
+		Relationship: baseAdjustment * signedImpact.Relationship,
+		Health:       baseAdjustment * signedImpact.Health,
+		Finance:      baseAdjustment * signedImpact.Finance,
+		Spiritual:    baseAdjustment * signedImpact.Spiritual,
 	}
+}
+
+// absValue 返回绝对值
+func absValue(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // generateFactorID 生成因子ID（基于类型和名称，确保唯一性）
 func generateFactorID(factorType models.InfluenceFactorType, name string) string {
 	// 使用类型+名称作为唯一标识，确保去重
 	return string(factorType) + "_" + name
+}
+
+// generateFactorIDWithLifecycle 生成包含生命周期时间戳的因子ID
+// 使用 peakTime（精确时间）四舍五入到小时，确保同一事件在不同查询日期有相同ID
+func generateFactorIDWithLifecycle(factorType models.InfluenceFactorType, name string, lifecycle *models.FactorLifecycle) string {
+	baseID := string(factorType) + "_" + name
+
+	if lifecycle != nil {
+		// 使用 peakTime（精确时间）作为事件唯一标识
+		// 四舍五入到小时级别，减少因估算误差导致的ID不一致
+		peakTime := lifecycle.PeakTime
+		// 四舍五入到最近的小时
+		roundedHour := peakTime.Round(time.Hour)
+		timeStr := roundedHour.Format("20060102_15")
+		return baseID + "_" + timeStr
+	}
+
+	return baseID
 }
 
 // itoa 简单的整数转字符串
@@ -265,6 +360,9 @@ func itoa(i int) string {
 // calculateDignityFactorsV2 计算尊贵度因子（新版）
 func calculateDignityFactorsV2(transitPositions []models.PlanetPosition, weight float64) []models.InfluenceFactor {
 	var factors []models.InfluenceFactor
+
+	// 获取当前时间用于计算生命周期
+	now := time.Now()
 
 	for _, p := range transitPositions {
 		dignity := GetDignity(p.ID, p.Sign)
@@ -303,6 +401,42 @@ func calculateDignityFactorsV2(transitPositions []models.PlanetPosition, weight 
 			isPositive = false
 		}
 
+		// 估算行星在当前星座的剩余时间（基于行星速度）
+		// 计算到星座边界的度数
+		degreeInSign := math.Mod(p.Longitude, 30)
+		degreesToBorder := 30 - degreeInSign // 距离下一个星座的度数
+
+		// 根据行星类型估算速度（度/天）
+		avgSpeed := getPlanetAverageSpeed(p.ID)
+
+		// 估算剩余天数
+		var remainingDays float64
+		if avgSpeed > 0 && !p.Retrograde {
+			remainingDays = degreesToBorder / avgSpeed
+		} else if p.Retrograde {
+			// 逆行时，计算到星座起点的距离
+			remainingDays = degreeInSign / avgSpeed
+			if remainingDays < 0 {
+				remainingDays = -remainingDays
+			}
+		} else {
+			remainingDays = 30 // 默认30天
+		}
+
+		// 创建生命周期
+		// 注意：这是估算值，起点设为过去（假设已经在这个星座停留了一段时间）
+		estimatedPastDays := degreeInSign / avgSpeed
+		if estimatedPastDays < 0 {
+			estimatedPastDays = -estimatedPastDays
+		}
+
+		lifecycle := &models.FactorLifecycle{
+			StartTime: now.AddDate(0, 0, -int(estimatedPastDays)),
+			PeakTime:  now,
+			EndTime:   now.AddDate(0, 0, int(remainingDays)),
+			Duration:  (estimatedPastDays + remainingDays) * 24,
+		}
+
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorDignity,
 			Name:            name,
@@ -314,10 +448,33 @@ func calculateDignityFactorsV2(transitPositions []models.PlanetPosition, weight 
 			SourcePlanet:    p.ID,
 			IsPositive:      isPositive,
 			AstroReason:     reason,
+			Lifecycle:       lifecycle,
 		})
 	}
 
 	return factors
+}
+
+// getPlanetAverageSpeed 获取行星平均速度（度/天）
+func getPlanetAverageSpeed(planetID models.PlanetID) float64 {
+	speeds := map[models.PlanetID]float64{
+		models.Sun:       0.9856, // 太阳
+		models.Moon:      13.176, // 月亮
+		models.Mercury:   1.383,  // 水星（平均）
+		models.Venus:     1.2,    // 金星
+		models.Mars:      0.524,  // 火星
+		models.Jupiter:   0.0831, // 木星
+		models.Saturn:    0.0335, // 土星
+		models.Uranus:    0.0119, // 天王星
+		models.Neptune:   0.006,  // 海王星
+		models.Pluto:     0.004,  // 冥王星
+		models.NorthNode: 0.053,  // 北交点
+		models.Chiron:    0.02,   // 凯龙
+	}
+	if speed, ok := speeds[planetID]; ok {
+		return speed
+	}
+	return 0.1 // 默认
 }
 
 // calculateRetrogradeFactorsV2 计算逆行因子（新版）
@@ -396,16 +553,18 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 			baseValue = -baseValue * 0.7
 		}
 
-		// 入相/离相调整
-		if !asp.Applying {
-			baseValue *= 0.8
-		}
 
 		// 容许度强度
 		baseValue *= asp.Strength
 
-		// 创建生命周期（基于容许度）
-		lifecycle := CalculateAspectLifecycle(asp.Orb, date, asp.Applying)
+		// 创建生命周期（使用精确搜索算法）
+		// 获取相位定义中的最大容许度
+		maxOrb := aspectDef.Orb
+		if maxOrb <= 0 {
+			maxOrb = 8.0 // 默认值
+		}
+		// 使用精确搜索算法，传入相位角度
+		lifecycle := CalculateAspectLifecycleExact(asp.Orb, date, asp.Applying, asp.Planet1, asp.Planet2, asp.ExactAngle, maxOrb)
 
 		transitInfo := GetPlanetInfo(asp.Planet1)
 		natalInfo := GetPlanetInfo(asp.Planet2)
@@ -447,6 +606,78 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 	return factors
 }
 
+// calculateAspectFactorsLite 轻量版相位因子计算（跳过精确时间搜索，用于时间序列）
+func calculateAspectFactorsLite(chart *models.NatalChart, transitPositions []models.PlanetPosition, weight float64, date time.Time) []models.InfluenceFactor {
+	var factors []models.InfluenceFactor
+
+	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
+
+	for _, asp := range aspects {
+		if asp.Strength < 0.5 {
+			continue
+		}
+
+		aspectDef := GetAspectDefinition(asp.AspectType)
+		if aspectDef == nil {
+			continue
+		}
+
+		// 基础值
+		baseValue := asp.Weight
+		if aspectDef.Nature == "tense" {
+			baseValue = -baseValue * 0.7
+		}
+
+
+		// 容许度强度
+		baseValue *= asp.Strength
+
+		// 创建生命周期（使用估算方法，不搜索精确时间）
+		maxOrb := aspectDef.Orb
+		if maxOrb <= 0 {
+			maxOrb = 8.0
+		}
+		// 使用估算方法，跳过精确时间搜索
+		lifecycle := CalculateAspectLifecycleWithPlanets(asp.Orb, date, asp.Applying, asp.Planet1, asp.Planet2, maxOrb)
+
+		transitInfo := GetPlanetInfo(asp.Planet1)
+		natalInfo := GetPlanetInfo(asp.Planet2)
+
+		// 合并两颗行星的维度影响
+		transitImpact := GetPlanetDimensionImpact(asp.Planet1)
+		natalImpact := GetPlanetDimensionImpact(asp.Planet2)
+		combinedImpact := models.DimensionImpact{
+			Career:       (transitImpact.Career + natalImpact.Career) / 2,
+			Relationship: (transitImpact.Relationship + natalImpact.Relationship) / 2,
+			Health:       (transitImpact.Health + natalImpact.Health) / 2,
+			Finance:      (transitImpact.Finance + natalImpact.Finance) / 2,
+			Spiritual:    (transitImpact.Spiritual + natalImpact.Spiritual) / 2,
+		}
+
+		// 判断正负
+		isPositive := aspectDef.Nature == "harmonious"
+		if aspectDef.Nature == "neutral" {
+			isPositive = baseValue > 0
+		}
+
+		factors = append(factors, models.InfluenceFactor{
+			Type:            models.FactorAspectPhase,
+			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
+			Description:     asp.Interpretation,
+			TimeLevel:       models.TimeLevelDaily,
+			Lifecycle:       lifecycle,
+			BaseValue:       baseValue,
+			Weight:          weight,
+			DimensionImpact: combinedImpact,
+			SourcePlanet:    asp.Planet1,
+			IsPositive:      isPositive,
+			AstroReason:     "Transit " + transitInfo.Name + " forms " + aspectDef.Name + " with natal " + natalInfo.Name,
+		})
+	}
+
+	return factors
+}
+
 // calculateLunarPhaseFactorsV2 计算月相因子（新版）
 func calculateLunarPhaseFactorsV2(transitPositions []models.PlanetPosition, weight float64, date time.Time) []models.InfluenceFactor {
 	var factors []models.InfluenceFactor
@@ -465,14 +696,14 @@ func calculateLunarPhaseFactorsV2(transitPositions []models.PlanetPosition, weig
 	phaseInfo := GetLunarPhase(angle)
 
 	phaseValues := map[string]float64{
-		"new":          1.0,
-		"crescent":     1.5,
-		"firstQuarter": 0.0,
-		"gibbous":      1.0,
-		"full":         2.0,
+		"new":           1.0,
+		"crescent":      1.5,
+		"firstQuarter":  0.0,
+		"gibbous":       1.0,
+		"full":          2.0,
 		"disseminating": 0.5,
-		"lastQuarter":  -1.0,
-		"balsamic":     -0.5,
+		"lastQuarter":   -1.0,
+		"balsamic":      -0.5,
 	}
 
 	value := phaseValues[phaseInfo.Phase]
@@ -665,4 +896,3 @@ func formatDuration(hours float64) string {
 	}
 	return itoa(h) + " hours"
 }
-

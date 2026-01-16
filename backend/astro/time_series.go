@@ -1,6 +1,7 @@
 package astro
 
 import (
+	"fmt"
 	"math"
 	"star/models"
 	"time"
@@ -24,13 +25,17 @@ func CalculateTimeSeries(chart *models.NatalChart, startStr, endStr, granularity
 	// 解析时间范围
 	start, err := time.Parse(time.RFC3339, startStr)
 	if err != nil {
+		fmt.Printf("DEBUG CalculateTimeSeries: Failed to parse startStr='%s', error: %v\n", startStr, err)
 		start = time.Now()
 	}
 
 	end, err := time.Parse(time.RFC3339, endStr)
 	if err != nil {
+		fmt.Printf("DEBUG CalculateTimeSeries: Failed to parse endStr='%s', error: %v\n", endStr, err)
 		end = start.AddDate(0, 1, 0) // 默认一个月
 	}
+	
+	fmt.Printf("DEBUG CalculateTimeSeries: Using start=%v, end=%v\n", start, end)
 
 	// 验证粒度
 	var g models.TimeGranularity
@@ -63,6 +68,7 @@ func CalculateTimeSeries(chart *models.NatalChart, startStr, endStr, granularity
 }
 
 // generateUnifiedTimeSeriesPoints 使用统一计算逻辑生成时间序列数据点
+// 使用轻量版计算函数以提高性能
 func generateUnifiedTimeSeriesPoints(chart *models.NatalChart, start, end time.Time, granularity models.TimeGranularity) []models.TimeSeriesPoint {
 	var points []models.TimeSeriesPoint
 	current := start
@@ -73,23 +79,25 @@ func generateUnifiedTimeSeriesPoints(chart *models.NatalChart, start, end time.T
 
 		switch granularity {
 		case models.GranularityHour:
-			score = CalculateUnifiedHourlyScore(chart, current)
+			// 使用轻量版计算函数（跳过精确相位时间搜索）
+			score = CalculateUnifiedHourlyScoreLite(chart, current)
 			label = current.Format("15:00")
 
 		case models.GranularityDay:
-			score = CalculateDailyScore(chart, current)
+			// 使用轻量版日分数计算
+			score = CalculateDailyScoreLite(chart, current)
 			label = current.Format("01-02")
 
 		case models.GranularityWeek:
-			score = CalculateWeeklyScore(chart, current)
+			score = CalculateWeeklyScoreLite(chart, current)
 			label = current.Format("01-02") + " Week"
 
 		case models.GranularityMonth:
-			score = CalculateMonthlyScore(chart, current.Year(), current.Month())
+			score = CalculateMonthlyScoreLite(chart, current.Year(), current.Month())
 			label = current.Format("2006-01")
 
 		case models.GranularityYear:
-			score = CalculateYearlyScore(chart, current.Year())
+			score = CalculateYearlyScoreLite(chart, current.Year())
 			label = current.Format("2006")
 		}
 

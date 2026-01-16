@@ -15,6 +15,20 @@ import (
 var sweInitialized bool
 var sweAvailable = true // 标记 Swiss Ephemeris 是否可用
 
+// 简单的位置缓存（避免重复计算）
+type positionCacheKey struct {
+	planet models.PlanetID
+	jd     float64 // 精确到小数点后6位（约10秒精度）
+}
+
+var positionCache = make(map[positionCacheKey]models.PlanetPosition)
+var cacheMaxSize = 1000 // 最多缓存1000个位置
+
+func roundJD(jd float64) float64 {
+	// 精确到10秒级别（足够用）
+	return math.Floor(jd*8640+0.5) / 8640
+}
+
 // InitSwissEphemeris 初始化 Swiss Ephemeris
 // ephePath: 星历表文件路径，如果为空则使用内置 Moshier 算法
 func InitSwissEphemeris(ephePath string) {
@@ -61,6 +75,13 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 		InitSwissEphemeris("")
 	}
 
+	// 检查缓存
+	roundedJD := roundJD(jd)
+	cacheKey := positionCacheKey{planet: planet, jd: roundedJD}
+	if cached, ok := positionCache[cacheKey]; ok {
+		return cached
+	}
+
 	sweBody, ok := sweBodyMap[planet]
 	if !ok {
 		// 回退到内置算法
@@ -96,7 +117,7 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 
 	planetInfo := GetPlanetInfo(planet)
 
-	return models.PlanetPosition{
+	position := models.PlanetPosition{
 		ID:           planet,
 		Name:         planetInfo.Name,
 		Symbol:       planetInfo.Symbol,
@@ -110,6 +131,13 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 		House:        0, // 需要额外计算
 		DignityScore: dignityScore,
 	}
+
+	// 保存到缓存（限制大小）
+	if len(positionCache) < cacheMaxSize {
+		positionCache[cacheKey] = position
+	}
+
+	return position
 }
 
 // GetAllPlanetPositionsSwe 使用 Swiss Ephemeris 获取所有行星位置
