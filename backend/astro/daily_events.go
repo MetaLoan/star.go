@@ -78,8 +78,8 @@ func findSignChangeEvents(startTime, endTime time.Time) []DailyEvent {
 			event := DailyEvent{
 				Time:        *exactTime,
 				Type:        "sign_change",
-				Title:       getPlanetName(planetID) + "进入" + getSignName(newSign),
-				Description: getPlanetName(planetID) + "进入" + getSignName(newSign) + "座",
+				Title:       getPlanetName(planetID) + " enters " + getSignName(newSign),
+				Description: getPlanetName(planetID) + " enters " + getSignName(newSign),
 				Theme:       getSignChangeTheme(planetID, newSign),
 				Advice:      getSignChangeAdvice(planetID, newSign),
 				Planet1:     planetID,
@@ -201,13 +201,13 @@ func findAspectEvents(chart *models.NatalChart, startTime, endTime time.Time, in
 					event := DailyEvent{
 						Time:        exactTime,
 						Type:        "aspect",
-						Title:       getPlanetName(transitPlanet) + aspect.Name + getPlanetName(natalPlanet.ID),
-						Description: "行运" + getPlanetName(transitPlanet) + "与本命" + getPlanetName(natalPlanet.ID) + "形成" + aspect.Name,
+						Title:       getPlanetName(transitPlanet) + " " + getAspectNameEN(aspect.Name) + " " + getPlanetName(natalPlanet.ID),
+						Description: "Transiting " + getPlanetName(transitPlanet) + " forms " + getAspectNameEN(aspect.Name) + " with natal " + getPlanetName(natalPlanet.ID),
 						Theme:       getAspectTheme(transitPlanet, natalPlanet.ID, aspect.Name),
 						Advice:      getAspectAdvice(transitPlanet, natalPlanet.ID, aspect.Name),
 						Planet1:     transitPlanet,
 						Planet2:     natalPlanet.ID,
-						Aspect:      aspect.Name,
+						Aspect:      getAspectNameEN(aspect.Name),
 						Degree:      aspect.Angle,
 						IsPositive:  isAspectPositive(aspect.Name),
 						Intensity:   getAspectIntensity(transitPlanet, natalPlanet.ID, aspect.Name),
@@ -242,8 +242,8 @@ func findLunarPhaseEvents(startTime, endTime time.Time) []DailyEvent {
 			event := DailyEvent{
 				Time:        *exactTime,
 				Type:        "lunar_phase",
-				Title:       phase.Name,
-				Description: phase.Name + "发生",
+				Title:       getLunarPhaseNameEN(phase.Name),
+				Description: getLunarPhaseNameEN(phase.Name) + " occurs",
 				Theme:       getLunarPhaseTheme(phase.Name),
 				Advice:      getLunarPhaseAdvice(phase.Name),
 				IsPositive:  true,
@@ -321,8 +321,8 @@ func findPlanetaryHourEvents(startTime, endTime time.Time) []DailyEvent {
 		event := DailyEvent{
 			Time:        current,
 			Type:        "planetary_hour_change",
-			Title:       getPlanetName(rulingPlanet) + "时",
-			Description: getPlanetName(rulingPlanet) + "主管的时辰",
+			Title:       getPlanetName(rulingPlanet) + " Hour",
+			Description: getPlanetName(rulingPlanet) + " rules this hour",
 			Theme:       getPlanetaryHourTheme(rulingPlanet),
 			Advice:      getPlanetaryHourAdvice(rulingPlanet),
 			Planet1:     rulingPlanet,
@@ -425,14 +425,14 @@ func isSignChangePositive(planet models.PlanetID, sign string) bool {
 func getSignChangeTheme(planet models.PlanetID, sign string) string {
 	themes := map[string]map[string]string{
 		string(models.Sun): {
-			"aquarius": "人道主义、关心社会、独立创新",
-			"pisces":   "梦想、直觉、同情心",
-			"aries":    "开创、行动、勇气",
+			"aquarius": "Humanitarianism, social awareness, independent innovation",
+			"pisces":   "Dreams, intuition, compassion",
+			"aries":    "Initiative, action, courage",
 		},
 		string(models.Moon): {
-			"cancer":    "情感丰富、家庭温暖",
-			"scorpio":   "情感深刻、转化力量",
-			"capricorn": "情绪稳定、责任感",
+			"cancer":    "Emotional richness, family warmth",
+			"scorpio":   "Deep emotions, transformative power",
+			"capricorn": "Emotional stability, responsibility",
 		},
 	}
 
@@ -441,107 +441,107 @@ func getSignChangeTheme(planet models.PlanetID, sign string) string {
 			return theme
 		}
 	}
-	return "能量转换期"
+	return "Energy transition period"
 }
 
 func getSignChangeAdvice(planet models.PlanetID, sign string) string {
-	return "适应新能量，调整行动方式"
+	return "Adapt to new energy, adjust your approach"
 }
 
 func getAspectTheme(planet1, planet2 models.PlanetID, aspect string) string {
 	if aspect == "三合" || aspect == "六合" {
-		return "和谐能量，机会显现"
+		return "Harmonious energy, opportunities emerge"
 	}
 	if aspect == "刑相" || aspect == "对分" {
-		return "挑战与成长的契机"
+		return "Challenges and growth opportunities"
 	}
-	return "能量互动"
+	return "Energy interaction"
 }
 
 func getAspectAdvice(planet1, planet2 models.PlanetID, aspect string) string {
 	adviceMap := map[string]string{
-		"三合": "把握机会，顺势而为",
-		"六合": "主动行动，创造机会",
-		"刑相": "面对挑战，突破限制",
-		"对分": "寻求平衡，整合对立",
-		"合相": "能量聚焦，专注目标",
+		"三合": "Seize opportunities, go with the flow",
+		"六合": "Take initiative, create opportunities",
+		"刑相": "Face challenges, break through limitations",
+		"对分": "Seek balance, integrate opposites",
+		"合相": "Focus energy, concentrate on goals",
 	}
 	if advice, ok := adviceMap[aspect]; ok {
 		return advice
 	}
-	return "觉察能量变化"
+	return "Be aware of energy changes"
 }
 
 func getLunarPhaseTheme(phaseName string) string {
 	themes := map[string]string{
-		"新月":  "新的开始，播种愿望",
-		"上弦月": "行动力增强，克服阻碍",
-		"满月":  "成果显现，情绪高涨",
-		"下弦月": "反思总结，放下释放",
+		"新月":  "New beginnings, planting intentions",
+		"上弦月": "Increased action, overcoming obstacles",
+		"满月":  "Manifestation, emotional peak",
+		"下弦月": "Reflection, release and letting go",
 	}
 	if theme, ok := themes[phaseName]; ok {
 		return theme
 	}
-	return "月相转换"
+	return "Lunar phase transition"
 }
 
 func getLunarPhaseAdvice(phaseName string) string {
 	advice := map[string]string{
-		"新月":  "设定目标，开启新计划",
-		"上弦月": "积极行动，推进项目",
-		"满月":  "庆祝成就，表达感恩",
-		"下弦月": "整理反思，清理旧物",
+		"新月":  "Set goals, start new plans",
+		"上弦月": "Take action, advance projects",
+		"满月":  "Celebrate achievements, express gratitude",
+		"下弦月": "Organize, reflect, clear old things",
 	}
 	if adv, ok := advice[phaseName]; ok {
 		return adv
 	}
-	return "顺应月相节奏"
+	return "Follow the lunar rhythm"
 }
 
 func getPlanetaryHourTheme(planet models.PlanetID) string {
 	themes := map[models.PlanetID]string{
-		models.Sun:     "活力、领导力、创造",
-		models.Moon:    "情感、直觉、养护",
-		models.Mercury: "沟通、学习、交易",
-		models.Venus:   "爱情、艺术、享受",
-		models.Mars:    "行动、竞争、勇气",
-		models.Jupiter: "扩展、学习、旅行",
-		models.Saturn:  "专注、纪律、建设",
+		models.Sun:     "Vitality, leadership, creativity",
+		models.Moon:    "Emotions, intuition, nurturing",
+		models.Mercury: "Communication, learning, commerce",
+		models.Venus:   "Love, art, enjoyment",
+		models.Mars:    "Action, competition, courage",
+		models.Jupiter: "Expansion, learning, travel",
+		models.Saturn:  "Focus, discipline, building",
 	}
 	if theme, ok := themes[planet]; ok {
 		return theme
 	}
-	return "行星能量"
+	return "Planetary energy"
 }
 
 func getPlanetaryHourAdvice(planet models.PlanetID) string {
 	advice := map[models.PlanetID]string{
-		models.Sun:     "处理重要事务，展现领导力",
-		models.Moon:    "关注情感需求，休息放松",
-		models.Mercury: "沟通交流，学习新知",
-		models.Venus:   "社交娱乐，艺术创作",
-		models.Mars:    "体育锻炼，果断行动",
-		models.Jupiter: "学习扩展，积极乐观",
-		models.Saturn:  "专注工作，处理严肃事务",
+		models.Sun:     "Handle important matters, show leadership",
+		models.Moon:    "Attend to emotional needs, rest and relax",
+		models.Mercury: "Communicate, learn new things",
+		models.Venus:   "Socialize, artistic creation",
+		models.Mars:    "Physical exercise, decisive action",
+		models.Jupiter: "Learn and expand, stay optimistic",
+		models.Saturn:  "Focus on work, handle serious matters",
 	}
 	if adv, ok := advice[planet]; ok {
 		return adv
 	}
-	return "顺应行星能量"
+	return "Follow planetary energy"
 }
 
 func getPlanetName(planet models.PlanetID) string {
 	names := map[models.PlanetID]string{
-		models.Sun:     "太阳",
-		models.Moon:    "月亮",
-		models.Mercury: "水星",
-		models.Venus:   "金星",
-		models.Mars:    "火星",
-		models.Jupiter: "木星",
-		models.Saturn:  "土星",
-		models.Uranus:  "天王星",
-		models.Neptune: "海王星",
-		models.Pluto:   "冥王星",
+		models.Sun:     "Sun",
+		models.Moon:    "Moon",
+		models.Mercury: "Mercury",
+		models.Venus:   "Venus",
+		models.Mars:    "Mars",
+		models.Jupiter: "Jupiter",
+		models.Saturn:  "Saturn",
+		models.Uranus:  "Uranus",
+		models.Neptune: "Neptune",
+		models.Pluto:   "Pluto",
 	}
 	if name, ok := names[planet]; ok {
 		return name
@@ -551,21 +551,54 @@ func getPlanetName(planet models.PlanetID) string {
 
 func getSignName(sign string) string {
 	names := map[string]string{
-		"aries":       "白羊",
-		"taurus":      "金牛",
-		"gemini":      "双子",
-		"cancer":      "巨蟹",
-		"leo":         "狮子",
-		"virgo":       "处女",
-		"libra":       "天秤",
-		"scorpio":     "天蝎",
-		"sagittarius": "射手",
-		"capricorn":   "摩羯",
-		"aquarius":    "水瓶",
-		"pisces":      "双鱼",
+		"aries":       "Aries",
+		"taurus":      "Taurus",
+		"gemini":      "Gemini",
+		"cancer":      "Cancer",
+		"leo":         "Leo",
+		"virgo":       "Virgo",
+		"libra":       "Libra",
+		"scorpio":     "Scorpio",
+		"sagittarius": "Sagittarius",
+		"capricorn":   "Capricorn",
+		"aquarius":    "Aquarius",
+		"pisces":      "Pisces",
 	}
 	if name, ok := names[sign]; ok {
 		return name
 	}
 	return sign
+}
+
+// getAspectNameEN 获取相位英文名称
+func getAspectNameEN(aspectNameCN string) string {
+	aspectMap := map[string]string{
+		"合相":   "Conjunction",
+		"六合":   "Sextile",
+		"刑相":   "Square",
+		"三合":   "Trine",
+		"对分":   "Opposition",
+		"半六合":  "Semi-Sextile",
+		"半刑":   "Semi-Square",
+		"补八分":  "Sesquiquadrate",
+		"梅花":   "Quincunx",
+	}
+	if name, ok := aspectMap[aspectNameCN]; ok {
+		return name
+	}
+	return aspectNameCN
+}
+
+// getLunarPhaseNameEN 获取月相英文名称
+func getLunarPhaseNameEN(phaseNameCN string) string {
+	phaseMap := map[string]string{
+		"新月":  "New Moon",
+		"上弦月": "First Quarter",
+		"满月":  "Full Moon",
+		"下弦月": "Last Quarter",
+	}
+	if name, ok := phaseMap[phaseNameCN]; ok {
+		return name
+	}
+	return phaseNameCN
 }

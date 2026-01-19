@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"star/astro"
 	"star/models"
@@ -32,7 +33,7 @@ type DailyEventsResponse struct {
 func CalculateDailyEvents(c *gin.Context) {
 	var req DailyEventsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
 		return
 	}
 
@@ -62,7 +63,7 @@ func CalculateDailyEvents(c *gin.Context) {
 		}
 
 		if !parsed {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的日期格式，请使用 2026-01-20 或 RFC3339 格式"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, please use 2026-01-20 or RFC3339 format"})
 			return
 		}
 	}
@@ -110,10 +111,10 @@ func CalculateDailyEvents(c *gin.Context) {
 // generateDayTheme 生成每日主题
 func generateDayTheme(events []astro.DailyEvent) string {
 	if len(events) == 0 {
-		return "平静祥和的一天"
+		return "A peaceful and harmonious day"
 	}
 
-	// 统计正面和负面事件
+	// Count positive and negative events
 	positiveCount := 0
 	negativeCount := 0
 	highIntensityCount := 0
@@ -129,32 +130,32 @@ func generateDayTheme(events []astro.DailyEvent) string {
 		}
 	}
 
-	// 生成主题
+	// Generate theme
 	if highIntensityCount > 2 {
-		return "能量强烈的重要日子"
+		return "A day of intense energy and importance"
 	}
 	if positiveCount > negativeCount*2 {
-		return "充满机遇与和谐"
+		return "Full of opportunities and harmony"
 	}
 	if negativeCount > positiveCount*2 {
-		return "需要谨慎应对挑战"
+		return "Need to handle challenges carefully"
 	}
-	return "平衡发展，机遇与挑战并存"
+	return "Balanced development, opportunities and challenges coexist"
 }
 
 // generateDaySummary 生成每日总结
 func generateDaySummary(events []astro.DailyEvent, majorEvents []astro.DailyEvent) string {
 	if len(events) == 0 {
-		return "今天没有重要星象事件，是平静的一天。"
+		return "No significant astrological events today, a peaceful day."
 	}
 
 	summary := ""
 	
 	if len(majorEvents) > 0 {
-		summary += "今天有 " + string(rune(len(majorEvents))) + " 个重要星象事件。"
+		summary += fmt.Sprintf("Today has %d major astrological events. ", len(majorEvents))
 	}
 
-	// 统计事件类型
+	// Count event types
 	aspectCount := 0
 	signChangeCount := 0
 	lunarPhaseCount := 0
@@ -171,17 +172,17 @@ func generateDaySummary(events []astro.DailyEvent, majorEvents []astro.DailyEven
 	}
 
 	if signChangeCount > 0 {
-		summary += "有行星换座，能量转换。"
+		summary += "Planetary sign changes indicate energy shifts. "
 	}
 	if lunarPhaseCount > 0 {
-		summary += "月相变化，情绪波动。"
+		summary += "Lunar phase changes bring emotional fluctuations. "
 	}
 	if aspectCount > 3 {
-		summary += "相位活跃，互动频繁。"
+		summary += "Active aspects indicate frequent interactions. "
 	}
 
 	if summary == "" {
-		summary = "星象活动正常，适合按计划行事。"
+		summary = "Normal astrological activity, suitable for following plans."
 	}
 
 	return summary
@@ -201,7 +202,7 @@ func GetDailyEventsSimple(c *gin.Context) {
 	} else {
 		targetDate, err = time.Parse("2006-01-02", dateStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的日期格式"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
 			return
 		}
 	}
