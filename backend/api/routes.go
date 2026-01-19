@@ -43,6 +43,10 @@ func SetupRouter() *gin.Engine {
 			calc.POST("/void-of-course", CalculateVoidOfCourse)
 			calc.POST("/planetary-hour", CalculatePlanetaryHour)
 
+			// 每日星象事件（精确版）⭐ 新增
+			calc.POST("/daily-events", CalculateDailyEvents)      // 精确到分钟的每日星象
+			calc.GET("/daily-events/simple", GetDailyEventsSimple) // 简化版（无需出生信息）
+
 			// 分值组成查询（详细因子分解）
 			calc.POST("/score-breakdown", GetScoreBreakdown)                // 单粒度（开发调试用）
 			calc.POST("/score-breakdown-all", GetMultiGranularityBreakdown) // 多粒度（开发调试用）
