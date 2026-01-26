@@ -379,16 +379,6 @@ func CalculateDailyScoreLite(chart *models.NatalChart, date time.Time) UnifiedSc
 	// 这样可以将性能提升24倍，同时保持数据合理性
 	noonTime := startOfDay.Add(12 * time.Hour)
 	return CalculateUnifiedHourlyScoreLite(chart, noonTime)
-	avgDimensions := make(map[string]float64)
-	for _, d := range dimensions {
-		avgDimensions[d] = totalDimensions[d] / 24
-	}
-
-	return UnifiedScore{
-		Overall:    math.Round(avgOverall*10000) / 10000,
-		Dimensions: avgDimensions,
-		RawValue:   avgOverall,
-	}
 }
 
 // CalculateWeeklyScoreLite 轻量版周分数计算
@@ -404,18 +394,6 @@ func CalculateWeeklyScoreLite(chart *models.NatalChart, startDate time.Time) Uni
 	// 周三是一周的中间点，更有代表性
 	wednesdayNoon := monday.AddDate(0, 0, 2).Add(12 * time.Hour)
 	return CalculateUnifiedHourlyScoreLite(chart, wednesdayNoon)
-
-	avgOverall := totalOverall / 7
-	avgDimensions := make(map[string]float64)
-	for _, d := range dimensions {
-		avgDimensions[d] = totalDimensions[d] / 7
-	}
-
-	return UnifiedScore{
-		Overall:    math.Round(avgOverall*10000) / 10000,
-		Dimensions: avgDimensions,
-		RawValue:   avgOverall,
-	}
 }
 
 // CalculateMonthlyScoreLite 轻量版月分数计算
@@ -424,16 +402,6 @@ func CalculateMonthlyScoreLite(chart *models.NatalChart, year int, month time.Mo
 	// 这样可以将性能从720次计算降低到1次，提升720倍
 	midMonthNoon := time.Date(year, month, 15, 12, 0, 0, 0, time.UTC)
 	return CalculateUnifiedHourlyScoreLite(chart, midMonthNoon)
-	avgDimensions := make(map[string]float64)
-	for _, d := range dimensions {
-		avgDimensions[d] = totalDimensions[d] / float64(daysInMonth)
-	}
-
-	return UnifiedScore{
-		Overall:    math.Round(avgOverall*10000) / 10000,
-		Dimensions: avgDimensions,
-		RawValue:   avgOverall,
-	}
 }
 
 // CalculateYearlyScoreLite 轻量版年分数计算

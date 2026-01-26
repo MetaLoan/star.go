@@ -1,9 +1,11 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"star/astro"
+	"star/i18n"
 	"star/models"
 	"time"
 
@@ -23,6 +25,7 @@ type UnifiedEventRequest struct {
 	Date                string           `json:"date"`                // 单日查询（简化格式）
 	Timezone            int              `json:"timezone"`            // 时区偏移（小时）
 	Granularity         string           `json:"granularity"`         // hour, day, week, month, year（过滤因子用）
+	Language            string           `json:"language"`            // zh, en, ru (default: en)
 	IncludeMinorAspects bool             `json:"includeMinorAspects"` // 是否包含次要相位
 	IncludeFactors      bool             `json:"includeFactors"`      // 是否包含因子影响数据（默认true）
 	IncludeTransitHouse bool             `json:"includeTransitHouse"` // 是否包含行运过宫
@@ -57,6 +60,12 @@ type UnifiedEvent struct {
 	StartDate    string  `json:"startDate,omitempty"`    // When influence started
 	EndDate      string  `json:"endDate,omitempty"`      // When influence ends
 	DurationDays float64 `json:"durationDays,omitempty"` // Duration in days
+	DurationText string  `json:"durationText,omitempty"` // Formatted duration text
+	
+	// Localized fields
+	EmotionalTitle        string   `json:"emotionalTitle,omitempty"`        // Emotional/psychological title
+	DetailedInterpretation string   `json:"detailedInterpretation,omitempty"` // Detailed paragraph interpretation
+	DimensionLabels       []string `json:"dimensionLabels,omitempty"`       // Dimension labels with arrows
 	
 	// Factor influence data
 	Factor *FactorImpact `json:"factor,omitempty"`
@@ -128,6 +137,12 @@ func GetUnifiedEvents(c *gin.Context) {
 	if req.Granularity == "" {
 		req.Granularity = "day"
 	}
+	if req.Language == "" {
+		req.Language = "en"
+	}
+	
+	// Create translator
+	translator := i18n.New(req.Language)
 
 	// 解析时间范围
 	var startTime, endTime time.Time
@@ -182,7 +197,7 @@ func GetUnifiedEvents(c *gin.Context) {
 	if req.IncludeTransitHouse || req.Granularity == "day" || req.Granularity == "week" {
 		transitHouseEvents := astro.GetActiveTransitHouseEvents(chart, startTime.Add(12*time.Hour), "medium")
 		for _, e := range transitHouseEvents {
-			unifiedEvents = append(unifiedEvents, convertTransitHouseToUnifiedEvent(e))
+			unifiedEvents = append(unifiedEvents, convertTransitHouseToUnifiedEvent(e, translator, startTime))
 		}
 	}
 	
@@ -192,7 +207,7 @@ func GetUnifiedEvents(c *gin.Context) {
 		if req.Granularity == "year" || req.IncludeProgressions {
 			spEvents := astro.GetSecondaryProgressionEvents(chart, startTime.Add(12*time.Hour))
 			for _, e := range spEvents {
-				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e))
+				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e, translator, startTime))
 			}
 		}
 		
@@ -200,9 +215,14 @@ func GetUnifiedEvents(c *gin.Context) {
 		if req.Granularity == "month" || req.IncludeProgressions {
 			tpEvents := astro.GetTertiaryProgressionEvents(chart, startTime.Add(12*time.Hour))
 			for _, e := range tpEvents {
-				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e))
+				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e, translator, startTime))
 			}
 		}
+	}
+	
+	// Apply translations and emotional titles to all events
+	for i := range unifiedEvents {
+		applyTranslationsToEvent(&unifiedEvents[i], translator, startTime)
 	}
 
 	// 筛选主要事件
@@ -327,10 +347,20 @@ func mergeEventsAndFactors(events []astro.DailyEvent, factorResponse *astro.Tota
 			ue.InfluencePhase = getInfluencePhase(factor.Lifecycle, e.Time)
 			usedFactorIDs[factorID] = true
 		} else {
-			// 没有匹配到因子时，根据事件类型分配默认的 timeLevel
+			// 没有匹配到因子时，根据事件类型分配默认的 timeLevel 和 DimensionImpact
+			factorType := eventTypeToFactorType(e.Type)
+			timeLevel := getDefaultTimeLevelForEventType(e.Type)
+			dimensionImpact := models.DimensionImpact{}
+			
+			// 为相位事件计算维度影响
+			if e.Type == "aspect" && e.Planet1 != "" && e.Planet2 != "" {
+				dimensionImpact = getAspectDimensionImpactAPI(e.Planet1, e.Planet2)
+			}
+			
 			ue.Factor = &FactorImpact{
-				FactorType: eventTypeToFactorType(e.Type),
-				TimeLevel:  getDefaultTimeLevelForEventType(e.Type),
+				FactorType:      factorType,
+				TimeLevel:       timeLevel,
+				DimensionImpact: dimensionImpact,
 			}
 			ue.InfluencePhase = "active"
 		}
@@ -731,7 +761,7 @@ func getDefaultTimeLevelForEventType(eventType string) string {
 }
 
 // convertTransitHouseToUnifiedEvent converts a transit house event to unified event
-func convertTransitHouseToUnifiedEvent(e astro.TransitHouseEvent) UnifiedEvent {
+func convertTransitHouseToUnifiedEvent(e astro.TransitHouseEvent, translator *i18n.Translator, now time.Time) UnifiedEvent {
 	// Determine time level based on planet
 	timeLevel := "weekly"
 	switch e.Planet {
@@ -775,7 +805,7 @@ func convertTransitHouseToUnifiedEvent(e astro.TransitHouseEvent) UnifiedEvent {
 }
 
 // convertProgressionToUnifiedEvent converts a progression aspect event to unified event
-func convertProgressionToUnifiedEvent(e astro.ProgressionAspectEvent) UnifiedEvent {
+func convertProgressionToUnifiedEvent(e astro.ProgressionAspectEvent, translator *i18n.Translator, now time.Time) UnifiedEvent {
 	eventType := "secondary_progression"
 	timeLevel := "yearly"
 	if e.ProgressionType == astro.TertiaryProgression {
@@ -839,25 +869,43 @@ func getProgressionBaseValue(isPositive bool) float64 {
 
 // getHouseDimensionImpactAPI returns dimension impact for house
 func getHouseDimensionImpactAPI(house int) models.DimensionImpact {
+	// Designed for max 2 dimension labels - matches transit_houses.go
+	// Single dimension houses: 2, 4, 7, 9, 10, 12
+	// Dual dimension houses: 1, 3, 5, 6, 8, 11
 	impacts := map[int]models.DimensionImpact{
-		1:  {Career: 0.2, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.2},
-		2:  {Career: 0.1, Relationship: 0.1, Health: 0.1, Finance: 0.6, Spiritual: 0.1},
-		3:  {Career: 0.3, Relationship: 0.3, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
-		4:  {Career: 0.1, Relationship: 0.4, Health: 0.2, Finance: 0.1, Spiritual: 0.2},
-		5:  {Career: 0.1, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.3},
-		6:  {Career: 0.3, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.1},
-		7:  {Career: 0.1, Relationship: 0.6, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
-		8:  {Career: 0.1, Relationship: 0.2, Health: 0.1, Finance: 0.3, Spiritual: 0.3},
-		9:  {Career: 0.2, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.5},
-		10: {Career: 0.6, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
-		11: {Career: 0.2, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
-		12: {Career: 0.1, Relationship: 0.1, Health: 0.2, Finance: 0.1, Spiritual: 0.5},
+		1:  {Health: 0.6, Career: 0.4, Relationship: 0, Finance: 0, Spiritual: 0},        // 健康+事业
+		2:  {Finance: 0.8, Career: 0, Relationship: 0, Health: 0, Spiritual: 0},          // 财运
+		3:  {Career: 0.5, Relationship: 0.5, Health: 0, Finance: 0, Spiritual: 0},        // 事业+关系
+		4:  {Relationship: 0.8, Career: 0, Health: 0, Finance: 0, Spiritual: 0},          // 关系
+		5:  {Relationship: 0.6, Spiritual: 0.4, Career: 0, Health: 0, Finance: 0},        // 关系+灵性
+		6:  {Health: 0.6, Career: 0.4, Relationship: 0, Finance: 0, Spiritual: 0},        // 健康+事业
+		7:  {Relationship: 0.9, Career: 0, Health: 0, Finance: 0, Spiritual: 0},          // 关系
+		8:  {Spiritual: 0.6, Finance: 0.4, Career: 0, Relationship: 0, Health: 0},        // 灵性+财运
+		9:  {Spiritual: 0.8, Career: 0, Relationship: 0, Health: 0, Finance: 0},          // 灵性
+		10: {Career: 0.9, Relationship: 0, Health: 0, Finance: 0, Spiritual: 0},          // 事业
+		11: {Relationship: 0.6, Spiritual: 0.4, Career: 0, Health: 0, Finance: 0},        // 关系+灵性
+		12: {Spiritual: 0.8, Career: 0, Relationship: 0, Health: 0, Finance: 0},          // 灵性
 	}
 	
 	if impact, ok := impacts[house]; ok {
 		return impact
 	}
-	return models.DimensionImpact{Career: 0.2, Relationship: 0.2, Health: 0.2, Finance: 0.2, Spiritual: 0.2}
+	return models.DimensionImpact{Career: 0.5, Relationship: 0, Health: 0, Finance: 0, Spiritual: 0.5}
+}
+
+// getAspectDimensionImpactAPI returns dimension impact for aspect events
+func getAspectDimensionImpactAPI(planet1, planet2 models.PlanetID) models.DimensionImpact {
+	// 取两颗行星的平均影响
+	impact1 := astro.GetPlanetDimensionImpact(planet1)
+	impact2 := astro.GetPlanetDimensionImpact(planet2)
+	
+	return models.DimensionImpact{
+		Career:       (impact1.Career + impact2.Career) / 2,
+		Relationship: (impact1.Relationship + impact2.Relationship) / 2,
+		Health:       (impact1.Health + impact2.Health) / 2,
+		Finance:      (impact1.Finance + impact2.Finance) / 2,
+		Spiritual:    (impact1.Spiritual + impact2.Spiritual) / 2,
+	}
 }
 
 // getProgressionDimensionImpactAPI returns dimension impact for progression
@@ -872,4 +920,122 @@ func getProgressionDimensionImpactAPI(progPlanet, natalPlanet models.PlanetID) m
 		Finance:      (progImpact.Finance + natalImpact.Finance) / 2,
 		Spiritual:    (progImpact.Spiritual + natalImpact.Spiritual) / 2,
 	}
+}
+
+// applyTranslationsToEvent applies translations, emotional titles, and formatting to an event
+func applyTranslationsToEvent(event *UnifiedEvent, translator *i18n.Translator, now time.Time) {
+	// Translate title components
+	if event.Planet1 != "" {
+		p1Name := translator.GetPlanetName(event.Planet1)
+		p2Name := ""
+		if event.Planet2 != "" {
+			p2Name = translator.GetPlanetName(event.Planet2)
+		}
+		aspectName := translator.GetAspectName(event.Aspect)
+		
+		// Reconstruct title with translated names
+		if p2Name != "" && aspectName != "" {
+			event.Title = fmt.Sprintf("%s %s %s", p1Name, aspectName, p2Name)
+		}
+	}
+	
+	// Add emotional title and detailed interpretation
+	houseStr := ""
+	if event.House > 0 {
+		houseStr = fmt.Sprintf("%d", event.House)
+	}
+	event.EmotionalTitle = translator.GetEmotionalTitle(
+		event.Type,
+		event.Planet1,
+		event.Planet2,
+		event.Aspect,
+		houseStr,
+		event.IsPositive,
+	)
+	event.DetailedInterpretation = translator.GetDetailedInterpretation(
+		event.Type,
+		event.Planet1,
+		event.Planet2,
+		event.Aspect,
+		houseStr,
+		event.IsPositive,
+	)
+	
+	// Format duration text
+	if event.StartDate != "" && event.EndDate != "" {
+		startTime, _ := time.Parse("2006-01-02", event.StartDate)
+		endTime, _ := time.Parse("2006-01-02", event.EndDate)
+		
+		daysAgo := int(now.Sub(startTime).Hours() / 24)
+		daysUntil := int(endTime.Sub(now).Hours() / 24)
+		
+		// Convert to months if duration is long
+		if daysAgo > 60 || daysUntil > 60 {
+			monthsAgo := daysAgo / 30
+			monthsUntil := daysUntil / 30
+			event.DurationText = translator.FormatDuration(monthsAgo, monthsUntil)
+		} else {
+			event.DurationText = translator.FormatDurationDays(daysAgo, daysUntil)
+		}
+	}
+	
+	// Add dimension labels
+	if event.Factor != nil {
+		event.DimensionLabels = getDimensionLabels(event.Factor.DimensionImpact, translator)
+	}
+}
+
+// getDimensionLabels returns dimension labels with arrows based on impact values
+func getDimensionLabels(impact models.DimensionImpact, translator *i18n.Translator) []string {
+	type dimValue struct {
+		name  string
+		value float64
+	}
+	
+	dimensions := []dimValue{
+		{"career", impact.Career},
+		{"relationship", impact.Relationship},
+		{"health", impact.Health},
+		{"finance", impact.Finance},
+		{"spiritual", impact.Spiritual},
+	}
+	
+	// Filter dimensions with significant impact (abs value > 0.3)
+	var significant []dimValue
+	for _, d := range dimensions {
+		if d.value > 0.3 || d.value < -0.3 {
+			significant = append(significant, d)
+		}
+	}
+	
+	// Sort by absolute value (descending)
+	for i := 0; i < len(significant); i++ {
+		for j := i + 1; j < len(significant); j++ {
+			absI := significant[i].value
+			if absI < 0 {
+				absI = -absI
+			}
+			absJ := significant[j].value
+			if absJ < 0 {
+				absJ = -absJ
+			}
+			if absJ > absI {
+				significant[i], significant[j] = significant[j], significant[i]
+			}
+		}
+	}
+	
+	// Return top 2 dimensions
+	labels := []string{}
+	maxDims := 2
+	if len(significant) < maxDims {
+		maxDims = len(significant)
+	}
+	
+	for i := 0; i < maxDims; i++ {
+		label := translator.GetDimensionLabel(significant[i].name, significant[i].value)
+		labels = append(labels, label)
+	}
+	
+	return labels
 }

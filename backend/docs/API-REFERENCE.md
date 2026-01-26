@@ -30,6 +30,7 @@
 | startTime | string | alt | Range start, format: ISO 8601 |
 | endTime | string | alt | Range end, format: ISO 8601 |
 | timezone | int | - | Timezone offset (hours), default 0 |
+| **language** | **string** | - | **Language: zh/en/ru, default en** |
 | granularity | string | - | Factor filter: hour/day/week/month/year, default day |
 | includeMinorAspects | bool | - | Include minor aspects, default false |
 | includeTransitHouse | bool | - | Include transit house events (planet through natal houses) |
@@ -82,11 +83,14 @@ curl -X POST http://localhost:8080/api/calc/unified-events \
       "time": "2026-01-16T03:59:59Z",
       "type": "aspect",
       "title": "Venus conjunction Venus",
+      "emotionalTitle": "Love & Beauty",
       "description": "Transiting Venus forms conjunction with natal Venus",
+      "detailedInterpretation": "This is a harmonious period filled with opportunities for **relationship development** and **aesthetic enhancement**. You may find your **social connections** deepening and your **artistic sensibilities** heightened...",
       "theme": "Concentrated energy, new beginnings",
       "advice": "Focus energy, concentrate on goals",
       "isPositive": true,
       "intensity": "medium",
+      "dimensionLabels": ["Relationship ↑"],
       "planet1": "venus",
       "planet2": "venus",
       "aspect": "conjunction",
@@ -173,6 +177,135 @@ curl -X POST http://localhost:8080/api/calc/unified-events \
 | **secondary_progression** | SP aspect to natal | year | ✓ |
 | **tertiary_progression** | TP aspect to natal | month | ✓ |
 
+---
+
+## 维度标签系统 (Dimension Labels)
+
+### 概述
+
+每个事件最多显示 **2 个**最重要的维度标签，带有方向箭头（↑ ↓ →），帮助用户快速理解该事件的主要影响领域。
+
+**设计原则**：
+- 基于行星与宫位的维度影响权重计算
+- 自动筛选影响值 > 0.3 的维度
+- 按绝对值降序排列，取前 2 个
+- 箭头方向表示正向、负向或中性影响
+
+### 维度类型
+
+| 维度 | 中文 | 英文 | 俄文 | 说明 |
+|------|------|------|------|------|
+| career | 事业 | Career | Карьера | 工作、职业发展 |
+| relationship | 爱情 | Relationship | Отношения | 人际、感情、合作 |
+| health | 健康 | Health | Здоровье | 身体、精力状态 |
+| finance | 财运 | Finance | Финансы | 财富、收入 |
+| spiritual | 灵性 | Spiritual | Духовность | 内在成长、直觉 |
+
+### 方向箭头
+
+| 箭头 | 含义 | 触发条件 |
+|------|------|----------|
+| ↑ | 正向影响，提升该维度 | dimensionImpact > 0.5 |
+| → | 中性影响，维持该维度 | 0.3 < dimensionImpact ≤ 0.5 |
+| ↓ | 负向影响，降低该维度 | dimensionImpact < -0.3 |
+
+### 行星维度策略
+
+| 行星 | 主维度 1 | 次维度 2 | 标签数量 | 示例 |
+|------|---------|---------|----------|------|
+| 太阳 | 事业 (0.6) | 健康 (0.4) | 2 | ["事业 ↑", "健康 →"] |
+| 月亮 | 关系 (0.6) | 健康 (0.4) | 2 | ["爱情 →", "健康 ↓"] |
+| 金星 | 关系 (0.8) | - | 1 | ["爱情 ↑"] |
+| 火星 | 健康 (0.6) | 事业 (0.4) | 2 | ["健康 ↑", "事业 →"] |
+| 木星 | 灵性 (0.5) | 财运 (0.5) | 2 | ["灵性 ↑", "财运 →"] |
+| 土星 | 事业 (0.8) | - | 1 | ["事业 →"] |
+| 天王星 | 灵性 (0.7) | - | 1 | ["灵性 ↑"] |
+| 海王星 | 灵性 (0.8) | - | 1 | ["灵性 →"] |
+| 冥王星 | 灵性 (0.7) | - | 1 | ["灵性 ↓"] |
+
+### 宫位维度策略
+
+| 宫位 | 主维度 1 | 次维度 2 | 标签数量 | 说明 |
+|------|---------|---------|----------|------|
+| 1 宫 | 健康 (0.6) | 事业 (0.4) | 2 | 自我、身体 |
+| 2 宫 | 财运 (0.8) | - | 1 | 财务至上 |
+| 3 宫 | 事业 (0.5) | 关系 (0.5) | 2 | 沟通与学习 |
+| 4 宫 | 关系 (0.6) | 健康 (0.4) | 2 | 家庭、根基 |
+| 5 宫 | 关系 (0.5) | 灵性 (0.5) | 2 | 创造、娱乐 |
+| 6 宫 | 健康 (0.6) | 事业 (0.4) | 2 | 工作、健康 |
+| 7 宫 | 关系 (0.8) | - | 1 | 伙伴关系至上 |
+| 8 宫 | 灵性 (0.6) | 财运 (0.4) | 2 | 转化、深度 |
+| 9 宫 | 灵性 (0.6) | 事业 (0.4) | 2 | 哲学、远行 |
+| 10 宫 | 事业 (0.8) | - | 1 | 职业至上 |
+| 11 宫 | 关系 (0.6) | 事业 (0.4) | 2 | 社交、团体 |
+| 12 宫 | 灵性 (0.6) | 健康 (0.4) | 2 | 隐退、疗愈 |
+
+### 组合规则
+
+当事件涉及行星与宫位组合时（如行运过宫），维度影响按以下规则计算：
+
+```
+最终维度影响 = 行星维度影响 × 宫位维度影响
+```
+
+**示例**：太阳（事业 0.6，健康 0.4）行运 3 宫（事业 0.5，关系 0.5）
+
+```
+事业影响 = 0.6 × 0.5 = 0.30
+关系影响 = 0.6 × 0.5 = 0.30
+健康影响 = 0.4 × 0.5 = 0.20
+
+→ 筛选 > 0.3: 无
+→ 取前 2 个: ["事业 →", "爱情 →"]
+```
+
+### 多语言支持
+
+维度标签自动适配 API 的 `language` 参数：
+
+```json
+{
+  "language": "zh",
+  "dimensionLabels": ["事业 ↑", "健康 ↓"]
+}
+```
+
+```json
+{
+  "language": "en",
+  "dimensionLabels": ["Career ↑", "Health ↓"]
+}
+```
+
+```json
+{
+  "language": "ru",
+  "dimensionLabels": ["Карьера ↑", "Здоровье ↓"]
+}
+```
+
+### 常见问题 (FAQ)
+
+**Q1: 为什么有些事件只有1个维度标签？**
+
+A: 当事件主要影响单一领域时（如金星专注爱情，土星专注事业），系统会只显示最核心的1个维度，避免信息冗余。
+
+**Q2: 维度标签是如何计算的？**
+
+A: 系统基于行星与宫位的维度影响权重相乘，筛选出影响值 > 0.3 的维度，按绝对值降序排列，取前2个。
+
+**Q3: 负面影响（↓）是否意味着事件很糟糕？**
+
+A: 不一定。负面影响表示该维度可能面临挑战，但占星学认为挑战也是成长的机会。用户应结合详细解析(`detailedInterpretation`)全面理解。
+
+**Q4: 能否自定义维度权重？**
+
+A: 当前版本暂不支持用户级别的自定义。未来可能通过偏好设置实现。
+
+**Q5: 维度标签在不同语言中是否完全一致？**
+
+A: 是的。维度标签的逻辑在所有语言中保持一致，只有文本翻译不同。
+
 **New Event Types Details**：
 
 **1. Transit House (`transit_house`)** - Planet transiting through natal houses
@@ -224,6 +357,324 @@ Used for monthly forecasts. Faster than secondary progressions.
   "endDate": "2026-01-28"
 }
 ```
+
+---
+
+## 完整响应示例（包含所有新字段）
+
+### 相位事件 (aspect)
+
+```json
+{
+  "time": "2026-01-16T14:30:00+08:00",
+  "type": "aspect",
+  "title": "Moon square Saturn",
+  "emotionalTitle": "Challenging Moment",
+  "description": "Transiting Moon forms square with natal Saturn",
+  "detailedInterpretation": "This is a period full of vitality and energy. You may achieve good results through hard work, especially in tasks requiring patience and discipline. However, be mindful of potential **emotional challenges** and **work pressure**. Maintain balance to ensure your **physical health** isn't compromised. Overall, this is a favorable time for steady progress through dedicated effort.",
+  "theme": "Tension and discipline",
+  "advice": "Stay patient, manage emotions carefully",
+  "isPositive": false,
+  "intensity": "medium",
+  "dimensionLabels": ["Career →", "Health ↓"],
+  "planet1": "moon",
+  "planet2": "saturn",
+  "aspect": "square",
+  "isExactToday": true,
+  "influencePhase": "active",
+  "factor": {
+    "factorType": "aspectPhase",
+    "timeLevel": "daily",
+    "baseValue": -2.5,
+    "weight": 0.8,
+    "strength": 0.95,
+    "dimensionImpact": {
+      "career": 0.48,
+      "relationship": 0.24,
+      "health": -0.40,
+      "finance": 0.16,
+      "spiritual": 0.16
+    },
+    "lifecycle": {
+      "startTime": "2026-01-15T10:30:00+08:00",
+      "peakTime": "2026-01-16T14:30:00+08:00",
+      "endTime": "2026-01-17T18:30:00+08:00",
+      "durationHours": 32,
+      "phase": "exact"
+    }
+  }
+}
+```
+
+### 行运过宫 (transit_house)
+
+**中文响应示例**：
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "transit_house",
+  "title": "太阳行运第3宫 - 沟通",
+  "emotionalTitle": "表达沟通",
+  "description": "太阳行运通过本命第3宫",
+  "detailedInterpretation": "沟通表达为你带来**职业机遇**和**人际拓展**。你会发现**工作中的交流合作**变得频繁，**业务洽谈、会议展示**的机会增多。同时**社交活动**和**人脉建设**也会有所收获。适合主动表达想法、分享见解，也是学习新技能、提升专业能力的好时机。注意平衡说与听的比例，用真诚的态度建立有价值的**职业关系**和**友谊联结**。",
+  "theme": "Communication and learning focus",
+  "advice": "Engage actively, share ideas, build connections",
+  "house": 3,
+  "planet1": "sun",
+  "startDate": "2025-12-21",
+  "endDate": "2026-01-19",
+  "durationDays": 29,
+  "durationText": "已开始26天，3天后结束",
+  "dimensionLabels": ["事业 →", "爱情 →"],
+  "isPositive": true,
+  "intensity": "medium",
+  "isExactToday": false,
+  "influencePhase": "fading",
+  "factor": {
+    "factorType": "transit_house",
+    "timeLevel": "daily",
+    "baseValue": 2.0,
+    "weight": 0.7,
+    "strength": 0.15,
+    "dimensionImpact": {
+      "career": 0.30,
+      "relationship": 0.30,
+      "health": 0.20,
+      "finance": 0.10,
+      "spiritual": 0.10
+    }
+  }
+}
+```
+
+**英文响应示例**：
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "transit_house",
+  "title": "Sun in 3rd House - Communication",
+  "emotionalTitle": "Expression & Communication",
+  "description": "Sun transiting through natal 3rd house",
+  "detailedInterpretation": "Communication and expression bring you **career opportunities** and **interpersonal expansion**. You'll find that **workplace collaboration** becomes more frequent, with increased opportunities for **business negotiations and presentations**. **Social activities** and **networking** will also yield rewards. This is an excellent time to actively share ideas and opinions, as well as learn new skills and enhance professional capabilities. Pay attention to balancing speaking and listening, and build valuable **professional relationships** and **friendships** with genuine sincerity.",
+  "house": 3,
+  "planet1": "sun",
+  "startDate": "2025-12-21",
+  "endDate": "2026-01-19",
+  "durationDays": 29,
+  "durationText": "Started 26 days ago, ends in 3 days",
+  "dimensionLabels": ["Career →", "Relationship →"],
+  "isPositive": true,
+  "intensity": "medium"
+}
+```
+
+**俄文响应示例**：
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "transit_house",
+  "title": "Солнце в 3-м доме - Коммуникация",
+  "emotionalTitle": "Общение",
+  "description": "Солнце проходит через натальный 3-й дом",
+  "detailedInterpretation": "Общение и самовыражение приносят вам **карьерные возможности** и **расширение межличностных связей**. Вы обнаружите, что **сотрудничество на работе** становится более частым, увеличиваются возможности для **деловых переговоров и презентаций**. **Социальные активности** и **нетворкинг** также принесут результаты. Это отличное время для активного обмена идеями и мнениями, а также для изучения новых навыков и повышения профессиональной компетентности. Обратите внимание на баланс между говорением и слушанием, стройте ценные **профессиональные отношения** и **дружеские связи** с искренностью.",
+  "house": 3,
+  "planet1": "sun",
+  "startDate": "2025-12-21",
+  "endDate": "2026-01-19",
+  "durationDays": 29,
+  "durationText": "Началось 26 дней назад, закончится через 3 дня",
+  "dimensionLabels": ["Карьера →", "Отношения →"],
+  "isPositive": true,
+  "intensity": "medium"
+}
+```
+
+### 次限推进 (secondary_progression)
+
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "secondary_progression",
+  "title": "SP Moon square North Node",
+  "emotionalTitle": "Growth Challenge",
+  "description": "Secondary progressed Moon forms square with natal North Node",
+  "detailedInterpretation": "This is a period of facing challenges and promoting growth. You may experience some difficulties or adjustments in this area, which are actually **opportunities for spiritual development**. Although there may be **inner conflicts** or **directional confusion**, these experiences help you clarify your true **life path** and strengthen your **inner wisdom**. Stay open to uncertainty, trust your **intuition**, and you'll find that these challenges ultimately lead to deeper **self-understanding** and **spiritual awakening**.",
+  "planet1": "moon",
+  "planet2": "northNode",
+  "aspect": "square",
+  "startDate": "2025-12-24",
+  "endDate": "2026-02-27",
+  "durationDays": 65,
+  "durationText": "Started 23 days ago, ends in 42 days",
+  "dimensionLabels": ["Spiritual ↓"],
+  "isPositive": false,
+  "intensity": "high",
+  "isExactToday": false,
+  "influencePhase": "active",
+  "factor": {
+    "factorType": "secondary_progression",
+    "timeLevel": "yearly",
+    "baseValue": -2.0,
+    "weight": 0.8,
+    "strength": 0.70,
+    "dimensionImpact": {
+      "career": 0.12,
+      "relationship": 0.12,
+      "health": 0.16,
+      "finance": 0.12,
+      "spiritual": -0.48
+    },
+    "lifecycle": {
+      "startTime": "2025-12-24T00:00:00+08:00",
+      "peakTime": "2026-01-25T00:00:00+08:00",
+      "endTime": "2026-02-27T00:00:00+08:00",
+      "durationHours": 1560
+    }
+  }
+}
+```
+
+### 三限推进 (tertiary_progression)
+
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "tertiary_progression",
+  "title": "TP Venus trine natal Jupiter",
+  "emotionalTitle": "Harmonious Expansion",
+  "description": "Tertiary progressed Venus forms trine with natal Jupiter",
+  "detailedInterpretation": "近期是充满和谐能量的时期。你在**人际关系**和**财务状况**上可能迎来顺遂的发展。这是拓展**社交圈**、建立**合作关系**的绝佳时机，也适合处理**投资理财**相关事务。你会发现自己更容易获得他人的好感与支持，**工作机会**和**资源整合**都较为顺畅。保持开放和积极的态度，主动参与各类社交活动，你的魅力与智慧会为你带来意想不到的**机遇**和**收获**。",
+  "planet1": "venus",
+  "planet2": "jupiter",
+  "aspect": "trine",
+  "startDate": "2026-01-05",
+  "endDate": "2026-01-28",
+  "durationDays": 23,
+  "durationText": "已开始11天，12天后结束",
+  "dimensionLabels": ["爱情 ↑", "财运 →"],
+  "isPositive": true,
+  "intensity": "medium",
+  "factor": {
+    "factorType": "tertiary_progression",
+    "timeLevel": "monthly",
+    "baseValue": 2.5,
+    "weight": 0.7,
+    "strength": 0.82,
+    "dimensionImpact": {
+      "career": 0.20,
+      "relationship": 0.40,
+      "health": 0.12,
+      "finance": 0.20,
+      "spiritual": 0.20
+    }
+  }
+}
+```
+
+### 逆行事件 (retrograde)
+
+```json
+{
+  "time": "2026-01-16T00:00:00+08:00",
+  "type": "retrograde",
+  "title": "Mercury Retrograde",
+  "emotionalTitle": "Review & Reflection",
+  "description": "Mercury is in retrograde motion",
+  "detailedInterpretation": "水星逆行期间，**沟通交流**和**信息传递**容易出现误解或延误。这段时间适合回顾过往、整理思绪，而非启动新项目。在**工作合作**中需要格外注意细节，多次确认重要信息。同时，这也是反思**人际关系**、修复旧有联系的好时机。保持耐心和灵活性，避免冲动决策。虽然表面看似混乱，但这正是深化**内在理解**、重新审视**生活方向**的珍贵时期。",
+  "planet1": "mercury",
+  "startDate": "2026-01-05",
+  "endDate": "2026-01-25",
+  "durationDays": 20,
+  "durationText": "已开始11天，9天后结束",
+  "dimensionLabels": ["事业 ↓", "爱情 ↓"],
+  "isPositive": false,
+  "intensity": "high",
+  "factor": {
+    "factorType": "retrograde",
+    "timeLevel": "monthly",
+    "baseValue": -2.0,
+    "weight": 1.0,
+    "strength": 0.90,
+    "dimensionImpact": {
+      "career": -0.40,
+      "relationship": -0.35,
+      "health": -0.10,
+      "finance": -0.25,
+      "spiritual": 0.30
+    }
+  }
+}
+```
+
+---
+
+## 事件字段完整说明
+
+### 核心字段
+
+| 字段 | 类型 | 必有 | 说明 |
+|------|------|------|------|
+| `time` | string | ✓ | 事件发生时间（ISO 8601） |
+| `type` | string | ✓ | 事件类型（aspect/transit_house/secondary_progression等） |
+| `title` | string | ✓ | 事件标题 |
+| `description` | string | ✓ | 简短描述 |
+| `isPositive` | boolean | ✓ | 是否为正面事件 |
+| `intensity` | string | ✓ | 强度等级：low/medium/high |
+
+### 新增字段（2026-01-16）
+
+| 字段 | 类型 | 出现场景 | 说明 |
+|------|------|----------|------|
+| `emotionalTitle` | string | 所有事件 | 情感化标题<br>中："表达沟通" / 英："Expression & Communication" / 俄："Общение" |
+| `detailedInterpretation` | string | 所有事件 | 详细段落解析（100-200字）<br>包含**粗体关键词**，提及具体维度影响 |
+| `dimensionLabels` | string[] | 有因子的事件 | 维度标签数组，最多2个<br>示例：["事业 ↑", "健康 ↓"] |
+| `durationText` | string | 行运过宫、推进 | 格式化时间文本<br>中："已开始X天，Y天后结束"<br>英："Started X days ago, ends in Y days"<br>俄："Началось X дней назад, закончится через Y дня" |
+
+### 相位事件专属字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `planet1` | string | 行运行星（或推进行星）ID |
+| `planet2` | string | 本命行星 ID |
+| `aspect` | string | 相位类型：conjunction/sextile/square/trine/opposition |
+| `theme` | string | 主题描述 |
+| `advice` | string | 建议文本 |
+
+### 行运过宫专属字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `house` | integer | 宫位编号（1-12） |
+| `planet1` | string | 行运行星 ID |
+| `startDate` | string | 开始日期（YYYY-MM-DD） |
+| `endDate` | string | 结束日期（YYYY-MM-DD） |
+| `durationDays` | float | 持续天数 |
+
+### 推进事件专属字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `planet1` | string | 推进行星 ID |
+| `planet2` | string | 本命行星/点 ID |
+| `aspect` | string | 相位类型 |
+| `startDate` | string | 开始日期 |
+| `endDate` | string | 结束日期 |
+| `durationDays` | integer | 持续天数 |
+
+### 用户信任度字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `isExactToday` | boolean | 是否今日精确形成 |
+| `influencePhase` | string | 影响阶段：<br>- `approaching`: 即将到来<br>- `active`: 正在影响<br>- `fading`: 逐渐消退 |
+
+### 因子字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `factor` | object | 因子详情对象（见下方"因子数据结构"） |
+
+---
 
 **因子数据结构 (factor)**：
 

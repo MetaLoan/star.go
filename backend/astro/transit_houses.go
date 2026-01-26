@@ -391,25 +391,28 @@ func CalculateTransitHouseFactors(chart *models.NatalChart, date time.Time, weig
 
 // getHouseDimensionImpact returns dimension impact based on house
 func getHouseDimensionImpact(house int) models.DimensionImpact {
+	// Designed for max 2 dimension labels
+	// Single dimension houses: 2, 4, 7, 9, 10, 12
+	// Dual dimension houses: 1, 3, 5, 6, 8, 11
 	impacts := map[int]models.DimensionImpact{
-		1:  {Career: 0.2, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.2},
-		2:  {Career: 0.1, Relationship: 0.1, Health: 0.1, Finance: 0.6, Spiritual: 0.1},
-		3:  {Career: 0.3, Relationship: 0.3, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
-		4:  {Career: 0.1, Relationship: 0.4, Health: 0.2, Finance: 0.1, Spiritual: 0.2},
-		5:  {Career: 0.1, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.3},
-		6:  {Career: 0.3, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.1},
-		7:  {Career: 0.1, Relationship: 0.6, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
-		8:  {Career: 0.1, Relationship: 0.2, Health: 0.1, Finance: 0.3, Spiritual: 0.3},
-		9:  {Career: 0.2, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.5},
-		10: {Career: 0.6, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
-		11: {Career: 0.2, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
-		12: {Career: 0.1, Relationship: 0.1, Health: 0.2, Finance: 0.1, Spiritual: 0.5},
+		1:  {Health: 0.6, Career: 0.4, Relationship: 0, Finance: 0, Spiritual: 0},        // 健康+事业
+		2:  {Finance: 0.8, Career: 0, Relationship: 0, Health: 0, Spiritual: 0},          // 财运
+		3:  {Career: 0.5, Relationship: 0.5, Health: 0, Finance: 0, Spiritual: 0},        // 事业+关系
+		4:  {Relationship: 0.8, Career: 0, Health: 0, Finance: 0, Spiritual: 0},          // 关系
+		5:  {Relationship: 0.6, Spiritual: 0.4, Career: 0, Health: 0, Finance: 0},        // 关系+灵性
+		6:  {Health: 0.6, Career: 0.4, Relationship: 0, Finance: 0, Spiritual: 0},        // 健康+事业
+		7:  {Relationship: 0.9, Career: 0, Health: 0, Finance: 0, Spiritual: 0},          // 关系
+		8:  {Spiritual: 0.6, Finance: 0.4, Career: 0, Relationship: 0, Health: 0},        // 灵性+财运
+		9:  {Spiritual: 0.8, Career: 0, Relationship: 0, Health: 0, Finance: 0},          // 灵性
+		10: {Career: 0.9, Relationship: 0, Health: 0, Finance: 0, Spiritual: 0},          // 事业
+		11: {Relationship: 0.6, Spiritual: 0.4, Career: 0, Health: 0, Finance: 0},        // 关系+灵性
+		12: {Spiritual: 0.8, Career: 0, Relationship: 0, Health: 0, Finance: 0},          // 灵性
 	}
 	
 	if impact, ok := impacts[house]; ok {
 		return impact
 	}
-	return models.DimensionImpact{Career: 0.2, Relationship: 0.2, Health: 0.2, Finance: 0.2, Spiritual: 0.2}
+	return models.DimensionImpact{Career: 0.5, Relationship: 0, Health: 0, Finance: 0, Spiritual: 0.5}
 }
 
 // getTransitHouseTimeLevel returns time level based on planet

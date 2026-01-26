@@ -15,6 +15,7 @@ import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button } from "@
 import { ChevronDown } from "lucide-react";
 import type { DimensionScores, Dimension } from '../../types';
 import { DIMENSION_NAMES, DIMENSION_COLORS } from '../../utils/astro';
+import { cn } from '../../utils/cn';
 
 interface TrendDataPoint {
   time: string; // ISO 时间或时间戳
@@ -84,13 +85,13 @@ export function InteractiveTrendChart9823EF({
 }: InteractiveTrendChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const seriesMapRef = useRef<Map<Dimension | 'overall', ISeriesApi<'Area'>>>(new Map());
   const tooltipRef = useRef<HTMLDivElement>(null);
   const onVisibleRangeChangeRef = useRef<typeof onVisibleRangeChange>(onVisibleRangeChange);
   const onPointClickRef = useRef<typeof onPointClick>(onPointClick);
-  const [selectedDimension, setSelectedDimension] = useState<Dimension | 'overall'>('overall');
+  const [selectedDimensions, setSelectedDimensions] = useState<Set<Dimension | 'overall'>>(new Set(['overall']));
   const [chartHeight, setChartHeight] = useState(initialHeight || 200);
-  const selectedDimensionRef = useRef<Dimension | 'overall'>(selectedDimension); // 用于点击回调
+  const selectedDimensionRef = useRef<Dimension | 'overall'>('overall'); // 用于点击回调
   const lastRangeCheckRef = useRef<number>(0); // 防抖：上次检查时间
   const lastClickEventRef = useRef<MouseEvent | null>(null); // 记录最后一次点击的 MouseEvent
   const dataRangeRef = useRef<{ minTime: number; maxTime: number } | null>(null); // 当前数据范围
@@ -107,10 +108,10 @@ export function InteractiveTrendChart9823EF({
     onPointClickRef.current = onPointClick;
   }, [onPointClick]);
 
-  // 同步 selectedDimension 到 ref（供点击回调使用）
+  // 同步第一个维度到 ref（供点击回调使用）
   useEffect(() => {
-    selectedDimensionRef.current = selectedDimension;
-  }, [selectedDimension]);
+    selectedDimensionRef.current = Array.from(selectedDimensions)[0] || 'overall';
+  }, [selectedDimensions]);
 
   // 时间戳（秒） -> 原始数据点（用于 hover/click 定位）
   const timeToPointRef = useRef<Map<number, TrendDataPoint>>(new Map());
@@ -174,21 +175,16 @@ export function InteractiveTrendChart9823EF({
     };
   }, []);
 
-  // 获取当前选中维度的颜色
-  const currentColor = showDimensions 
-    ? DIMENSION_OPTIONS.find(d => d.id === selectedDimension)?.color || color
-    : color;
-
-  // 根据选中维度获取数据值
-  const getValueForDimension = useCallback((point: TrendDataPoint): number => {
-    if (selectedDimension === 'overall' || !point.dimensions) {
+  // 根据维度获取数据值
+  const getValueForDimension = useCallback((point: TrendDataPoint, dimension: Dimension | 'overall'): number => {
+    if (dimension === 'overall' || !point.dimensions) {
       return point.value;
     }
-    return point.dimensions[selectedDimension] || point.value;
-  }, [selectedDimension]);
+    return point.dimensions[dimension] || point.value;
+  }, []);
 
-  // 转换数据格式
-  const convertData = useCallback((rawData: TrendDataPoint[]): AreaData[] => {
+  // 转换数据格式 - 为指定维度生成数据
+  const convertData = useCallback((rawData: TrendDataPoint[], dimension: Dimension | 'overall'): AreaData[] => {
     // 首先按时间排序（lightweight-charts 要求数据必须时间升序）
     const sortedData = [...rawData].sort((a, b) => {
       // 仅在“看起来是日期/时间”的情况下解析，避免年龄等字符串被 Date.parse 误解析
@@ -238,8 +234,8 @@ export function InteractiveTrendChart9823EF({
         time = index as Time;
       }
       
-      // 使用选中维度的值
-      const value = getValueForDimension(point);
+      // 使用指定维度的值
+      const value = getValueForDimension(point, dimension);
       return { time, value };
     });
   }, [getValueForDimension]);
@@ -312,25 +308,40 @@ export function InteractiveTrendChart9823EF({
       },
     });
 
-    // 创建面积图系列 (lightweight-charts v5+ API)
-    const areaSeries = chart.addSeries(AreaSeries, {
-      lineColor: currentColor,
-      topColor: `${currentColor}80`,
-      bottomColor: `${currentColor}10`,
-      lineWidth: 2,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 6,
-      crosshairMarkerBorderColor: '#ffffff',
-      crosshairMarkerBackgroundColor: currentColor,
-    });
-
     chartRef.current = chart;
-    seriesRef.current = areaSeries;
+    seriesMapRef.current.clear();
+
+    // 为每个选中的维度创建一个独立的面积图系列
+    selectedDimensions.forEach((dimension) => {
+      const dimOption = DIMENSION_OPTIONS.find(d => d.id === dimension);
+      if (!dimOption) return;
+      
+      const dimColor = dimOption.color;
+      const areaSeries = chart.addSeries(AreaSeries, {
+        lineColor: dimColor,
+        topColor: `${dimColor}40`,
+        bottomColor: `${dimColor}08`,
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
+        crosshairMarkerBorderColor: '#ffffff',
+        crosshairMarkerBackgroundColor: dimColor,
+      });
+      
+      seriesMapRef.current.set(dimension, areaSeries);
+    });
 
     // 设置数据
     if (data.length > 0) {
-      const chartData = convertData(data);
-      areaSeries.setData(chartData);
+      // 为每个维度设置数据
+      selectedDimensions.forEach((dimension) => {
+        const series = seriesMapRef.current.get(dimension);
+        if (series) {
+          const chartData = convertData(data, dimension);
+          series.setData(chartData);
+        }
+      });
+      
       // 初始渲染时才 fitContent，避免与用户缩放/拖拽并发导致断言错误
       if (!hasUserInteractedRef.current) {
         try {
@@ -341,18 +352,22 @@ export function InteractiveTrendChart9823EF({
         ignoreRangeChangeUntilRef.current = Date.now() + IGNORE_RANGE_CHANGE_MS;
       }
       
-      // 记录当前数据范围和长度
-      dataLengthRef.current = chartData.length;
-      if (chartData.length > 0) {
-        // 时间已统一为 UTCTimestamp（秒）
-        const times = chartData
-          .map(d => (typeof d.time === 'number' ? d.time : 0))
-          .filter(t => Number.isFinite(t) && t > 0);
-        if (times.length > 0) {
-          dataRangeRef.current = {
-            minTime: Math.min(...times),
-            maxTime: Math.max(...times),
-          };
+      // 记录当前数据范围和长度（使用第一个维度的数据）
+      const firstDimension = Array.from(selectedDimensions)[0];
+      if (firstDimension) {
+        const chartData = convertData(data, firstDimension);
+        dataLengthRef.current = chartData.length;
+        if (chartData.length > 0) {
+          // 时间已统一为 UTCTimestamp（秒）
+          const times = chartData
+            .map(d => (typeof d.time === 'number' ? d.time : 0))
+            .filter(t => Number.isFinite(t) && t > 0);
+          if (times.length > 0) {
+            dataRangeRef.current = {
+              minTime: Math.min(...times),
+              maxTime: Math.max(...times),
+            };
+          }
         }
       }
     }
@@ -409,12 +424,10 @@ export function InteractiveTrendChart9823EF({
         
         if (point) {
           tooltipRef.current.style.display = 'block';
-          const displayValue = getValueForDimension(point);
-          const dimensionLabel = selectedDimension === 'overall' ? '综合' : DIMENSION_NAMES[selectedDimension];
           
           // 获取坐标并计算绝对定位
-          const toolTipWidth = 80;
-          const toolTipHeight = 80;
+          const toolTipWidth = 140;
+          const toolTipHeight = 60 + selectedDimensions.size * 20;
           const toolTipMargin = 15;
           
           let left = param.point.x + toolTipMargin;
@@ -441,11 +454,31 @@ export function InteractiveTrendChart9823EF({
             }
           }
 
+          // 显示所有选中维度的值
+          let dimensionsHTML = '<div class="space-y-1 w-full">';
+          Array.from(selectedDimensions).forEach(dimId => {
+            const dim = DIMENSION_OPTIONS.find(d => d.id === dimId);
+            if (dim) {
+              const value = dimId === 'overall' || !point.dimensions 
+                ? point.value 
+                : point.dimensions[dimId as Dimension] || point.value;
+              dimensionsHTML += `
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-1.5">
+                    <div class="w-2 h-2 rounded-full" style="background-color: ${dim.color}"></div>
+                    <span class="text-[10px] uppercase tracking-wider font-medium text-black/70">${dim.label}</span>
+                  </div>
+                  <span class="text-sm font-bold text-black" style="color: ${dim.color}">${value.toFixed(1)}</span>
+                </div>
+              `;
+            }
+          });
+          dimensionsHTML += '</div>';
+
           tooltipRef.current.innerHTML = `
-            <div class="flex flex-col items-center justify-center text-center">
-              <div class="text-xl font-serif font-bold" style="color: ${currentColor}">${displayValue.toFixed(1)}</div>
-              <div class="text-[10px] text-black/40 mt-1">${timeDisplay}</div>
-              <div class="text-[10px] text-black/20 font-sans uppercase tracking-widest">${dimensionLabel}</div>
+            <div class="flex flex-col items-start w-full">
+              <div class="text-[10px] text-black/40 mb-2">${timeDisplay}</div>
+              ${dimensionsHTML}
             </div>
           `;
           onPointHover?.(point);
@@ -496,59 +529,66 @@ export function InteractiveTrendChart9823EF({
       containerRef.current?.removeEventListener('click', handleContainerClick);
       chart.remove();
       chartRef.current = null;
-      seriesRef.current = null;
+      seriesMapRef.current.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentColor, selectedDimension, showDimensions]);
+  }, [selectedDimensions, showDimensions]);
 
   // 更新数据（保持当前视图位置，不自动 fitContent）
   useEffect(() => {
-    if (seriesRef.current && data.length > 0) {
-      const chartData = convertData(data);
-      
-      // 更新数据 - 始终执行，不管用户是否在交互
-      try {
-        seriesRef.current.setData(chartData);
-      } catch {
-        // ignore setData errors
-        return;
-      }
-      
-      // 更新数据范围和长度
-      const previousDataRange = dataRangeRef.current;
-      dataLengthRef.current = chartData.length;
-      
-      if (chartData.length > 0) {
-        const times = chartData
-          .map(d => (typeof d.time === 'number' ? d.time : 0))
-          .filter(t => Number.isFinite(t));
-        if (times.length > 0) {
-          dataRangeRef.current = {
-            minTime: Math.min(...times),
-            maxTime: Math.max(...times),
-          };
+    if (seriesMapRef.current.size > 0 && data.length > 0) {
+      // 为每个维度更新数据
+      selectedDimensions.forEach((dimension) => {
+        const series = seriesMapRef.current.get(dimension);
+        if (series) {
+          try {
+            const chartData = convertData(data, dimension);
+            series.setData(chartData);
+          } catch {
+            // ignore setData errors
+          }
         }
-      }
+      });
       
-      // 仅在用户未交互过时，允许根据数据范围变化进行一次适配
-      // 用户交互后，让图表自己管理范围，避免冲突
-      if (!hasUserInteractedRef.current) {
-        if (!previousDataRange ||
-            previousDataRange.minTime !== dataRangeRef.current?.minTime ||
-            previousDataRange.maxTime !== dataRangeRef.current?.maxTime) {
-          // 延迟执行 fitContent，避免和当前渲染冲突
-          requestAnimationFrame(() => {
-            try {
-              chartRef.current?.timeScale().fitContent();
-            } catch {
-              // ignore fitContent errors
-            }
-          });
-          ignoreRangeChangeUntilRef.current = Date.now() + IGNORE_RANGE_CHANGE_MS;
+      // 更新数据范围和长度（使用第一个维度的数据）
+      const firstDimension = Array.from(selectedDimensions)[0];
+      if (firstDimension) {
+        const previousDataRange = dataRangeRef.current;
+        const chartData = convertData(data, firstDimension);
+        dataLengthRef.current = chartData.length;
+        
+        if (chartData.length > 0) {
+          const times = chartData
+            .map(d => (typeof d.time === 'number' ? d.time : 0))
+            .filter(t => Number.isFinite(t));
+          if (times.length > 0) {
+            dataRangeRef.current = {
+              minTime: Math.min(...times),
+              maxTime: Math.max(...times),
+            };
+          }
+        }
+        
+        // 仅在用户未交互过时，允许根据数据范围变化进行一次适配
+        // 用户交互后，让图表自己管理范围，避免冲突
+        if (!hasUserInteractedRef.current) {
+          if (!previousDataRange ||
+              previousDataRange.minTime !== dataRangeRef.current?.minTime ||
+              previousDataRange.maxTime !== dataRangeRef.current?.maxTime) {
+            // 延迟执行 fitContent，避免和当前渲染冲突
+            requestAnimationFrame(() => {
+              try {
+                chartRef.current?.timeScale().fitContent();
+              } catch {
+                // ignore fitContent errors
+              }
+            });
+            ignoreRangeChangeUntilRef.current = Date.now() + IGNORE_RANGE_CHANGE_MS;
+          }
         }
       }
     }
-  }, [data, convertData]);
+  }, [data, convertData, selectedDimensions]);
 
   return (
     <div className={`relative ${className}`}>
@@ -559,7 +599,9 @@ export function InteractiveTrendChart9823EF({
           {title && <div className="text-[9px] uppercase tracking-[0.2em] text-black/30 font-sans mb-1.5">{title}</div>}
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-serif font-light text-black">
-              {selectedDimension === 'overall' ? '综合趋势' : `${DIMENSION_NAMES[selectedDimension]}指数`}
+              {selectedDimensions.size === 1 
+                ? (Array.from(selectedDimensions)[0] === 'overall' ? '综合趋势' : `${DIMENSION_NAMES[Array.from(selectedDimensions)[0] as Dimension]}指数`)
+                : `${selectedDimensions.size}维度趋势`}
             </span>
           </div>
         </div>
@@ -579,18 +621,20 @@ export function InteractiveTrendChart9823EF({
                 endContent={<ChevronDown size={14} className="opacity-40" />}
                 className="text-[10px] uppercase tracking-[0.15em] font-bold h-10 px-4 rounded-none border-black/10 hover:bg-black/5"
               >
-                {DIMENSION_OPTIONS.find(d => d.id === selectedDimension)?.label || '维度'}
+                {selectedDimensions.size > 1 
+                  ? `${selectedDimensions.size}个维度` 
+                  : (DIMENSION_OPTIONS.find(d => d.id === Array.from(selectedDimensions)[0])?.label || '维度')}
               </Button>
             </DropdownTrigger>
             <DropdownMenu 
               aria-label="Dimension Selection"
               variant="light"
               disallowEmptySelection
-              selectionMode="single"
-              selectedKeys={new Set([selectedDimension])}
+              selectionMode="multiple"
+              selectedKeys={selectedDimensions}
               onSelectionChange={(keys) => {
-                const key = Array.from(keys)[0] as Dimension | 'overall';
-                setSelectedDimension(key);
+                const newSelection = new Set(keys as Set<Dimension | 'overall'>);
+                setSelectedDimensions(newSelection);
               }}
               className="p-1"
             >
@@ -602,7 +646,7 @@ export function InteractiveTrendChart9823EF({
                   classNames={{ 
                     title: cn(
                       "text-[10px] uppercase tracking-widest",
-                      selectedDimension === dim.id ? "font-bold text-black" : "text-black/60"
+                      selectedDimensions.has(dim.id) ? "font-bold text-black" : "text-black/60"
                     )
                   }}
                 >

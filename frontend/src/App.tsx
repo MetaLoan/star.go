@@ -17,6 +17,7 @@ import { ProfectionWheel6183RS } from './components/timeline/ProfectionWheel6183
 import { InteractiveTrendChart9823EF } from './components/timeline/InteractiveTrendChart9823EF';
 import { InfluenceFactorsPanel8274TU } from './components/factors/InfluenceFactorsPanel8274TU';
 import { CustomFactorEditor9456DE } from './components/factors/CustomFactorEditor9456DE';
+import { FactorGanttChart9527XZ } from './components/factors/FactorGanttChart9527XZ';
 import { RealtimeDimensionDashboard7392WZ } from './components/ui/RealtimeDimensionDashboard7392WZ';
 import { MultiGranularityScoreViewer8475QR } from './components/ui/MultiGranularityScoreViewer8475QR';
 import { ScoreBreakdownPopup5932MN } from './components/ui/ScoreBreakdownPopup5932MN';
@@ -25,7 +26,7 @@ import type { PlanetID, BirthData, InfluenceFactor, ScoreBreakdownAllResponse, A
 import { PLANET_NAMES, PLANET_SYMBOLS, PLANET_COLORS, formatDegree } from './utils/astro';
 import { apiClient } from './api/client';
 
-// 模拟影响因子数据（后续从 API 获取）
+// 初始模拟影响因子数据（用于编辑器演示）
 const MOCK_INFLUENCE_FACTORS: InfluenceFactor[] = [
   { id: '1', type: 'dignity', name: '太阳入庙狮子', value: 3, weight: 1, adjustment: 3, description: '太阳在狮子座获得入庙尊贵', isPositive: true },
   { id: '2', type: 'dignity', name: '金星入旺双鱼', value: 2, weight: 1, adjustment: 2, description: '金星在双鱼座获得旺相尊贵', isPositive: true },
@@ -35,6 +36,631 @@ const MOCK_INFLUENCE_FACTORS: InfluenceFactor[] = [
   { id: '6', type: 'lunarPhase', name: '月亮上弦', value: 0.5, weight: 0.7, adjustment: 0.35, description: '月相处于上弦阶段，适合行动', isPositive: true },
   { id: '7', type: 'profectionLord', name: '年主星木星', value: 1.0, weight: 1, adjustment: 1, description: '今年由木星主管，带来扩张机遇', isPositive: true },
 ];
+
+// 横道图演示数据（带有完整的生命周期信息，覆盖所有因子类型）
+const createMockGanttFactors = (): InfluenceFactor[] => {
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  
+  return [
+    // ===== aspectPhase 相位因子 =====
+    {
+      id: 'gantt_aspect_1',
+      type: 'aspectPhase',
+      name: '木星三分太阳',
+      value: 2.5,
+      weight: 1,
+      adjustment: 2.5,
+      isPositive: true,
+      description: '木星与太阳形成和谐三分相，带来扩张与机遇',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 2 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 1 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        duration: 168,
+      },
+      remainingDays: 5,
+    },
+    {
+      id: 'gantt_aspect_2',
+      type: 'aspectPhase',
+      name: '土星四分月亮',
+      value: -1.8,
+      weight: 0.9,
+      adjustment: -1.62,
+      isPositive: false,
+      description: '土星与月亮形成紧张四分相，情绪波动',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 1 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 3 * dayMs).toISOString(),
+        duration: 96,
+      },
+      remainingDays: 3,
+    },
+    {
+      id: 'gantt_aspect_3',
+      type: 'aspectPhase',
+      name: '火星六分金星',
+      value: 1.2,
+      weight: 0.7,
+      adjustment: 0.84,
+      isPositive: true,
+      description: '火星与金星形成和谐六分相，行动与美感结合',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 3 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 7 * dayMs).toISOString(),
+        duration: 96,
+      },
+      remainingDays: 7,
+    },
+    {
+      id: 'gantt_aspect_4',
+      type: 'aspectPhase',
+      name: '冥王星冲天王星',
+      value: -2.2,
+      weight: 0.85,
+      adjustment: -1.87,
+      isPositive: false,
+      description: '冥王星与天王星形成紧张冲相，重大变革压力',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 10 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() - 3 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 8 * dayMs).toISOString(),
+        duration: 432,
+      },
+      remainingDays: 8,
+    },
+    
+    // ===== aspectOrb 相位容许度因子 =====
+    {
+      id: 'gantt_orb_1',
+      type: 'aspectOrb',
+      name: '太阳合金星(精确)',
+      value: 2.0,
+      weight: 1.2,
+      adjustment: 2.4,
+      isPositive: true,
+      description: '太阳与金星精确合相，容许度仅0.5°，魅力大增',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 0.5 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 1 * dayMs).toISOString(),
+        duration: 36,
+      },
+      remainingDays: 1,
+    },
+    
+    // ===== dignity 尊贵度因子 =====
+    {
+      id: 'gantt_dignity_1',
+      type: 'dignity',
+      name: '金星入庙天秤',
+      value: 3,
+      weight: 1,
+      adjustment: 3,
+      isPositive: true,
+      description: '金星在天秤座获得入庙尊贵，人际和谐',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 5 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 10 * dayMs).toISOString(),
+        duration: 360,
+      },
+      remainingDays: 10,
+    },
+    {
+      id: 'gantt_dignity_2',
+      type: 'dignity',
+      name: '火星入弱天秤',
+      value: -1.5,
+      weight: 0.8,
+      adjustment: -1.2,
+      isPositive: false,
+      description: '火星在天秤座入弱，行动力受阻',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 3 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 15 * dayMs).toISOString(),
+        duration: 432,
+      },
+      remainingDays: 15,
+    },
+    
+    // ===== retrograde 逆行因子 =====
+    {
+      id: 'gantt_retro_1',
+      type: 'retrograde',
+      name: '水星逆行',
+      value: -2,
+      weight: 1,
+      adjustment: -2,
+      isPositive: false,
+      description: '水星逆行期间，沟通和交通需谨慎',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 6 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 12 * dayMs).toISOString(),
+        duration: 240,
+      },
+      remainingDays: 12,
+    },
+    {
+      id: 'gantt_retro_2',
+      type: 'retrograde',
+      name: '金星逆行',
+      value: -1.8,
+      weight: 0.9,
+      adjustment: -1.62,
+      isPositive: false,
+      description: '金星逆行期间，感情和财务需反思',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 8 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() - 2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 4 * dayMs).toISOString(),
+        duration: 288,
+      },
+      remainingDays: 4,
+    },
+    
+    // ===== lunarPhase 月相因子 =====
+    {
+      id: 'gantt_lunar_1',
+      type: 'lunarPhase',
+      name: '满月双子座',
+      value: 1.5,
+      weight: 0.8,
+      adjustment: 1.2,
+      isPositive: true,
+      description: '满月照亮沟通领域，适合表达',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 0.5 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime()).toISOString(),
+        endTime: new Date(now.getTime() + 1.5 * dayMs).toISOString(),
+        duration: 48,
+      },
+      remainingDays: 1.5,
+    },
+    {
+      id: 'gantt_lunar_2',
+      type: 'lunarPhase',
+      name: '新月摩羯座',
+      value: 1.2,
+      weight: 0.7,
+      adjustment: 0.84,
+      isPositive: true,
+      description: '新月开启事业新周期，适合设定目标',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 12 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 14 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 16 * dayMs).toISOString(),
+        duration: 96,
+      },
+      remainingDays: 16,
+    },
+    
+    // ===== planetaryHour 行星时因子 =====
+    {
+      id: 'gantt_hour_1',
+      type: 'planetaryHour',
+      name: '木星时',
+      value: 0.8,
+      weight: 0.5,
+      adjustment: 0.4,
+      isPositive: true,
+      description: '当前处于木星时辰，适合扩张和学习',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 0.04 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime()).toISOString(),
+        endTime: new Date(now.getTime() + 0.04 * dayMs).toISOString(),
+        duration: 1,
+      },
+      remainingDays: 0.04,
+    },
+    {
+      id: 'gantt_hour_2',
+      type: 'planetaryHour',
+      name: '土星时',
+      value: -0.5,
+      weight: 0.4,
+      adjustment: -0.2,
+      isPositive: false,
+      description: '土星时辰，适合深思和独处',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 0.04 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.06 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 0.08 * dayMs).toISOString(),
+        duration: 1,
+      },
+      remainingDays: 0.08,
+    },
+    
+    // ===== profectionLord 年主星因子 =====
+    {
+      id: 'gantt_profection_1',
+      type: 'profectionLord',
+      name: '年主星木星',
+      value: 1.5,
+      weight: 1,
+      adjustment: 1.5,
+      isPositive: true,
+      description: '今年由木星主管，整体运势扩张',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 30 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 60 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 180 * dayMs).toISOString(),
+        duration: 5040,
+      },
+      remainingDays: 180,
+    },
+    
+    // ===== voidOfCourse 月空因子 =====
+    {
+      id: 'gantt_voc_1',
+      type: 'voidOfCourse',
+      name: '月亮空亡',
+      value: -1.0,
+      weight: 0.6,
+      adjustment: -0.6,
+      isPositive: false,
+      description: '月亮空亡期间，不宜开始新事务',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 0.2 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.3 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 0.5 * dayMs).toISOString(),
+        duration: 7,
+      },
+      remainingDays: 0.5,
+    },
+    
+    // ===== outerPlanet 外行星因子 =====
+    {
+      id: 'gantt_outer_1',
+      type: 'outerPlanet',
+      name: '海王星过境12宫',
+      value: 1.0,
+      weight: 0.7,
+      adjustment: 0.7,
+      isPositive: true,
+      description: '海王星过境12宫，灵性觉醒与潜意识探索',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 60 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 30 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 120 * dayMs).toISOString(),
+        duration: 4320,
+      },
+      remainingDays: 120,
+    },
+    {
+      id: 'gantt_outer_2',
+      type: 'outerPlanet',
+      name: '冥王星过境1宫',
+      value: -1.5,
+      weight: 0.8,
+      adjustment: -1.2,
+      isPositive: false,
+      description: '冥王星过境1宫，深层自我转化期',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 90 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 45 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 200 * dayMs).toISOString(),
+        duration: 6960,
+      },
+      remainingDays: 200,
+    },
+    
+    // ===== personal 个人因子 =====
+    {
+      id: 'gantt_personal_1',
+      type: 'personal',
+      name: '太阳回归',
+      value: 2.0,
+      weight: 1,
+      adjustment: 2.0,
+      isPositive: true,
+      description: '太阳回归本命位置，生日能量高峰',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 20 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 25 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 30 * dayMs).toISOString(),
+        duration: 240,
+      },
+      remainingDays: 30,
+    },
+    {
+      id: 'gantt_personal_2',
+      type: 'personal',
+      name: '月亮次限推进',
+      value: 1.2,
+      weight: 0.8,
+      adjustment: 0.96,
+      isPositive: true,
+      description: '次限月亮进入新星座，情感需求转变',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 100 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 50 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 365 * dayMs).toISOString(),
+        duration: 11160,
+      },
+      remainingDays: 365,
+    },
+    
+    // ===== eclipse 日月食因子 =====
+    {
+      id: 'gantt_eclipse_1',
+      type: 'eclipse',
+      name: '日食影响期',
+      value: -2.5,
+      weight: 1.0,
+      adjustment: -2.5,
+      isPositive: false,
+      description: '日食能量活跃期，命运转折点',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 7 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() - 2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 7 * dayMs).toISOString(),
+        duration: 336,
+      },
+      remainingDays: 7,
+    },
+    
+    // ===== lunarNode 月交点因子 =====
+    {
+      id: 'gantt_node_1',
+      type: 'lunarNode',
+      name: '木星合北交点',
+      value: 2.0,
+      weight: 0.9,
+      adjustment: 1.8,
+      isPositive: true,
+      description: '木星与北交点合相，命运机遇期',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 5 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 10 * dayMs).toISOString(),
+        duration: 360,
+      },
+      remainingDays: 10,
+    },
+    
+    // ===== combustion 燃烧因子 =====
+    {
+      id: 'gantt_combustion_1',
+      type: 'combustion',
+      name: '水星燃烧',
+      value: -2.0,
+      weight: 1.0,
+      adjustment: -2.0,
+      isPositive: false,
+      description: '水星距太阳过近，沟通能量受损',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 3 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 1 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        duration: 192,
+      },
+      remainingDays: 5,
+    },
+    
+    // ===== station 停滞因子 =====
+    {
+      id: 'gantt_station_1',
+      type: 'station',
+      name: '土星停滞（顺转逆）',
+      value: 2.5,
+      weight: 1.2,
+      adjustment: 3.0,
+      isPositive: true,
+      description: '土星停滞期，能量极度强化',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 7 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 9 * dayMs).toISOString(),
+        duration: 96,
+      },
+      remainingDays: 9,
+    },
+    
+    // ===== reception 互容因子 =====
+    {
+      id: 'gantt_reception_1',
+      type: 'reception',
+      name: '金星与木星互容',
+      value: 2.5,
+      weight: 1.0,
+      adjustment: 2.5,
+      isPositive: true,
+      description: '金星在射手，木星在金牛，互容增益',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 10 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 20 * dayMs).toISOString(),
+        duration: 720,
+      },
+      remainingDays: 20,
+    },
+    
+    // ===== fixedStar 恒星因子 =====
+    {
+      id: 'gantt_star_1',
+      type: 'fixedStar',
+      name: '太阳合轩辕十四',
+      value: 2.0,
+      weight: 1.0,
+      adjustment: 2.0,
+      isPositive: true,
+      description: '太阳与皇家恒星轩辕十四合相，权力与荣耀',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 1 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        duration: 72,
+      },
+      remainingDays: 2,
+    },
+    
+    // ===== arabicPart 阿拉伯点因子 =====
+    {
+      id: 'gantt_arabic_1',
+      type: 'arabicPart',
+      name: '福点合木星',
+      value: 1.8,
+      weight: 0.8,
+      adjustment: 1.44,
+      isPositive: true,
+      description: '福点与木星合相，物质层面幸运增强',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 2 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 1 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 4 * dayMs).toISOString(),
+        duration: 144,
+      },
+      remainingDays: 4,
+    },
+    
+    // ===== term 界限因子 =====
+    {
+      id: 'gantt_term_1',
+      type: 'term',
+      name: '太阳在本界',
+      value: 1.0,
+      weight: 0.5,
+      adjustment: 0.5,
+      isPositive: true,
+      description: '太阳在自己主管的界限内，获得界限尊贵',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 3 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 7 * dayMs).toISOString(),
+        duration: 240,
+      },
+      remainingDays: 7,
+    },
+    
+    // ===== decan 十度面因子 =====
+    {
+      id: 'gantt_decan_1',
+      type: 'decan',
+      name: '月亮在本面',
+      value: 0.8,
+      weight: 0.4,
+      adjustment: 0.32,
+      isPositive: true,
+      description: '月亮在自己主管的十度面内，获得面尊贵',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 1 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 0.5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        duration: 72,
+      },
+      remainingDays: 2,
+    },
+    
+    // ===== solarArc 太阳弧因子 =====
+    {
+      id: 'gantt_solararc_1',
+      type: 'solarArc',
+      name: '太阳弧金星合本命天顶',
+      value: 3.0,
+      weight: 1.2,
+      adjustment: 3.6,
+      isPositive: true,
+      description: '太阳弧推进金星合本命天顶，事业与感情双丰收',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 90 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 30 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 180 * dayMs).toISOString(),
+        duration: 6480,
+      },
+      remainingDays: 180,
+    },
+    
+    // ===== firdaria 法达因子 =====
+    {
+      id: 'gantt_firdaria_1',
+      type: 'firdaria',
+      name: '木星大运期',
+      value: 1.5,
+      weight: 1.0,
+      adjustment: 1.5,
+      isPositive: true,
+      description: '当前处于木星主管的法达大运，扩张与学习期',
+      lifecycle: {
+        startTime: new Date(now.getTime() - 365 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 182 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 730 * dayMs).toISOString(),
+        duration: 26280,
+      },
+      remainingDays: 730,
+    },
+    
+    // ===== custom 自定义因子 =====
+    {
+      id: 'gantt_custom_1',
+      type: 'custom',
+      name: '重要会议',
+      value: 0.5,
+      weight: 0.5,
+      adjustment: 0.25,
+      isPositive: true,
+      description: '用户标记的重要事件',
+      lifecycle: {
+        startTime: new Date(now.getTime() + 1 * dayMs).toISOString(),
+        peakTime: new Date(now.getTime() + 1.5 * dayMs).toISOString(),
+        endTime: new Date(now.getTime() + 2 * dayMs).toISOString(),
+        duration: 24,
+      },
+      remainingDays: 2,
+    },
+  ];
+};
+
+const MOCK_GANTT_FACTORS = createMockGanttFactors();
+
+// 加载 API 因子数据的钩子
+function useRealFactors(birthData: BirthData | null) {
+  const [factors, setFactors] = useState<InfluenceFactor[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!birthData) return;
+
+    const fetchFactors = async () => {
+      setLoading(true);
+      try {
+        // 获取当前时间的因子数据
+        const now = new Date();
+        const queryTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00+08:00`;
+        
+        const res = await fetch('http://localhost:8080/api/calc/daily', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            birthData,
+            targetDate: queryTime,
+            withFactors: true,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.factors?.all) {
+            setFactors(data.factors.all);
+          }
+        }
+      } catch (err) {
+        console.error('获取因子数据失败:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFactors();
+  }, [birthData]);
+
+  return { factors, loading };
+}
 
 function App() {
   const {
@@ -61,6 +687,9 @@ function App() {
 
   const [selectedTab, setSelectedTab] = useState('chart');
   const [showMiniApp, setShowMiniApp] = useState(false);
+  
+  // 加载真实因子数据用于横道图
+  const { factors: realFactors, loading: factorsLoading } = useRealFactors(birthData);
   const [highlightedPlanet, setHighlightedPlanet] = useState<PlanetID | null>(null);
   const [expandedForecast, setExpandedForecast] = useState<string | null>(null);
   const [showFactorEditor, setShowFactorEditor] = useState(false);
@@ -1066,21 +1695,41 @@ function App() {
                 {/* 编辑模式开关 */}
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-medium text-white">📊 影响因子分析</h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <span className="text-sm text-white/60">编辑模式</span>
                     <Switch
                       isSelected={showFactorEditor}
                       onValueChange={setShowFactorEditor}
                       size="sm"
+                      classNames={{
+                        wrapper: "bg-white/20 group-data-[selected=true]:bg-primary",
+                        thumb: "bg-white shadow-md",
+                      }}
                     />
                   </div>
                 </div>
+
+                {/* 横道图（甘特图）- 显示因子时间线 */}
+                {factorsLoading ? (
+                  <div className="glass-card p-6 flex items-center justify-center">
+                    <Spinner size="lg" />
+                    <span className="ml-3 text-white/60">加载因子数据...</span>
+                  </div>
+                ) : (
+                  <FactorGanttChart9527XZ
+                    factors={realFactors.length > 0 ? realFactors : MOCK_GANTT_FACTORS}
+                    daysToShow={14}
+                    onFactorClick={(factor) => {
+                      console.log('点击因子:', factor);
+                    }}
+                  />
+                )}
 
                 <div className="grid lg:grid-cols-2 gap-6">
                   {/* 左侧：当前因子列表 */}
                   <div>
                     <InfluenceFactorsPanel8274TU
-                      factors={MOCK_INFLUENCE_FACTORS}
+                      factors={realFactors.length > 0 ? realFactors : MOCK_INFLUENCE_FACTORS}
                       editable={showFactorEditor}
                       onWeightChange={(name, weight) => {
                         console.log('权重变更:', name, weight);

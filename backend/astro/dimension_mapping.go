@@ -8,125 +8,116 @@ import "star/models"
 // 每行总和 = 1.0
 
 // PlanetDimensionMapping 行星-维度影响映射表
+// 优化策略：每个行星最多2个主要维度，权重集中，确保标签清晰
+// 单维度行星：金星、土星、天王星、海王星
+// 双维度行星：太阳、月亮、水星、火星、木星、冥王星、北交点、凯龙
 var PlanetDimensionMapping = map[models.PlanetID]models.DimensionImpact{
-	// 太阳：自我实现、生命力核心
-	// 事业(10宫)0.35, 健康(1宫活力)0.25, 灵性(自我意识)0.15
+	// 太阳：领导力、生命力 → 事业+健康
 	models.Sun: {
-		Career:       0.35,
-		Relationship: 0.15,
-		Health:       0.25,
-		Finance:      0.10,
-		Spiritual:    0.15,
+		Career:       0.6, // 领导、成就、职业表现
+		Health:       0.4, // 生命活力、体能状态
+		Relationship: 0,
+		Finance:      0,
+		Spiritual:    0,
 	},
 
-	// 月亮：情感需求、身体节律、潜意识
-	// 关系(情感)0.30, 健康(身体节律)0.30, 灵性(潜意识)0.20
+	// 月亮：情感、身心 → 关系+健康  
 	models.Moon: {
-		Career:       0.10,
-		Relationship: 0.30,
-		Health:       0.30,
-		Finance:      0.10,
-		Spiritual:    0.20,
+		Relationship: 0.6, // 情感需求、亲密关系
+		Health:       0.4, // 情绪健康、身体节律
+		Career:       0,
+		Finance:      0,
+		Spiritual:    0,
 	},
 
-	// 水星：思维沟通、商业交易、学习
-	// 事业(工作技能)0.30, 财务(商业)0.25, 关系(沟通)0.25
+	// 水星：沟通、商业 → 事业+财运
 	models.Mercury: {
-		Career:       0.30,
-		Relationship: 0.25,
-		Health:       0.10,
-		Finance:      0.25,
-		Spiritual:    0.10,
+		Career:       0.5, // 工作沟通、职业技能
+		Finance:      0.5, // 商业交易、财务分析
+		Relationship: 0,
+		Health:       0,
+		Spiritual:    0,
 	},
 
-	// 金星：爱与美、价值观、享乐
-	// 关系(爱情)0.45, 财务(价值/金钱)0.25
+	// 金星：爱与价值 → 关系（单维度）
 	models.Venus: {
-		Career:       0.10,
-		Relationship: 0.45,
-		Health:       0.10,
-		Finance:      0.25,
-		Spiritual:    0.10,
+		Relationship: 0.8, // 爱情、美感、和谐关系
+		Finance:      0.2, // 次要：价值观、享受消费
+		Career:       0,
+		Health:       0,
+		Spiritual:    0,
 	},
 
-	// 火星：行动力、身体能量、竞争
-	// 健康(体力)0.40, 事业(行动力)0.30
+	// 火星：行动、能量 → 健康+事业
 	models.Mars: {
-		Career:       0.30,
-		Relationship: 0.10,
-		Health:       0.40,
-		Finance:      0.10,
-		Spiritual:    0.10,
+		Health:       0.6, // 体力、身体能量
+		Career:       0.4, // 行动力、竞争力
+		Relationship: 0,
+		Finance:      0,
+		Spiritual:    0,
 	},
 
-	// 木星：扩张、机遇、信仰、财富
-	// 财务(扩张)0.30, 事业(机遇)0.25, 灵性(信仰)0.20
+	// 木星：扩张、机遇 → 灵性+财运
 	models.Jupiter: {
-		Career:       0.25,
-		Relationship: 0.15,
-		Health:       0.10,
-		Finance:      0.30,
-		Spiritual:    0.20,
+		Spiritual:    0.6, // 信仰、智慧、精神成长
+		Finance:      0.4, // 财富扩张、投资机会
+		Career:       0,
+		Relationship: 0,
+		Health:       0,
 	},
 
-	// 土星：责任、结构、限制、时间
-	// 事业(责任/成就)0.40, 健康(骨骼/慢性)0.20, 财务(保守)0.20
+	// 土星：责任、成就 → 事业（单维度）
 	models.Saturn: {
-		Career:       0.40,
-		Relationship: 0.10,
-		Health:       0.20,
-		Finance:      0.20,
-		Spiritual:    0.10,
+		Career:       0.8, // 职业责任、长期成就
+		Health:       0.2, // 次要：慢性健康、骨骼
+		Relationship: 0,
+		Finance:      0,
+		Spiritual:    0,
 	},
 
-	// 天王星：突破、觉醒、创新、科技
-	// 灵性(觉醒)0.50, 事业(创新)0.20
+	// 天王星：觉醒、创新 → 灵性（单维度）
 	models.Uranus: {
-		Career:       0.20,
-		Relationship: 0.10,
-		Health:       0.10,
-		Finance:      0.10,
-		Spiritual:    0.50,
+		Spiritual:    0.8, // 意识觉醒、突破创新
+		Career:       0.2, // 次要：科技创新
+		Relationship: 0,
+		Health:       0,
+		Finance:      0,
 	},
 
-	// 海王星：灵感、幻想、灵性、迷惑
-	// 灵性(灵感)0.50, 关系(理想化)0.20
+	// 海王星：灵性、理想 → 灵性（单维度）
 	models.Neptune: {
-		Career:       0.10,
-		Relationship: 0.20,
-		Health:       0.10,
-		Finance:      0.10,
-		Spiritual:    0.50,
+		Spiritual:    0.8, // 灵性直觉、精神追求
+		Relationship: 0.2, // 次要：理想化关系
+		Career:       0,
+		Health:       0,
+		Finance:      0,
 	},
 
-	// 冥王星：转化、权力、深层资源
-	// 财务(深层资源)0.25, 灵性(转化)0.20, 事业(权力)0.20, 健康(再生)0.20
+	// 冥王星：转化、资源 → 灵性+财运
 	models.Pluto: {
-		Career:       0.20,
-		Relationship: 0.15,
-		Health:       0.20,
-		Finance:      0.25,
-		Spiritual:    0.20,
+		Spiritual:    0.6, // 深层转化、重生
+		Finance:      0.4, // 共享资源、深层财富
+		Career:       0,
+		Relationship: 0,
+		Health:       0,
 	},
 
-	// 北交点：命运方向、灵魂成长
-	// 灵性(灵魂使命)0.45, 关系(业力关系)0.20
+	// 北交点：命运、成长 → 灵性+关系
 	models.NorthNode: {
-		Career:       0.15,
-		Relationship: 0.20,
-		Health:       0.10,
-		Finance:      0.10,
-		Spiritual:    0.45,
+		Spiritual:    0.6, // 灵魂使命、精神方向
+		Relationship: 0.4, // 业力关系、命运连接
+		Career:       0,
+		Health:       0,
+		Finance:      0,
 	},
 
-	// 凯龙：伤痛与疗愈
-	// 灵性(疗愈)0.35, 健康(身心伤痛)0.30, 关系(疗愈关系)0.20
+	// 凯龙：疗愈、伤痛 → 灵性+健康
 	models.Chiron: {
-		Career:       0.10,
-		Relationship: 0.20,
-		Health:       0.30,
-		Finance:      0.05,
-		Spiritual:    0.35,
+		Spiritual:    0.6, // 心灵疗愈、精神成长
+		Health:       0.4, // 身心伤痛、康复
+		Career:       0,
+		Relationship: 0,
+		Finance:      0,
 	},
 }
 
