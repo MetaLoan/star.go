@@ -431,17 +431,43 @@ type TimeSeries struct {
 type InfluenceFactorType string
 
 const (
-	FactorDignity        InfluenceFactorType = "dignity"
-	FactorRetrograde     InfluenceFactorType = "retrograde"
-	FactorAspectPhase    InfluenceFactorType = "aspectPhase"
-	FactorAspectOrb      InfluenceFactorType = "aspectOrb"
-	FactorOuterPlanet    InfluenceFactorType = "outerPlanet"
-	FactorProfectionLord InfluenceFactorType = "profectionLord"
-	FactorLunarPhase     InfluenceFactorType = "lunarPhase"
-	FactorPlanetaryHour  InfluenceFactorType = "planetaryHour"
-	FactorVoidOfCourse   InfluenceFactorType = "voidOfCourse"
-	FactorPersonal       InfluenceFactorType = "personal"
-	FactorCustom         InfluenceFactorType = "custom"
+	// ===== 基础因子类型 =====
+	FactorDignity        InfluenceFactorType = "dignity"        // 尊贵度（入庙、旺、弱、陷）
+	FactorRetrograde     InfluenceFactorType = "retrograde"     // 行星逆行
+	FactorAspectPhase    InfluenceFactorType = "aspectPhase"    // 相位（合、六分、四分、三分、冲）
+	FactorAspectOrb      InfluenceFactorType = "aspectOrb"      // 相位容许度/精确度
+	FactorOuterPlanet    InfluenceFactorType = "outerPlanet"    // 外行星过境
+	FactorProfectionLord InfluenceFactorType = "profectionLord" // 小限法年主星
+	FactorLunarPhase     InfluenceFactorType = "lunarPhase"     // 月相周期
+	FactorPlanetaryHour  InfluenceFactorType = "planetaryHour"  // 行星时
+	FactorVoidOfCourse   InfluenceFactorType = "voidOfCourse"   // 月空亡
+	FactorPersonal       InfluenceFactorType = "personal"       // 个人因子（太阳回归等）
+	FactorCustom         InfluenceFactorType = "custom"         // 自定义因子
+
+	// ===== 日月食与交点 =====
+	FactorEclipse    InfluenceFactorType = "eclipse"    // 日月食（日食、月食）
+	FactorLunarNode  InfluenceFactorType = "lunarNode"  // 月交点（北交/南交过境）
+
+	// ===== 行星状态 =====
+	FactorCombustion InfluenceFactorType = "combustion" // 燃烧（行星被太阳灼烧）
+	FactorStation    InfluenceFactorType = "station"    // 停滞（逆行前后的停滞期）
+	FactorReception  InfluenceFactorType = "reception"  // 互容/接纳（Mutual Reception）
+
+	// ===== 恒星与特殊点 =====
+	FactorFixedStar   InfluenceFactorType = "fixedStar"   // 恒星（皇家恒星等）
+	FactorArabicPart  InfluenceFactorType = "arabicPart"  // 阿拉伯点（福点、精神点等）
+	FactorMidpoint    InfluenceFactorType = "midpoint"    // 中点技术
+	FactorAntiscion   InfluenceFactorType = "antiscion"   // 反生点
+
+	// ===== 界限与分度 =====
+	FactorTerm  InfluenceFactorType = "term"  // 界限（Terms/Bounds）
+	FactorDecan InfluenceFactorType = "decan" // 十度面（Decan/Face）
+
+	// ===== 推运技术 =====
+	FactorSolarArc  InfluenceFactorType = "solarArc"  // 太阳弧推进
+	FactorPrimary   InfluenceFactorType = "primary"   // 主限推进
+	FactorFirdaria  InfluenceFactorType = "firdaria"  // 法达时间主星
+	FactorZodiacal  InfluenceFactorType = "zodiacal"  // 黄道释放（Zodiacal Releasing）
 )
 
 // FactorTimeLevel 因子时间级别
@@ -507,6 +533,9 @@ type InfluenceFactor struct {
 
 	// 占星学依据
 	AstroReason string `json:"astroReason,omitempty"`
+
+	// 剩余时间（从查询时间到结束时间）
+	RemainingDays float64 `json:"remainingDays"` // 剩余天数（支持小数，如0.5表示12小时）
 }
 
 // FactorWeights 因子权重配置（可运营调整）

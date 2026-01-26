@@ -26,28 +26,98 @@ type DailyEvent struct {
 }
 
 // CalculateDailyEvents 计算指定日期的所有星象事件（精确到分钟）
+// 使用共享数据层，避免与 Factor 系统重复计算
 func CalculateDailyEvents(chart *models.NatalChart, date time.Time, includeMinorAspects bool) []DailyEvent {
 	events := []DailyEvent{}
 
-	// 设置时间范围：从当天00:00到次日00:00
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	// 使用共享数据层获取计算结果（带缓存）
+	sharedData := CalculateDailyAstroData(chart, date)
+	
+	// 1. 转换换座事件
+	for _, sc := range sharedData.SignChanges {
+		event := DailyEvent{
+			Time:        sc.ExactTime,
+			Type:        "sign_change",
+			Title:       getPlanetName(sc.Planet) + " enters " + getSignName(sc.NewSign),
+			Description: getPlanetName(sc.Planet) + " enters " + getSignName(sc.NewSign),
+			Theme:       getSignChangeTheme(sc.Planet, sc.NewSign),
+			Advice:      getSignChangeAdvice(sc.Planet, sc.NewSign),
+			Planet1:     sc.Planet,
+			Sign:        sc.NewSign,
+			Degree:      0.0,
+			IsPositive:  isSignChangePositive(sc.Planet, sc.NewSign),
+			Intensity:   getSignChangeIntensity(sc.Planet),
+		}
+		events = append(events, event)
+	}
 
-	// 1. 查找行星换座事件
-	signChangeEvents := findSignChangeEvents(startOfDay, endOfDay)
-	events = append(events, signChangeEvents...)
+	// 2. 转换相位事件
+	for _, asp := range sharedData.AspectEvents {
+		// 如果不包含次要相位，只处理主要相位
+		if !includeMinorAspects {
+			isMajor := false
+			for _, ma := range SharedMajorAspects {
+				if ma.Angle == asp.AspectAngle {
+					isMajor = true
+					break
+				}
+			}
+			if !isMajor {
+				continue
+			}
+		}
+		
+		event := DailyEvent{
+			Time:        asp.ExactTime,
+			Type:        "aspect",
+			Title:       getPlanetName(asp.TransitPlanet) + " " + asp.AspectName + " " + getPlanetName(asp.NatalPlanet),
+			Description: "Transiting " + getPlanetName(asp.TransitPlanet) + " forms " + asp.AspectName + " with natal " + getPlanetName(asp.NatalPlanet),
+			Theme:       getAspectThemeByName(asp.TransitPlanet, asp.NatalPlanet, asp.AspectName),
+			Advice:      getAspectAdviceByName(asp.TransitPlanet, asp.NatalPlanet, asp.AspectName),
+			Planet1:     asp.TransitPlanet,
+			Planet2:     asp.NatalPlanet,
+			Aspect:      asp.AspectName,
+			Degree:      asp.AspectAngle,
+			IsPositive:  asp.IsPositive,
+			Intensity:   getAspectIntensityByName(asp.TransitPlanet, asp.NatalPlanet, asp.AspectName),
+		}
+		events = append(events, event)
+	}
 
-	// 2. 查找重要相位事件
-	aspectEvents := findAspectEvents(chart, startOfDay, endOfDay, includeMinorAspects)
-	events = append(events, aspectEvents...)
+	// 3. 转换月相事件
+	for _, lp := range sharedData.LunarPhases {
+		event := DailyEvent{
+			Time:        lp.ExactTime,
+			Type:        "lunar_phase",
+			Title:       lp.PhaseName,
+			Description: lp.PhaseName + " occurs",
+			Theme:       getLunarPhaseThemeByPhase(lp.Phase),
+			Advice:      getLunarPhaseAdviceByPhase(lp.Phase),
+			Planet1:     models.Moon,
+			Planet2:     models.Sun,
+			Degree:      lp.Angle,
+			IsPositive:  isLunarPhasePositive(lp.Phase),
+			Intensity:   getLunarPhaseIntensity(lp.Phase),
+		}
+		events = append(events, event)
+	}
 
-	// 3. 查找月相事件
-	lunarPhaseEvents := findLunarPhaseEvents(startOfDay, endOfDay)
-	events = append(events, lunarPhaseEvents...)
-
-	// 4. 查找行星时变化（每2小时一次）
-	planetaryHourEvents := findPlanetaryHourEvents(startOfDay, endOfDay)
-	events = append(events, planetaryHourEvents...)
+	// 4. 转换行星时变化事件
+	for i, ph := range sharedData.PlanetaryHours {
+		// 只在行星时开始时生成事件
+		event := DailyEvent{
+			Time:        ph.StartTime,
+			Type:        "planetary_hour_change",
+			Title:       getPlanetName(ph.Ruler) + " Hour begins",
+			Description: "Planetary hour #" + itoa(i+1) + " begins, ruled by " + getPlanetName(ph.Ruler),
+			Theme:       getPlanetaryHourTheme(ph.Ruler),
+			Advice:      getPlanetaryHourAdvice(ph.Ruler),
+			Planet1:     ph.Ruler,
+			IsPositive:  true,
+			Intensity:   "low",
+		}
+		events = append(events, event)
+	}
 
 	// 按时间排序
 	sort.Slice(events, func(i, j int) bool {
@@ -602,3 +672,118 @@ func getLunarPhaseNameEN(phaseNameCN string) string {
 	}
 	return phaseNameCN
 }
+
+// ==================== 共享数据层辅助函数 ====================
+// 这些函数使用英文相位名称/月相类型作为参数
+
+// getAspectThemeByName 根据英文相位名称获取主题
+func getAspectThemeByName(planet1, planet2 models.PlanetID, aspectName string) string {
+	if aspectName == "trine" || aspectName == "sextile" {
+		return "Harmonious energy, opportunities emerge"
+	}
+	if aspectName == "square" || aspectName == "opposition" {
+		return "Challenges and growth opportunities"
+	}
+	if aspectName == "conjunction" {
+		return "Concentrated energy, new beginnings"
+	}
+	return "Energy interaction"
+}
+
+// getAspectAdviceByName 根据英文相位名称获取建议
+func getAspectAdviceByName(planet1, planet2 models.PlanetID, aspectName string) string {
+	adviceMap := map[string]string{
+		"trine":         "Seize opportunities, go with the flow",
+		"sextile":       "Take initiative, create opportunities",
+		"square":        "Face challenges, break through limitations",
+		"opposition":    "Seek balance, integrate opposites",
+		"conjunction":   "Focus energy, concentrate on goals",
+		"semi-sextile":  "Notice subtle opportunities",
+		"semi-square":   "Handle minor obstacles",
+		"sesquiquadrate": "Adjust direction, correct course",
+		"quincunx":      "Stay flexible, adapt to changes",
+	}
+	if advice, ok := adviceMap[aspectName]; ok {
+		return advice
+	}
+	return "Be aware of energy changes"
+}
+
+// getAspectIntensityByName 根据英文相位名称获取强度
+func getAspectIntensityByName(planet1, planet2 models.PlanetID, aspectName string) string {
+	// 内行星相位通常影响较弱
+	if (planet1 == models.Moon || planet1 == models.Mercury) &&
+		(planet2 == models.Moon || planet2 == models.Mercury) {
+		return "low"
+	}
+
+	// 外行星相位影响较强
+	outerPlanets := map[models.PlanetID]bool{
+		models.Jupiter: true,
+		models.Saturn:  true,
+		models.Uranus:  true,
+		models.Neptune: true,
+		models.Pluto:   true,
+	}
+
+	if outerPlanets[planet1] || outerPlanets[planet2] {
+		return "high"
+	}
+
+	return "medium"
+}
+
+// getLunarPhaseThemeByPhase 根据月相类型获取主题
+func getLunarPhaseThemeByPhase(phase string) string {
+	themes := map[string]string{
+		"new":           "New beginnings, planting intentions",
+		"first_quarter": "Increased action, overcoming obstacles",
+		"full":          "Manifestation, emotional peak",
+		"last_quarter":  "Reflection, release and letting go",
+	}
+	if theme, ok := themes[phase]; ok {
+		return theme
+	}
+	return "Lunar phase transition"
+}
+
+// getLunarPhaseAdviceByPhase 根据月相类型获取建议
+func getLunarPhaseAdviceByPhase(phase string) string {
+	advice := map[string]string{
+		"new":           "Set goals, start new plans",
+		"first_quarter": "Take action, advance projects",
+		"full":          "Celebrate achievements, express gratitude",
+		"last_quarter":  "Organize, reflect, clear old things",
+	}
+	if adv, ok := advice[phase]; ok {
+		return adv
+	}
+	return "Follow the lunar rhythm"
+}
+
+// isLunarPhasePositive 判断月相是否正面
+func isLunarPhasePositive(phase string) bool {
+	// 新月和满月通常被视为正面能量
+	positivePhases := map[string]bool{
+		"new":           true,
+		"full":          true,
+		"first_quarter": true,
+	}
+	return positivePhases[phase]
+}
+
+// getLunarPhaseIntensity 获取月相强度
+func getLunarPhaseIntensity(phase string) string {
+	intensityMap := map[string]string{
+		"new":           "high",
+		"full":          "high",
+		"first_quarter": "medium",
+		"last_quarter":  "medium",
+	}
+	if intensity, ok := intensityMap[phase]; ok {
+		return intensity
+	}
+	return "low"
+}
+
+// 注意: itoa 函数已在 score_calculator.go 中定义

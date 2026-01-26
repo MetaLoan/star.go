@@ -159,18 +159,50 @@ var DefaultDimensionWeights = models.DimensionWeights{
 // ==================== 因子时间级别映射 ====================
 
 // FactorTimeLevelMapping 因子类型到时间级别的映射
+// 时间级别说明：
+// - Yearly（年级别）：影响持续数月至数年，如推运技术、外行星过境
+// - Monthly（月级别）：影响持续数周至数月，如行星换座、逆行
+// - Weekly（周级别）：影响持续数天至数周，如快速相位
+// - Daily（日级别）：影响持续数小时至数天，如精确相位、月相
+// - Hourly（小时级别）：影响持续数分钟至数小时，如行星时、月空
 var FactorTimeLevelMapping = map[models.InfluenceFactorType]models.FactorTimeLevel{
-	models.FactorDignity:        models.TimeLevelMonthly, // 行星换座周期
-	models.FactorRetrograde:     models.TimeLevelWeekly,  // 逆行周期数周
-	models.FactorAspectPhase:    models.TimeLevelDaily,   // 相位变化较快
-	models.FactorAspectOrb:      models.TimeLevelDaily,
-	models.FactorOuterPlanet:    models.TimeLevelYearly,  // 外行星影响长期
-	models.FactorProfectionLord: models.TimeLevelYearly,  // 年主星为年度级
-	models.FactorLunarPhase:     models.TimeLevelDaily,   // 月相周期约29.5天
-	models.FactorPlanetaryHour:  models.TimeLevelHourly,  // 行星时为小时级
-	models.FactorVoidOfCourse:   models.TimeLevelHourly,  // 月亮空亡为小时级
-	models.FactorPersonal:       models.TimeLevelDaily,   // 个人因子默认日级
-	models.FactorCustom:         models.TimeLevelHourly,  // 自定义因子可配置
+	// ===== 基础因子 =====
+	models.FactorDignity:        models.TimeLevelMonthly, // 行星在星座停留时间（数周至数月）
+	models.FactorRetrograde:     models.TimeLevelWeekly,  // 逆行周期（数周）
+	models.FactorAspectPhase:    models.TimeLevelDaily,   // 相位（根据行星速度，数天至数周）
+	models.FactorAspectOrb:      models.TimeLevelDaily,   // 相位容许度
+	models.FactorOuterPlanet:    models.TimeLevelYearly,  // 外行星过境（数月至数年）
+	models.FactorProfectionLord: models.TimeLevelYearly,  // 年主星（整年）
+	models.FactorLunarPhase:     models.TimeLevelDaily,   // 月相周期（约29.5天，但精确影响数天）
+	models.FactorPlanetaryHour:  models.TimeLevelHourly,  // 行星时（约1-2小时）
+	models.FactorVoidOfCourse:   models.TimeLevelHourly,  // 月亮空亡（数小时）
+	models.FactorPersonal:       models.TimeLevelYearly,  // 个人因子如太阳回归（年度级）
+	models.FactorCustom:         models.TimeLevelDaily,   // 自定义因子（默认日级，可配置）
+
+	// ===== 日月食与交点 =====
+	models.FactorEclipse:   models.TimeLevelMonthly, // 日月食影响期（前后2-4周）
+	models.FactorLunarNode: models.TimeLevelWeekly,  // 月交点过境（数天至数周）
+
+	// ===== 行星状态 =====
+	models.FactorCombustion: models.TimeLevelDaily,  // 燃烧（数天，取决于行星速度）
+	models.FactorStation:    models.TimeLevelDaily,  // 停滞（数天）
+	models.FactorReception:  models.TimeLevelMonthly, // 互容（取决于行星在星座时间）
+
+	// ===== 恒星与特殊点 =====
+	models.FactorFixedStar:  models.TimeLevelDaily,  // 恒星合相（容许度小，持续数天）
+	models.FactorArabicPart: models.TimeLevelDaily,  // 阿拉伯点（日级变化）
+	models.FactorMidpoint:   models.TimeLevelDaily,  // 中点（日级）
+	models.FactorAntiscion:  models.TimeLevelDaily,  // 反生点（日级）
+
+	// ===== 界限与分度 =====
+	models.FactorTerm:  models.TimeLevelWeekly, // 界限（行星在一个界限约数天至数周）
+	models.FactorDecan: models.TimeLevelWeekly, // 十度面（行星在一个面约数天至数周）
+
+	// ===== 推运技术 =====
+	models.FactorSolarArc: models.TimeLevelYearly, // 太阳弧推进（年度级，影响约±6个月）
+	models.FactorPrimary:  models.TimeLevelYearly, // 主限推进（年度级）
+	models.FactorFirdaria: models.TimeLevelYearly, // 法达（多年级）
+	models.FactorZodiacal: models.TimeLevelYearly, // 黄道释放（年度级）
 }
 
 // GetFactorTimeLevel 获取因子的时间级别

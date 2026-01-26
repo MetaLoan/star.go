@@ -125,9 +125,13 @@ func NormalizeScoreV2(raw float64) float64 {
 // ==================== 影响因子计算（新版） ====================
 
 // CalculateInfluenceFactorsV2 计算影响因子（新版）
+// 使用共享数据层，避免与 Daily Events 重复计算
 func CalculateInfluenceFactorsV2(chart *models.NatalChart, date time.Time, transitPositions []models.PlanetPosition) *models.FactorResult {
 	weights := DefaultFactorWeights
 	var factors []models.InfluenceFactor
+
+	// 获取共享星象数据（带缓存）
+	sharedData := CalculateDailyAstroData(chart, date)
 
 	// 1. 尊贵度因子
 	dignityFactors := calculateDignityFactorsV2(transitPositions, weights.Dignity)
@@ -137,16 +141,16 @@ func CalculateInfluenceFactorsV2(chart *models.NatalChart, date time.Time, trans
 	retrogradeFactors := calculateRetrogradeFactorsV2(transitPositions, weights.Retrograde, date)
 	factors = append(factors, retrogradeFactors...)
 
-	// 3. 相位因子
-	aspectFactors := calculateAspectFactorsV2(chart, transitPositions, weights.AspectPhase, date)
+	// 3. 相位因子（使用共享数据层中的精确时间）
+	aspectFactors := calculateAspectFactorsWithSharedData(chart, transitPositions, weights.AspectPhase, date, sharedData)
 	factors = append(factors, aspectFactors...)
 
-	// 4. 月相因子
-	lunarPhaseFactors := calculateLunarPhaseFactorsV2(transitPositions, weights.LunarPhase, date)
+	// 4. 月相因子（使用共享数据层）
+	lunarPhaseFactors := calculateLunarPhaseFactorsWithSharedData(weights.LunarPhase, date, sharedData)
 	factors = append(factors, lunarPhaseFactors...)
 
-	// 5. 行星时因子
-	planetaryHourFactors := calculatePlanetaryHourFactorsV2(chart, date, weights.PlanetaryHour)
+	// 5. 行星时因子（使用共享数据层）
+	planetaryHourFactors := calculatePlanetaryHourFactorsWithSharedData(chart, date, weights.PlanetaryHour, sharedData)
 	factors = append(factors, planetaryHourFactors...)
 
 	// 6. 年主星因子
@@ -674,6 +678,202 @@ func calculateAspectFactorsLite(chart *models.NatalChart, transitPositions []mod
 			AstroReason:     "Transit " + transitInfo.Name + " forms " + aspectDef.Name + " with natal " + natalInfo.Name,
 		})
 	}
+
+	return factors
+}
+
+// ==================== 使用共享数据层的因子计算函数 ====================
+
+// calculateAspectFactorsWithSharedData 使用共享数据层计算相位因子
+// 避免重复的精确相位时间搜索
+func calculateAspectFactorsWithSharedData(chart *models.NatalChart, transitPositions []models.PlanetPosition, weight float64, date time.Time, sharedData *DailyAstroData) []models.InfluenceFactor {
+	var factors []models.InfluenceFactor
+
+	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
+
+	for _, asp := range aspects {
+		if asp.Strength < 0.5 {
+			continue
+		}
+
+		aspectDef := GetAspectDefinition(asp.AspectType)
+		if aspectDef == nil {
+			continue
+		}
+
+		// 基础值
+		baseValue := asp.Weight
+		if aspectDef.Nature == "tense" {
+			baseValue = -baseValue * 0.7
+		}
+
+		// 容许度强度
+		baseValue *= asp.Strength
+
+		// 尝试从共享数据中获取精确相位时间
+		var lifecycle *models.FactorLifecycle
+		aspectEvent := FindAspectEventAt(sharedData, asp.Planet1, asp.Planet2, asp.ExactAngle)
+		
+		if aspectEvent != nil {
+			// 使用共享数据中的精确时间创建生命周期
+			speed1 := GetPlanetSpeed(asp.Planet1)
+			speed2 := GetPlanetSpeed(asp.Planet2)
+			relativeSpeed := speed1
+			if speed2 > speed1 {
+				relativeSpeed = speed2
+			}
+			if relativeSpeed < 0.01 {
+				relativeSpeed = 0.01
+			}
+			
+			maxOrb := aspectDef.Orb
+			if maxOrb <= 0 {
+				maxOrb = 8.0
+			}
+			
+			durationDays := (maxOrb * 2) / relativeSpeed
+			halfDuration := time.Duration(durationDays * 12 * float64(time.Hour))
+			
+			lifecycle = &models.FactorLifecycle{
+				StartTime: aspectEvent.ExactTime.Add(-halfDuration),
+				PeakTime:  aspectEvent.ExactTime,
+				EndTime:   aspectEvent.ExactTime.Add(halfDuration),
+				Duration:  durationDays * 24,
+			}
+		} else {
+			// 回退到估算方法
+			maxOrb := aspectDef.Orb
+			if maxOrb <= 0 {
+				maxOrb = 8.0
+			}
+			lifecycle = CalculateAspectLifecycleWithPlanets(asp.Orb, date, asp.Applying, asp.Planet1, asp.Planet2, maxOrb)
+		}
+
+		transitInfo := GetPlanetInfo(asp.Planet1)
+		natalInfo := GetPlanetInfo(asp.Planet2)
+
+		// 合并两颗行星的维度影响
+		transitImpact := GetPlanetDimensionImpact(asp.Planet1)
+		natalImpact := GetPlanetDimensionImpact(asp.Planet2)
+		combinedImpact := models.DimensionImpact{
+			Career:       (transitImpact.Career + natalImpact.Career) / 2,
+			Relationship: (transitImpact.Relationship + natalImpact.Relationship) / 2,
+			Health:       (transitImpact.Health + natalImpact.Health) / 2,
+			Finance:      (transitImpact.Finance + natalImpact.Finance) / 2,
+			Spiritual:    (transitImpact.Spiritual + natalImpact.Spiritual) / 2,
+		}
+
+		// 判断正负
+		isPositive := aspectDef.Nature == "harmonious"
+		if aspectDef.Nature == "neutral" {
+			isPositive = baseValue > 0
+		}
+
+		factors = append(factors, models.InfluenceFactor{
+			Type:            models.FactorAspectPhase,
+			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
+			Description:     asp.Interpretation,
+			TimeLevel:       models.TimeLevelDaily,
+			Lifecycle:       lifecycle,
+			BaseValue:       baseValue,
+			Weight:          weight,
+			DimensionImpact: combinedImpact,
+			SourcePlanet:    asp.Planet1,
+			IsPositive:      isPositive,
+			AstroReason:     "Transit " + transitInfo.Name + " forms " + aspectDef.Name + " with natal " + natalInfo.Name,
+		})
+	}
+
+	return factors
+}
+
+// calculateLunarPhaseFactorsWithSharedData 使用共享数据层计算月相因子
+func calculateLunarPhaseFactorsWithSharedData(weight float64, date time.Time, sharedData *DailyAstroData) []models.InfluenceFactor {
+	var factors []models.InfluenceFactor
+
+	// 使用共享数据中的当前月相信息
+	phaseInfo := sharedData.CurrentLunarPhase
+	if phaseInfo == nil {
+		return factors
+	}
+
+	phaseValues := map[string]float64{
+		"new":           1.0,
+		"crescent":      1.5,
+		"firstQuarter":  0.0,
+		"gibbous":       1.0,
+		"full":          2.0,
+		"disseminating": 0.5,
+		"lastQuarter":   -1.0,
+		"balsamic":      -0.5,
+	}
+
+	value := phaseValues[phaseInfo.Phase]
+
+	// 月相周期约3.5天
+	lifecycle := CreateLifecycle(date.AddDate(0, 0, -1), 3.5*24)
+
+	// 月相主要影响情感和健康
+	moonImpact := GetPlanetDimensionImpact(models.Moon)
+
+	factors = append(factors, models.InfluenceFactor{
+		Type:            models.FactorLunarPhase,
+		Name:            phaseInfo.Name,
+		Description:     "Current lunar phase: " + phaseInfo.Name + ", " + phaseInfo.Keywords[0],
+		TimeLevel:       models.TimeLevelDaily,
+		Lifecycle:       lifecycle,
+		BaseValue:       value,
+		Weight:          weight,
+		DimensionImpact: moonImpact,
+		SourcePlanet:    models.Moon,
+		IsPositive:      value > 0,
+		AstroReason:     "Lunar phase reflects the relative position of Sun and Moon, affecting mood and energy rhythms",
+	})
+
+	return factors
+}
+
+// calculatePlanetaryHourFactorsWithSharedData 使用共享数据层计算行星时因子
+func calculatePlanetaryHourFactorsWithSharedData(chart *models.NatalChart, date time.Time, weight float64, sharedData *DailyAstroData) []models.InfluenceFactor {
+	var factors []models.InfluenceFactor
+
+	// 使用共享数据中的当前行星时信息
+	hourInfo := sharedData.CurrentPlanetaryHour
+	if hourInfo == nil {
+		return factors
+	}
+	
+	hourRulerInfo := GetPlanetInfo(hourInfo.Ruler)
+	dayRulerInfo := GetPlanetInfo(hourInfo.DayRuler)
+
+	value := hourInfo.Influence
+
+	// 与命主星相关加成
+	if chart != nil {
+		if hourInfo.Ruler == chart.ChartRuler {
+			value += 2.0
+		}
+		if hourInfo.DayRuler == chart.ChartRuler {
+			value += 1.0
+		}
+	}
+
+	// 行星时持续约1-1.5小时
+	lifecycle := CreateLifecycle(date.Add(-30*time.Minute), 1.5)
+
+	factors = append(factors, models.InfluenceFactor{
+		Type:            models.FactorPlanetaryHour,
+		Name:            dayRulerInfo.Name + " Day " + hourRulerInfo.Name + " Hour",
+		Description:     "Today is " + dayRulerInfo.Name + " day, planetary hour #" + itoa(hourInfo.PlanetaryHour) + " ruled by " + hourRulerInfo.Name,
+		TimeLevel:       models.TimeLevelHourly,
+		Lifecycle:       lifecycle,
+		BaseValue:       value,
+		Weight:          weight,
+		DimensionImpact: GetPlanetDimensionImpact(hourInfo.Ruler),
+		SourcePlanet:    hourInfo.Ruler,
+		IsPositive:      value > 0,
+		AstroReason:     "Planetary hours originate from ancient Babylon, each hour ruled by a different planet affecting that period's energy",
+	})
 
 	return factors
 }

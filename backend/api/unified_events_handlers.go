@@ -1,0 +1,875 @@
+package api
+
+import (
+	"net/http"
+	"sort"
+	"star/astro"
+	"star/models"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+// ==================== 统一事件接口 ====================
+// 合并 daily-events 和 total-factors 功能
+// 返回时间范围内的所有天体事件及其对分数的影响
+
+// UnifiedEventRequest 统一事件请求
+type UnifiedEventRequest struct {
+	BirthData           models.BirthData `json:"birthData" binding:"required"`
+	Birth               models.BirthData `json:"birth"`               // 别名
+	StartTime           string           `json:"startTime"`           // ISO 8601 格式
+	EndTime             string           `json:"endTime"`             // ISO 8601 格式
+	Date                string           `json:"date"`                // 单日查询（简化格式）
+	Timezone            int              `json:"timezone"`            // 时区偏移（小时）
+	Granularity         string           `json:"granularity"`         // hour, day, week, month, year（过滤因子用）
+	IncludeMinorAspects bool             `json:"includeMinorAspects"` // 是否包含次要相位
+	IncludeFactors      bool             `json:"includeFactors"`      // 是否包含因子影响数据（默认true）
+	IncludeTransitHouse bool             `json:"includeTransitHouse"` // 是否包含行运过宫
+	IncludeProgressions bool             `json:"includeProgressions"` // 是否包含次限/三限推进
+}
+
+// UnifiedEvent 统一事件（包含事件和因子信息）
+type UnifiedEvent struct {
+	// 事件基本信息
+	Time        time.Time `json:"time"`
+	Type        string    `json:"type"` // aspect, sign_change, lunar_phase, planetary_hour_change, retrograde, dignity, voc, transit_house, secondary_progression, tertiary_progression
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Theme       string    `json:"theme"`
+	Advice      string    `json:"advice"`
+	IsPositive  bool      `json:"isPositive"`
+	Intensity   string    `json:"intensity"` // high, medium, low
+
+	// 事件详情（可选）
+	Planet1 models.PlanetID `json:"planet1,omitempty"`
+	Planet2 models.PlanetID `json:"planet2,omitempty"`
+	Aspect  string          `json:"aspect,omitempty"`
+	Sign    string          `json:"sign,omitempty"`
+	Degree  float64         `json:"degree,omitempty"`
+	House   int             `json:"house,omitempty"` // For transit house events
+
+	// User trust fields
+	IsExactToday   bool   `json:"isExactToday"`             // Whether event is exact today
+	InfluencePhase string `json:"influencePhase,omitempty"` // approaching, active, fading
+	
+	// Duration info (for long-term events)
+	StartDate    string  `json:"startDate,omitempty"`    // When influence started
+	EndDate      string  `json:"endDate,omitempty"`      // When influence ends
+	DurationDays float64 `json:"durationDays,omitempty"` // Duration in days
+	
+	// Factor influence data
+	Factor *FactorImpact `json:"factor,omitempty"`
+}
+
+// FactorImpact 因子影响数据
+type FactorImpact struct {
+	FactorType      string                  `json:"factorType"`
+	TimeLevel       string                  `json:"timeLevel"`       // hourly, daily, weekly, monthly, yearly
+	BaseValue       float64                 `json:"baseValue"`
+	Weight          float64                 `json:"weight"`
+	Strength        float64                 `json:"strength"`        // 当前强度 (0-1)
+	DimensionImpact models.DimensionImpact  `json:"dimensionImpact"` // 对各维度的影响
+	Lifecycle       *FactorLifecycleInfo    `json:"lifecycle,omitempty"`
+}
+
+// FactorLifecycleInfo 因子生命周期信息
+type FactorLifecycleInfo struct {
+	StartTime time.Time `json:"startTime"`
+	PeakTime  time.Time `json:"peakTime"`
+	EndTime   time.Time `json:"endTime"`
+	Duration  float64   `json:"durationHours"`
+	Phase     string    `json:"phase"` // applying, exact, separating
+}
+
+// UnifiedEventResponse 统一事件响应
+type UnifiedEventResponse struct {
+	StartTime   string         `json:"startTime"`
+	EndTime     string         `json:"endTime"`
+	Timezone    int            `json:"timezone"`
+	Events      []UnifiedEvent `json:"events"`
+	EventCount  int            `json:"eventCount"`
+	MajorEvents []UnifiedEvent `json:"majorEvents"` // 高强度事件
+	Summary     string         `json:"summary"`
+	DayTheme    string         `json:"dayTheme"`
+
+	// 因子汇总
+	FactorSummary *FactorSummary `json:"factorSummary,omitempty"`
+
+	// 按时间级别分组的事件
+	EventsByLevel map[string][]UnifiedEvent `json:"eventsByLevel,omitempty"`
+}
+
+// FactorSummary 因子汇总
+type FactorSummary struct {
+	TotalFactors    int     `json:"totalFactors"`
+	PositiveFactors int     `json:"positiveFactors"`
+	NegativeFactors int     `json:"negativeFactors"`
+	NetInfluence    float64 `json:"netInfluence"`
+	DominantFactor  string  `json:"dominantFactor,omitempty"`
+}
+
+// GetUnifiedEvents 统一事件查询
+// POST /api/calc/unified-events
+// 合并 daily-events 和 total-factors，返回时间范围内的所有天体事件及其对分数的影响
+func GetUnifiedEvents(c *gin.Context) {
+	var req UnifiedEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 支持 birth 别名
+	if req.BirthData.Year == 0 && req.Birth.Year != 0 {
+		req.BirthData = req.Birth
+	}
+
+	// 设置默认值
+	if req.Granularity == "" {
+		req.Granularity = "day"
+	}
+
+	// 解析时间范围
+	var startTime, endTime time.Time
+	var err error
+
+	if req.Date != "" {
+		// 单日查询模式
+		startTime, err = parseDate(req.Date, req.Timezone)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format: " + err.Error()})
+			return
+		}
+		endTime = startTime.Add(24 * time.Hour)
+	} else if req.StartTime != "" && req.EndTime != "" {
+		// 时间范围查询模式
+		startTime, err = parseDateTime(req.StartTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid startTime format: " + err.Error()})
+			return
+		}
+		endTime, err = parseDateTime(req.EndTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid endTime format: " + err.Error()})
+			return
+		}
+	} else {
+		// 默认今天
+		location := time.FixedZone("Custom", req.Timezone*3600)
+		now := time.Now().In(location)
+		startTime = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+		endTime = startTime.Add(24 * time.Hour)
+	}
+
+	// 计算本命盘
+	chart := astro.CalculateNatalChart(req.BirthData)
+
+	// 获取共享星象数据
+	sharedData := astro.CalculateDailyAstroData(chart, startTime)
+
+	// 获取每日事件
+	dailyEvents := astro.CalculateDailyEvents(chart, startTime, req.IncludeMinorAspects)
+
+	// 获取全因子数据
+	var factorResponse *astro.TotalFactorsResponse
+	factorResponse_val := astro.GetTotalFactors(chart, startTime.Add(12*time.Hour), req.Granularity, "")
+	factorResponse = &factorResponse_val
+
+	// 合并事件和因子
+	unifiedEvents := mergeEventsAndFactors(dailyEvents, factorResponse, sharedData)
+	
+	// Add transit house events (planet through natal houses)
+	if req.IncludeTransitHouse || req.Granularity == "day" || req.Granularity == "week" {
+		transitHouseEvents := astro.GetActiveTransitHouseEvents(chart, startTime.Add(12*time.Hour), "medium")
+		for _, e := range transitHouseEvents {
+			unifiedEvents = append(unifiedEvents, convertTransitHouseToUnifiedEvent(e))
+		}
+	}
+	
+	// Add progression events based on granularity
+	if req.IncludeProgressions || req.Granularity == "month" || req.Granularity == "year" {
+		// Secondary progressions (for yearly view)
+		if req.Granularity == "year" || req.IncludeProgressions {
+			spEvents := astro.GetSecondaryProgressionEvents(chart, startTime.Add(12*time.Hour))
+			for _, e := range spEvents {
+				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e))
+			}
+		}
+		
+		// Tertiary progressions (for monthly view)
+		if req.Granularity == "month" || req.IncludeProgressions {
+			tpEvents := astro.GetTertiaryProgressionEvents(chart, startTime.Add(12*time.Hour))
+			for _, e := range tpEvents {
+				unifiedEvents = append(unifiedEvents, convertProgressionToUnifiedEvent(e))
+			}
+		}
+	}
+
+	// 筛选主要事件
+	majorEvents := []UnifiedEvent{}
+	for _, event := range unifiedEvents {
+		if event.Intensity == "high" {
+			majorEvents = append(majorEvents, event)
+		}
+	}
+
+	// 生成主题和总结
+	dayTheme := generateUnifiedDayTheme(unifiedEvents)
+	summary := generateUnifiedSummary(unifiedEvents, majorEvents)
+
+	// 因子汇总
+	var factorSummary *FactorSummary
+	if factorResponse != nil {
+		factorSummary = &FactorSummary{
+			TotalFactors:    factorResponse.Overall.PositiveCount + factorResponse.Overall.NegativeCount,
+			PositiveFactors: factorResponse.Overall.PositiveCount,
+			NegativeFactors: factorResponse.Overall.NegativeCount,
+			NetInfluence:    factorResponse.Overall.NetAdjustment,
+			DominantFactor:  getDominantFactorName(factorResponse),
+		}
+	}
+
+	// 按时间级别分组事件
+	eventsByLevel := groupEventsByTimeLevel(unifiedEvents)
+
+	response := UnifiedEventResponse{
+		StartTime:     startTime.Format(time.RFC3339),
+		EndTime:       endTime.Format(time.RFC3339),
+		Timezone:      req.Timezone,
+		Events:        unifiedEvents,
+		EventCount:    len(unifiedEvents),
+		MajorEvents:   majorEvents,
+		Summary:       summary,
+		DayTheme:      dayTheme,
+		FactorSummary: factorSummary,
+		EventsByLevel: eventsByLevel,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// groupEventsByTimeLevel 按时间级别分组事件
+func groupEventsByTimeLevel(events []UnifiedEvent) map[string][]UnifiedEvent {
+	grouped := map[string][]UnifiedEvent{
+		"yearly":  {},
+		"monthly": {},
+		"weekly":  {},
+		"daily":   {},
+		"hourly":  {},
+		"unknown": {}, // 没有因子数据的事件
+	}
+
+	for _, e := range events {
+		if e.Factor == nil || e.Factor.TimeLevel == "" {
+			grouped["unknown"] = append(grouped["unknown"], e)
+		} else {
+			level := e.Factor.TimeLevel
+			if _, ok := grouped[level]; ok {
+				grouped[level] = append(grouped[level], e)
+			} else {
+				grouped["unknown"] = append(grouped["unknown"], e)
+			}
+		}
+	}
+
+	// 删除空的分组
+	for k, v := range grouped {
+		if len(v) == 0 {
+			delete(grouped, k)
+		}
+	}
+
+	return grouped
+}
+
+// mergeEventsAndFactors 合并事件和因子数据
+// 策略：以 Factor 系统为主（因为这才是影响分数的），补充 Daily Events 的精确时间
+func mergeEventsAndFactors(events []astro.DailyEvent, factorResponse *astro.TotalFactorsResponse, sharedData *astro.DailyAstroData) []UnifiedEvent {
+	unifiedEvents := []UnifiedEvent{}
+	usedFactorIDs := make(map[string]bool) // 记录已处理的因子
+
+	// 收集所有因子（从各级别合并）
+	allFactors := []astro.TotalFactorDetail{}
+	if factorResponse != nil {
+		for _, factors := range factorResponse.FactorsByLevel {
+			allFactors = append(allFactors, factors...)
+		}
+	}
+
+	// 获取今天的日期范围（用于判断 isExactToday）
+	today := time.Now()
+	startOfToday := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	endOfToday := startOfToday.Add(24 * time.Hour)
+
+	// 步骤1：处理 Daily Events（有精确时间的事件）
+	for _, e := range events {
+		ue := UnifiedEvent{
+			Time:         e.Time,
+			Type:         e.Type,
+			Title:        e.Title,
+			Description:  e.Description,
+			Theme:        e.Theme,
+			Advice:       e.Advice,
+			IsPositive:   e.IsPositive,
+			Intensity:    e.Intensity,
+			Planet1:      e.Planet1,
+			Planet2:      e.Planet2,
+			Aspect:       e.Aspect,
+			Sign:         e.Sign,
+			Degree:       e.Degree,
+			IsExactToday: true, // Daily Events 都是今日精确的
+		}
+
+		// 尝试匹配因子数据
+		factor, factorID := findMatchingFactorDetailWithID(e, allFactors)
+		if factor != nil {
+			ue.Factor = factor
+			ue.InfluencePhase = getInfluencePhase(factor.Lifecycle, e.Time)
+			usedFactorIDs[factorID] = true
+		} else {
+			// 没有匹配到因子时，根据事件类型分配默认的 timeLevel
+			ue.Factor = &FactorImpact{
+				FactorType: eventTypeToFactorType(e.Type),
+				TimeLevel:  getDefaultTimeLevelForEventType(e.Type),
+			}
+			ue.InfluencePhase = "active"
+		}
+
+		unifiedEvents = append(unifiedEvents, ue)
+	}
+
+	// 步骤2：添加 Factor 系统中有但 Daily Events 中没有的因子
+	// 这些是"正在影响但非今日精确"的因子
+	for _, f := range allFactors {
+		factorID := f.ID
+		if usedFactorIDs[factorID] {
+			continue // 已经在步骤1中处理过
+		}
+
+		ue := convertFactorDetailToUnifiedEvent(f)
+		
+		// 判断是否今日精确
+		if f.PeakTime != "" {
+			if pt, err := time.Parse(time.RFC3339, f.PeakTime); err == nil {
+				ue.IsExactToday = pt.After(startOfToday) && pt.Before(endOfToday)
+			}
+		}
+		
+		// 设置影响阶段
+		ue.InfluencePhase = getInfluencePhaseFromStrings(f.StartTime, f.PeakTime, f.EndTime)
+
+		unifiedEvents = append(unifiedEvents, ue)
+	}
+
+	// 按时间排序
+	sort.Slice(unifiedEvents, func(i, j int) bool {
+		return unifiedEvents[i].Time.Before(unifiedEvents[j].Time)
+	})
+
+	return unifiedEvents
+}
+
+// findMatchingFactorDetailWithID 查找匹配的因子并返回ID
+func findMatchingFactorDetailWithID(event astro.DailyEvent, factors []astro.TotalFactorDetail) (*FactorImpact, string) {
+	for _, f := range factors {
+		if matchEventToFactorDetail(event, f) {
+			return &FactorImpact{
+				FactorType: f.Type,
+				TimeLevel:  f.TimeLevel,
+				BaseValue:  f.BaseValue,
+				Weight:     f.Weight,
+				Strength:   f.Strength,
+				DimensionImpact: models.DimensionImpact{
+					Career:       f.DimensionImpact.Career,
+					Relationship: f.DimensionImpact.Relationship,
+					Health:       f.DimensionImpact.Health,
+					Finance:      f.DimensionImpact.Finance,
+					Spiritual:    f.DimensionImpact.Spiritual,
+				},
+				Lifecycle: parseLifecycleFromFactor(f),
+			}, f.ID
+		}
+	}
+	return nil, ""
+}
+
+// getInfluencePhase 根据生命周期确定影响阶段
+func getInfluencePhase(lifecycle *FactorLifecycleInfo, eventTime time.Time) string {
+	if lifecycle == nil {
+		return "active"
+	}
+	
+	now := time.Now()
+	if now.Before(lifecycle.PeakTime) {
+		return "approaching" // 即将到来
+	} else if now.After(lifecycle.EndTime) {
+		return "fading" // 逐渐消退
+	}
+	return "active" // 正在影响
+}
+
+// getInfluencePhaseFromStrings 从字符串时间判断影响阶段
+func getInfluencePhaseFromStrings(startTime, peakTime, endTime string) string {
+	now := time.Now()
+	
+	if peakTime != "" {
+		if pt, err := time.Parse(time.RFC3339, peakTime); err == nil {
+			if now.Before(pt) {
+				return "approaching"
+			}
+		}
+	}
+	
+	if endTime != "" {
+		if et, err := time.Parse(time.RFC3339, endTime); err == nil {
+			if now.After(et) {
+				return "fading"
+			}
+		}
+	}
+	
+	return "active"
+}
+
+// matchEventToFactorDetail 匹配事件和因子
+func matchEventToFactorDetail(event astro.DailyEvent, factor astro.TotalFactorDetail) bool {
+	switch event.Type {
+	case "aspect":
+		if factor.Type == "aspectPhase" {
+			// 检查行星是否匹配
+			return factor.SourcePlanet == string(event.Planet1)
+		}
+	case "lunar_phase":
+		return factor.Type == "lunarPhase"
+	case "planetary_hour_change":
+		return factor.Type == "planetaryHour"
+	case "sign_change":
+		return factor.Type == "dignity" && factor.SourcePlanet == string(event.Planet1)
+	}
+	return false
+}
+
+// isFactorDetailAlreadyInEvents 检查因子是否已经作为事件存在
+func isFactorDetailAlreadyInEvents(factor astro.TotalFactorDetail, events []astro.DailyEvent) bool {
+	for _, e := range events {
+		if matchEventToFactorDetail(e, factor) {
+			return true
+		}
+	}
+	return false
+}
+
+// convertFactorDetailToUnifiedEvent 将因子转换为统一事件
+func convertFactorDetailToUnifiedEvent(f astro.TotalFactorDetail) UnifiedEvent {
+	eventType := f.Type
+	intensity := "medium"
+	if f.Strength > 0.7 {
+		intensity = "high"
+	} else if f.Strength < 0.3 {
+		intensity = "low"
+	}
+
+	peakTime := time.Now()
+	if f.PeakTime != "" {
+		if pt, err := time.Parse(time.RFC3339, f.PeakTime); err == nil {
+			peakTime = pt
+		}
+	}
+
+	return UnifiedEvent{
+		Time:        peakTime,
+		Type:        eventType,
+		Title:       f.Name,
+		Description: f.Description,
+		Theme:       getFactorThemeByType(f.Type),
+		Advice:      getFactorAdviceByPositive(f.IsPositive),
+		IsPositive:  f.IsPositive,
+		Intensity:   intensity,
+		Planet1:     models.PlanetID(f.SourcePlanet),
+		Factor: &FactorImpact{
+			FactorType: f.Type,
+			TimeLevel:  f.TimeLevel,
+			BaseValue:  f.BaseValue,
+			Weight:     f.Weight,
+			Strength:   f.Strength,
+			DimensionImpact: models.DimensionImpact{
+				Career:       f.DimensionImpact.Career,
+				Relationship: f.DimensionImpact.Relationship,
+				Health:       f.DimensionImpact.Health,
+				Finance:      f.DimensionImpact.Finance,
+				Spiritual:    f.DimensionImpact.Spiritual,
+			},
+			Lifecycle: parseLifecycleFromFactor(f),
+		},
+	}
+}
+
+// parseLifecycleFromFactor 从因子解析生命周期数据
+func parseLifecycleFromFactor(f astro.TotalFactorDetail) *FactorLifecycleInfo {
+	if f.StartTime == "" && f.EndTime == "" {
+		return nil
+	}
+
+	lc := &FactorLifecycleInfo{}
+
+	if f.StartTime != "" {
+		if t, err := time.Parse(time.RFC3339, f.StartTime); err == nil {
+			lc.StartTime = t
+		}
+	}
+	if f.PeakTime != "" {
+		if t, err := time.Parse(time.RFC3339, f.PeakTime); err == nil {
+			lc.PeakTime = t
+		}
+	}
+	if f.EndTime != "" {
+		if t, err := time.Parse(time.RFC3339, f.EndTime); err == nil {
+			lc.EndTime = t
+		}
+	}
+
+	lc.Duration = f.RemainingDays * 24 // 转为小时
+
+	// 判断阶段
+	now := time.Now()
+	if now.Before(lc.PeakTime) {
+		lc.Phase = "applying"
+	} else if now.After(lc.PeakTime) {
+		lc.Phase = "separating"
+	} else {
+		lc.Phase = "exact"
+	}
+
+	return lc
+}
+
+// getFactorThemeByType 根据因子类型获取主题
+func getFactorThemeByType(factorType string) string {
+	themes := map[string]string{
+		"dignity":        "Planetary strength and expression",
+		"retrograde":     "Review, reflection, revisiting",
+		"voidOfCourse":   "Pause period, avoid new starts",
+		"profectionLord": "Annual themes and focus",
+		"aspectPhase":    "Planetary interaction and energy",
+		"lunarPhase":     "Emotional and intuitive cycles",
+		"planetaryHour":  "Current planetary influence",
+	}
+	if theme, ok := themes[factorType]; ok {
+		return theme
+	}
+	return "Energy influence"
+}
+
+// getFactorAdviceByPositive 根据正负获取建议
+func getFactorAdviceByPositive(isPositive bool) string {
+	if isPositive {
+		return "Favorable period for related activities"
+	}
+	return "Be mindful and proceed with awareness"
+}
+
+// getDominantFactorName 获取主导因子名称
+func getDominantFactorName(result *astro.TotalFactorsResponse) string {
+	if result == nil {
+		return ""
+	}
+
+	// 从所有正负因子中找最强的
+	var dominantName string
+	maxImpact := 0.0
+
+	for _, f := range result.Overall.PositiveFactors {
+		impact := f.Adjustment
+		if impact < 0 {
+			impact = -impact
+		}
+		if impact > maxImpact {
+			maxImpact = impact
+			dominantName = f.Name
+		}
+	}
+	for _, f := range result.Overall.NegativeFactors {
+		impact := f.Adjustment
+		if impact < 0 {
+			impact = -impact
+		}
+		if impact > maxImpact {
+			maxImpact = impact
+			dominantName = f.Name
+		}
+	}
+
+	return dominantName
+}
+
+// generateUnifiedDayTheme 生成统一日主题
+func generateUnifiedDayTheme(events []UnifiedEvent) string {
+	// 统计事件类型
+	aspectCount := 0
+	positiveCount := 0
+	highIntensity := 0
+
+	for _, e := range events {
+		if e.Type == "aspect" {
+			aspectCount++
+		}
+		if e.IsPositive {
+			positiveCount++
+		}
+		if e.Intensity == "high" {
+			highIntensity++
+		}
+	}
+
+	if highIntensity > 3 {
+		return "Dynamic energy day with major cosmic influences"
+	} else if positiveCount > len(events)/2 {
+		return "Harmonious flow with supportive cosmic energies"
+	} else if aspectCount > 5 {
+		return "Active day with multiple planetary connections"
+	}
+	return "Balanced cosmic influences"
+}
+
+// generateUnifiedSummary 生成统一总结
+func generateUnifiedSummary(events []UnifiedEvent, majorEvents []UnifiedEvent) string {
+	if len(majorEvents) == 0 {
+		return "A relatively calm day with subtle cosmic influences."
+	}
+
+	summary := ""
+	if len(majorEvents) == 1 {
+		summary = "Today features " + majorEvents[0].Title + ". "
+	} else {
+		summary = "Today features multiple significant events. "
+	}
+
+	positiveCount := 0
+	for _, e := range majorEvents {
+		if e.IsPositive {
+			positiveCount++
+		}
+	}
+
+	if positiveCount > len(majorEvents)/2 {
+		summary += "Overall energy is supportive and favorable."
+	} else {
+		summary += "Navigate challenges with awareness and flexibility."
+	}
+
+	return summary
+}
+
+// parseDate 解析日期
+func parseDate(dateStr string, timezone int) (time.Time, error) {
+	location := time.FixedZone("Custom", timezone*3600)
+
+	formats := []string{
+		"2006-01-02",
+		"2006/01/02",
+		"20060102",
+	}
+
+	for _, format := range formats {
+		if t, err := time.ParseInLocation(format, dateStr, location); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, nil
+}
+
+// parseDateTime 解析日期时间
+func parseDateTime(dateTimeStr string) (time.Time, error) {
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateTimeStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, nil
+}
+
+// eventTypeToFactorType 将事件类型映射到因子类型
+func eventTypeToFactorType(eventType string) string {
+	mapping := map[string]string{
+		"aspect":                "aspectPhase",
+		"sign_change":           "dignity",
+		"lunar_phase":           "lunarPhase",
+		"planetary_hour_change": "planetaryHour",
+	}
+	if ft, ok := mapping[eventType]; ok {
+		return ft
+	}
+	return eventType
+}
+
+// getDefaultTimeLevelForEventType 根据事件类型获取默认的时间级别
+func getDefaultTimeLevelForEventType(eventType string) string {
+	// 基于 FactorTimeLevelMapping 的逻辑
+	mapping := map[string]string{
+		"aspect":                 "daily",   // 相位默认日级别
+		"sign_change":            "monthly", // 换座默认月级别（尊贵度）
+		"lunar_phase":            "daily",   // 月相默认日级别
+		"planetary_hour_change":  "hourly",  // 行星时默认小时级别
+		"transit_house":          "weekly",  // 行运过宫默认周级别
+		"secondary_progression":  "yearly",  // 次限默认年级别
+		"tertiary_progression":   "monthly", // 三限默认月级别
+	}
+	if level, ok := mapping[eventType]; ok {
+		return level
+	}
+	return "daily" // 默认日级别
+}
+
+// convertTransitHouseToUnifiedEvent converts a transit house event to unified event
+func convertTransitHouseToUnifiedEvent(e astro.TransitHouseEvent) UnifiedEvent {
+	// Determine time level based on planet
+	timeLevel := "weekly"
+	switch e.Planet {
+	case models.Moon:
+		timeLevel = "hourly"
+	case models.Sun, models.Mercury, models.Venus:
+		timeLevel = "daily"
+	case models.Mars:
+		timeLevel = "weekly"
+	case models.Jupiter, models.Saturn:
+		timeLevel = "monthly"
+	case models.Uranus, models.Neptune, models.Pluto:
+		timeLevel = "yearly"
+	}
+	
+	return UnifiedEvent{
+		Time:           e.EntryTime,
+		Type:           "transit_house",
+		Title:          e.Title,
+		Description:    e.Description,
+		Theme:          e.Theme,
+		Advice:         e.Advice,
+		IsPositive:     e.IsPositive,
+		Intensity:      e.Intensity,
+		Planet1:        e.Planet,
+		House:          e.House,
+		IsExactToday:   false, // Transit houses are ongoing
+		InfluencePhase: "active",
+		StartDate:      e.EntryTime.Format("2006-01-02"),
+		EndDate:        e.ExitTime.Format("2006-01-02"),
+		DurationDays:   e.DurationDays,
+		Factor: &FactorImpact{
+			FactorType: "transitHouse",
+			TimeLevel:  timeLevel,
+			BaseValue:  0.5,
+			Weight:     0.6,
+			Strength:   0.8,
+			DimensionImpact: getHouseDimensionImpactAPI(e.House),
+		},
+	}
+}
+
+// convertProgressionToUnifiedEvent converts a progression aspect event to unified event
+func convertProgressionToUnifiedEvent(e astro.ProgressionAspectEvent) UnifiedEvent {
+	eventType := "secondary_progression"
+	timeLevel := "yearly"
+	if e.ProgressionType == astro.TertiaryProgression {
+		eventType = "tertiary_progression"
+		timeLevel = "monthly"
+	}
+	
+	// Calculate orb-based strength
+	strength := 1.0 - (e.Orb / 1.5)
+	if strength < 0.3 {
+		strength = 0.3
+	}
+	
+	return UnifiedEvent{
+		Time:           e.ExactDate,
+		Type:           eventType,
+		Title:          e.Title,
+		Description:    e.Description,
+		Theme:          e.Theme,
+		Advice:         e.Advice,
+		IsPositive:     e.IsPositive,
+		Intensity:      e.Intensity,
+		Planet1:        e.ProgressedPlanet,
+		Planet2:        e.NatalPlanet,
+		Aspect:         e.AspectType,
+		Degree:         e.AspectAngle,
+		IsExactToday:   e.IsExact,
+		InfluencePhase: getProgressionInfluencePhase(e),
+		StartDate:      e.StartDate.Format("2006-01-02"),
+		EndDate:        e.EndDate.Format("2006-01-02"),
+		DurationDays:   e.EndDate.Sub(e.StartDate).Hours() / 24,
+		Factor: &FactorImpact{
+			FactorType: eventType,
+			TimeLevel:  timeLevel,
+			BaseValue:  getProgressionBaseValue(e.IsPositive),
+			Weight:     0.8,
+			Strength:   strength,
+			DimensionImpact: getProgressionDimensionImpactAPI(e.ProgressedPlanet, e.NatalPlanet),
+		},
+	}
+}
+
+// getProgressionInfluencePhase determines the influence phase of a progression
+func getProgressionInfluencePhase(e astro.ProgressionAspectEvent) string {
+	if e.IsApplying {
+		return "approaching"
+	}
+	if e.IsExact {
+		return "active"
+	}
+	return "fading"
+}
+
+// getProgressionBaseValue returns base value based on aspect harmony
+func getProgressionBaseValue(isPositive bool) float64 {
+	if isPositive {
+		return 0.7
+	}
+	return 0.3
+}
+
+// getHouseDimensionImpactAPI returns dimension impact for house
+func getHouseDimensionImpactAPI(house int) models.DimensionImpact {
+	impacts := map[int]models.DimensionImpact{
+		1:  {Career: 0.2, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.2},
+		2:  {Career: 0.1, Relationship: 0.1, Health: 0.1, Finance: 0.6, Spiritual: 0.1},
+		3:  {Career: 0.3, Relationship: 0.3, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
+		4:  {Career: 0.1, Relationship: 0.4, Health: 0.2, Finance: 0.1, Spiritual: 0.2},
+		5:  {Career: 0.1, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.3},
+		6:  {Career: 0.3, Relationship: 0.1, Health: 0.4, Finance: 0.1, Spiritual: 0.1},
+		7:  {Career: 0.1, Relationship: 0.6, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
+		8:  {Career: 0.1, Relationship: 0.2, Health: 0.1, Finance: 0.3, Spiritual: 0.3},
+		9:  {Career: 0.2, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.5},
+		10: {Career: 0.6, Relationship: 0.1, Health: 0.1, Finance: 0.1, Spiritual: 0.1},
+		11: {Career: 0.2, Relationship: 0.4, Health: 0.1, Finance: 0.1, Spiritual: 0.2},
+		12: {Career: 0.1, Relationship: 0.1, Health: 0.2, Finance: 0.1, Spiritual: 0.5},
+	}
+	
+	if impact, ok := impacts[house]; ok {
+		return impact
+	}
+	return models.DimensionImpact{Career: 0.2, Relationship: 0.2, Health: 0.2, Finance: 0.2, Spiritual: 0.2}
+}
+
+// getProgressionDimensionImpactAPI returns dimension impact for progression
+func getProgressionDimensionImpactAPI(progPlanet, natalPlanet models.PlanetID) models.DimensionImpact {
+	progImpact := astro.GetPlanetDimensionImpact(progPlanet)
+	natalImpact := astro.GetPlanetDimensionImpact(natalPlanet)
+	
+	return models.DimensionImpact{
+		Career:       (progImpact.Career + natalImpact.Career) / 2,
+		Relationship: (progImpact.Relationship + natalImpact.Relationship) / 2,
+		Health:       (progImpact.Health + natalImpact.Health) / 2,
+		Finance:      (progImpact.Finance + natalImpact.Finance) / 2,
+		Spiritual:    (progImpact.Spiritual + natalImpact.Spiritual) / 2,
+	}
+}

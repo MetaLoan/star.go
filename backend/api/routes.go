@@ -44,8 +44,11 @@ func SetupRouter() *gin.Engine {
 			calc.POST("/planetary-hour", CalculatePlanetaryHour)
 
 			// 每日星象事件（精确版）⭐ 新增
-			calc.POST("/daily-events", CalculateDailyEvents)      // 精确到分钟的每日星象
+			calc.POST("/daily-events", CalculateDailyEvents)       // 精确到分钟的每日星象
 			calc.GET("/daily-events/simple", GetDailyEventsSimple) // 简化版（无需出生信息）
+
+			// 统一事件接口 ⭐ 合并 daily-events + total-factors
+			calc.POST("/unified-events", GetUnifiedEvents) // 天体事件 + 因子影响，一个接口搞定
 
 			// 分值组成查询（详细因子分解）
 			calc.POST("/score-breakdown", GetScoreBreakdown)                // 单粒度（开发调试用）

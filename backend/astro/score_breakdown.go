@@ -28,17 +28,17 @@ type ScoreBreakdownRequest struct {
 
 // FactorContribution 因子贡献详情
 type FactorContribution struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Type        string             `json:"type"`      // dignity, retrograde, aspectPhase, etc.
-	TimeLevel   string             `json:"timeLevel"` // yearly, monthly, weekly, daily, hourly
-	BaseValue   float64            `json:"baseValue"` // 基础值
-	Strength    float64            `json:"strength"`  // 当前强度 (0-1)
-	Adjustment  float64            `json:"adjustment"`// 实际调整值 = BaseValue * Strength * Weight
-	Weight      float64            `json:"weight"`    // 权重
-	Dimension   string             `json:"dimension,omitempty"` // 主要影响维度
-	Description string             `json:"description"`
-	IsPositive  bool               `json:"isPositive"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`                // dignity, retrograde, aspectPhase, etc.
+	TimeLevel   string  `json:"timeLevel"`           // yearly, monthly, weekly, daily, hourly
+	BaseValue   float64 `json:"baseValue"`           // 基础值
+	Strength    float64 `json:"strength"`            // 当前强度 (0-1)
+	Adjustment  float64 `json:"adjustment"`          // 实际调整值 = BaseValue * Strength * Weight
+	Weight      float64 `json:"weight"`              // 权重
+	Dimension   string  `json:"dimension,omitempty"` // 主要影响维度
+	Description string  `json:"description"`
+	IsPositive  bool    `json:"isPositive"`
 }
 
 // DimensionBreakdown 维度分值分解
@@ -54,30 +54,30 @@ type DimensionBreakdown struct {
 
 // ScoreBreakdownResponse 分值组成查询响应
 type ScoreBreakdownResponse struct {
-	QueryTime      string               `json:"queryTime"`
-	Granularity    string               `json:"granularity"`
-	
+	QueryTime   string `json:"queryTime"`
+	Granularity string `json:"granularity"`
+
 	// 综合分
-	OverallScore   float64              `json:"overallScore"`
-	OverallRaw     float64              `json:"overallRaw"`
-	
+	OverallScore float64 `json:"overallScore"`
+	OverallRaw   float64 `json:"overallRaw"`
+
 	// 五维度分解
-	Dimensions     []DimensionBreakdown `json:"dimensions"`
-	
+	Dimensions []DimensionBreakdown `json:"dimensions"`
+
 	// 所有可见因子（按时间级别分组）
 	FactorsByLevel map[string][]FactorContribution `json:"factorsByLevel"`
-	
+
 	// 元信息
-	Meta           ScoreBreakdownMeta   `json:"meta"`
+	Meta ScoreBreakdownMeta `json:"meta"`
 }
 
 // ScoreBreakdownMeta 元信息
 type ScoreBreakdownMeta struct {
-	DataSource        string   `json:"dataSource"`        // Swiss Ephemeris
-	VisibleLevels     []string `json:"visibleLevels"`     // 当前粒度可见的时间级别
-	TotalFactorCount  int      `json:"totalFactorCount"`  // 总因子数
-	PositiveFactors   int      `json:"positiveFactors"`   // 正向因子数
-	NegativeFactors   int      `json:"negativeFactors"`   // 负向因子数
+	DataSource       string   `json:"dataSource"`       // Swiss Ephemeris
+	VisibleLevels    []string `json:"visibleLevels"`    // 当前粒度可见的时间级别
+	TotalFactorCount int      `json:"totalFactorCount"` // 总因子数
+	PositiveFactors  int      `json:"positiveFactors"`  // 正向因子数
+	NegativeFactors  int      `json:"negativeFactors"`  // 负向因子数
 }
 
 // ==================== 核心计算 ====================
@@ -145,36 +145,36 @@ func isTimeLevelVisible(factorLevel models.FactorTimeLevel, visibleLevels []mode
 func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity string, userID string) ScoreBreakdownResponse {
 	// 1. 获取行运位置
 	transitPositions := GetTransitPositions(t)
-	
+
 	// 2. 计算相位
 	aspects := CalculateTransitToNatalAspects(transitPositions, chart.Planets)
-	
+
 	// 3. 计算每个维度的相位贡献
 	dimensionAspectScores := calculateDimensionAspectScoresDetailed(aspects)
-	
+
 	// 4. 获取所有影响因子
 	factorResult := CalculateInfluenceFactors(chart, t, transitPositions)
-	
+
 	// 5. 过滤可见因子
 	visibleLevels := GetVisibleTimeLevels(granularity)
 	visibleLevelStrings := make([]string, len(visibleLevels))
 	for i, l := range visibleLevels {
 		visibleLevelStrings[i] = string(l)
 	}
-	
+
 	// 6. 分类因子
 	factorsByLevel := make(map[string][]FactorContribution)
 	var allVisibleFactors []FactorContribution
 	positiveCount := 0
 	negativeCount := 0
-	
+
 	if factorResult != nil {
 		for _, f := range factorResult.Factors {
 			// 检查因子是否可见
 			if !IsFactorVisible(f.TimeLevel, granularity) {
 				continue
 			}
-			
+
 			fc := FactorContribution{
 				ID:          f.ID,
 				Name:        f.Name,
@@ -188,11 +188,11 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 				Description: f.Description,
 				IsPositive:  f.IsPositive,
 			}
-			
+
 			levelStr := string(f.TimeLevel)
 			factorsByLevel[levelStr] = append(factorsByLevel[levelStr], fc)
 			allVisibleFactors = append(allVisibleFactors, fc)
-			
+
 			if f.IsPositive {
 				positiveCount++
 			} else {
@@ -200,7 +200,7 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 			}
 		}
 	}
-	
+
 	// 7. 添加自定义因子
 	if userID != "" {
 		customFactors := GetActiveCustomFactors(userID, t)
@@ -212,7 +212,7 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 				Duration:  cf.Duration,
 			}
 			strength := CalculateFactorStrength(lifecycle, t)
-			
+
 			fc := FactorContribution{
 				ID:          cf.ID,
 				Name:        cf.Description,
@@ -226,11 +226,11 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 				Description: cf.Description,
 				IsPositive:  cf.Value > 0,
 			}
-			
+
 			// 自定义因子在所有粒度都可见
 			factorsByLevel["custom"] = append(factorsByLevel["custom"], fc)
 			allVisibleFactors = append(allVisibleFactors, fc)
-			
+
 			if cf.Value > 0 {
 				positiveCount++
 			} else {
@@ -238,19 +238,19 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 			}
 		}
 	}
-	
+
 	// 8. 计算每个维度的详细分解
 	dimensions := []string{"career", "relationship", "health", "finance", "spiritual"}
 	var dimensionBreakdowns []DimensionBreakdown
-	
+
 	for _, dim := range dimensions {
-		baseScore := 50.0 // 基础分
+		baseScore := 50.0                                     // 基础分
 		aspectScore := dimensionAspectScores[dim] - baseScore // 相位贡献（减去基础分）
-		
+
 		// 计算因子对该维度的贡献
 		factorScore := 0.0
 		var dimFactors []FactorContribution
-		
+
 		for _, fc := range allVisibleFactors {
 			// 计算该因子对该维度的贡献
 			contribution := calculateFactorDimensionContribution(fc, dim)
@@ -262,11 +262,11 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 				dimFactors = append(dimFactors, fcCopy)
 			}
 		}
-		
+
 		// 计算原始分和最终分
 		rawScore := baseScore + aspectScore + factorScore
 		finalScore := NormalizeScoreV2(rawScore)
-		
+
 		dimensionBreakdowns = append(dimensionBreakdowns, DimensionBreakdown{
 			Dimension:   dim,
 			BaseScore:   baseScore,
@@ -277,21 +277,21 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 			Factors:     dimFactors,
 		})
 	}
-	
+
 	// 9. 计算综合分
 	var totalRaw float64
 	for _, db := range dimensionBreakdowns {
 		totalRaw += db.RawScore * 0.2 // 五维度等权重
 	}
 	overallScore := NormalizeScoreV2(totalRaw)
-	
+
 	// 10. 构建响应
 	return ScoreBreakdownResponse{
-		QueryTime:    t.Format(time.RFC3339),
-		Granularity:  granularity,
-		OverallScore: overallScore,
-		OverallRaw:   totalRaw,
-		Dimensions:   dimensionBreakdowns,
+		QueryTime:      t.Format(time.RFC3339),
+		Granularity:    granularity,
+		OverallScore:   overallScore,
+		OverallRaw:     totalRaw,
+		Dimensions:     dimensionBreakdowns,
 		FactorsByLevel: factorsByLevel,
 		Meta: ScoreBreakdownMeta{
 			DataSource:       "Swiss Ephemeris",
@@ -307,20 +307,20 @@ func CalculateScoreBreakdown(chart *models.NatalChart, t time.Time, granularity 
 func calculateDimensionAspectScoresDetailed(aspects []models.AspectData) map[string]float64 {
 	dimensions := []string{"career", "relationship", "health", "finance", "spiritual"}
 	scores := make(map[string]float64)
-	
+
 	// 初始化基础分
 	for _, d := range dimensions {
 		scores[d] = 50 // 基础分50
 	}
-	
+
 	// 遍历每个相位
 	for _, aspect := range aspects {
 		transitPlanet := aspect.Planet1
 		natalPlanet := aspect.Planet2
-		
+
 		// 计算相位分值
 		aspectValue := getUnifiedAspectValue(string(aspect.AspectType), aspect.Orb)
-		
+
 		// 根据行星-维度权重分配分值
 		for _, d := range dimensions {
 			transitWeight := 0.5
@@ -329,19 +329,19 @@ func calculateDimensionAspectScoresDetailed(aspects []models.AspectData) map[str
 					transitWeight = dw
 				}
 			}
-			
+
 			natalWeight := 0.5
 			if w, ok := PlanetDimensionWeight[natalPlanet]; ok {
 				if dw, ok := w[d]; ok {
 					natalWeight = dw
 				}
 			}
-			
+
 			combinedWeight := (transitWeight + natalWeight) / 2
 			scores[d] += aspectValue * combinedWeight
 		}
 	}
-	
+
 	return scores
 }
 
@@ -351,13 +351,13 @@ func calculateFactorDimensionContribution(fc FactorContribution, dimension strin
 	if fc.Dimension == dimension {
 		return fc.Adjustment
 	}
-	
+
 	// 如果是 overall 或未指定，按行星权重分配
 	if fc.Dimension == "overall" || fc.Dimension == "" {
 		// 平均分配到五个维度
 		return fc.Adjustment / 5
 	}
-	
+
 	// 根据来源行星分配
 	planetID := models.PlanetID(fc.Dimension)
 	if weights, ok := PlanetDimensionWeight[planetID]; ok {
@@ -369,7 +369,7 @@ func calculateFactorDimensionContribution(fc FactorContribution, dimension strin
 			return fc.Adjustment * (w / totalWeight)
 		}
 	}
-	
+
 	return 0
 }
 
@@ -379,11 +379,11 @@ func calculateFactorDimensionContribution(fc FactorContribution, dimension strin
 func GetMultiGranularityBreakdown(chart *models.NatalChart, t time.Time, userID string) map[string]ScoreBreakdownResponse {
 	granularities := []string{"hour", "day", "month", "year"}
 	result := make(map[string]ScoreBreakdownResponse)
-	
+
 	for _, g := range granularities {
 		result[g] = CalculateScoreBreakdown(chart, t, g, userID)
 	}
-	
+
 	return result
 }
 
@@ -401,9 +401,9 @@ type ActiveFactorInfo struct {
 	IsPositive  bool    `json:"isPositive"`
 	Effect      string  `json:"effect"` // "positive" 或 "negative"
 	// 生命周期信息
-	StartTime   string  `json:"startTime,omitempty"`
-	EndTime     string  `json:"endTime,omitempty"`
-	PeakTime    string  `json:"peakTime,omitempty"`
+	StartTime string `json:"startTime,omitempty"`
+	EndTime   string `json:"endTime,omitempty"`
+	PeakTime  string `json:"peakTime,omitempty"`
 	// 在查询范围内的最大强度
 	MaxStrength float64 `json:"maxStrength"`
 }
@@ -427,39 +427,39 @@ type ActiveFactorsResponse struct {
 func GetActiveFactorsInRange(chart *models.NatalChart, t time.Time, granularity string, infect string, userID string) ActiveFactorsResponse {
 	// 1. 根据粒度计算时间范围
 	rangeStart, rangeEnd := calculateTimeRange(t, granularity)
-	
+
 	// 2. 获取当前粒度可见的时间级别（用于 core 过滤）
 	visibleLevels := GetVisibleTimeLevels(granularity)
 	shouldFilter := infect == "core"
-	
+
 	// 3. 采样时间点（根据粒度决定采样频率）
 	samplePoints := generateSamplePoints(rangeStart, rangeEnd, granularity)
-	
+
 	// 4. 收集所有采样点的因子
 	factorMap := make(map[string]*ActiveFactorInfo)
-	
+
 	for _, sampleTime := range samplePoints {
 		transitPositions := GetTransitPositions(sampleTime)
 		factorResult := CalculateInfluenceFactors(chart, sampleTime, transitPositions)
-		
+
 		if factorResult == nil {
 			continue
 		}
-		
+
 		for _, f := range factorResult.Factors {
 			// core 模式：按可见性规则过滤
 			if shouldFilter && !isTimeLevelVisible(f.TimeLevel, visibleLevels) {
 				continue
 			}
-			
+
 			key := f.ID
-			
+
 			// 计算当前强度
 			strength := 1.0
 			if f.Lifecycle != nil {
 				strength = CalculateFactorStrength(f.Lifecycle, sampleTime)
 			}
-			
+
 			if existing, ok := factorMap[key]; ok {
 				// 更新最大强度
 				if strength > existing.MaxStrength {
@@ -483,19 +483,19 @@ func GetActiveFactorsInRange(chart *models.NatalChart, t time.Time, granularity 
 					Effect:      effect,
 					MaxStrength: strength,
 				}
-				
+
 				// 添加生命周期信息
 				if f.Lifecycle != nil {
 					info.StartTime = f.Lifecycle.StartTime.Format(time.RFC3339)
 					info.EndTime = f.Lifecycle.EndTime.Format(time.RFC3339)
 					info.PeakTime = f.Lifecycle.PeakTime.Format(time.RFC3339)
 				}
-				
+
 				factorMap[key] = info
 			}
 		}
 	}
-	
+
 	// 4. 添加自定义因子
 	if userID != "" {
 		customFactors := GetActiveCustomFactorsInRange(userID, rangeStart, rangeEnd)
@@ -524,12 +524,12 @@ func GetActiveFactorsInRange(chart *models.NatalChart, t time.Time, granularity 
 			}
 		}
 	}
-	
+
 	// 5. 转换为切片并统计
 	factors := make([]ActiveFactorInfo, 0, len(factorMap))
 	positiveCount := 0
 	negativeCount := 0
-	
+
 	for _, f := range factorMap {
 		factors = append(factors, *f)
 		if f.IsPositive {
@@ -538,7 +538,7 @@ func GetActiveFactorsInRange(chart *models.NatalChart, t time.Time, granularity 
 			negativeCount++
 		}
 	}
-	
+
 	return ActiveFactorsResponse{
 		Granularity:   granularity,
 		RangeStart:    rangeStart.Format(time.RFC3339),
@@ -559,13 +559,13 @@ func calculateTimeRange(t time.Time, granularity string) (time.Time, time.Time) 
 		start := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
 		end := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
 		return start, end
-		
+
 	case "month":
 		// 整月
 		start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 		end := start.AddDate(0, 1, 0)
 		return start, end
-		
+
 	case "week":
 		// 整周（周一到周日）
 		weekday := int(t.Weekday())
@@ -575,19 +575,19 @@ func calculateTimeRange(t time.Time, granularity string) (time.Time, time.Time) 
 		start := time.Date(t.Year(), t.Month(), t.Day()-weekday+1, 0, 0, 0, 0, t.Location())
 		end := start.AddDate(0, 0, 7)
 		return start, end
-		
+
 	case "day":
 		// 整天
 		start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 		end := start.AddDate(0, 0, 1)
 		return start, end
-		
+
 	case "hour":
 		// 整小时
 		start := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 		end := start.Add(time.Hour)
 		return start, end
-		
+
 	default:
 		// 默认为天
 		start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
@@ -599,7 +599,7 @@ func calculateTimeRange(t time.Time, granularity string) (time.Time, time.Time) 
 // generateSamplePoints 生成采样时间点
 func generateSamplePoints(start, end time.Time, granularity string) []time.Time {
 	var points []time.Time
-	
+
 	switch granularity {
 	case "year":
 		// 年粒度：每月采样一次
@@ -608,7 +608,7 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 			points = append(points, current)
 			current = current.AddDate(0, 1, 0)
 		}
-		
+
 	case "month":
 		// 月粒度：每天采样一次
 		current := start
@@ -616,7 +616,7 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 			points = append(points, current)
 			current = current.AddDate(0, 0, 1)
 		}
-		
+
 	case "week":
 		// 周粒度：每天采样两次（早晚）
 		current := start
@@ -625,7 +625,7 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 			points = append(points, current.Add(12*time.Hour))
 			current = current.AddDate(0, 0, 1)
 		}
-		
+
 	case "day":
 		// 日粒度：每2小时采样一次
 		current := start
@@ -633,7 +633,7 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 			points = append(points, current)
 			current = current.Add(2 * time.Hour)
 		}
-		
+
 	case "hour":
 		// 小时粒度：每10分钟采样一次
 		current := start
@@ -641,11 +641,11 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 			points = append(points, current)
 			current = current.Add(10 * time.Minute)
 		}
-		
+
 	default:
 		points = append(points, start)
 	}
-	
+
 	return points
 }
 
@@ -653,14 +653,361 @@ func generateSamplePoints(start, end time.Time, granularity string) []time.Time 
 func GetActiveCustomFactorsInRange(userID string, start, end time.Time) []CustomFactorDefinition {
 	factors := GetAllCustomFactors(userID)
 	var active []CustomFactorDefinition
-	
+
 	for _, f := range factors {
 		// 检查因子的生命周期是否与查询范围有交集
 		if !f.EndTime.Before(start) && !f.StartTime.After(end) {
 			active = append(active, f)
 		}
 	}
-	
+
 	return active
 }
 
+// ==================== 全因子数据接口 ====================
+
+// TotalFactorsRequest 全因子查询请求
+type TotalFactorsRequest struct {
+	BirthData   models.BirthData `json:"birthData"`
+	QueryTime   string           `json:"queryTime"`   // ISO 8601 格式
+	Granularity string           `json:"granularity"` // hour, day, week, month, year
+	UserID      string           `json:"userId,omitempty"`
+}
+
+// TotalFactorDetail 因子详情（包含出相时间）
+type TotalFactorDetail struct {
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Type         string  `json:"type"`
+	TimeLevel    string  `json:"timeLevel"`
+	BaseValue    float64 `json:"baseValue"`
+	Weight       float64 `json:"weight"`
+	Strength     float64 `json:"strength"`   // 当前强度 (0-1)
+	Adjustment   float64 `json:"adjustment"` // 实际调整值
+	IsPositive   bool    `json:"isPositive"`
+	Description  string  `json:"description"`
+	SourcePlanet string  `json:"sourcePlanet,omitempty"`
+
+	// 生命周期信息
+	StartTime     string  `json:"startTime,omitempty"` // 入相时间
+	PeakTime      string  `json:"peakTime,omitempty"`  // 峰值时间
+	EndTime       string  `json:"endTime,omitempty"`   // 出相时间（停止影响时间）
+	RemainingDays float64 `json:"remainingDays"`       // 剩余天数
+
+	// 维度影响分配
+	DimensionImpact DimensionImpactDetail `json:"dimensionImpact"`
+}
+
+// DimensionImpactDetail 维度影响详情（包含实际调整值）
+type DimensionImpactDetail struct {
+	Career       float64 `json:"career"`
+	Relationship float64 `json:"relationship"`
+	Health       float64 `json:"health"`
+	Finance      float64 `json:"finance"`
+	Spiritual    float64 `json:"spiritual"`
+}
+
+// DimensionFactorSummary 维度因子汇总
+type DimensionFactorSummary struct {
+	Dimension       string              `json:"dimension"`       // 维度名称
+	PositiveCount   int                 `json:"positiveCount"`   // 正向因子数
+	NegativeCount   int                 `json:"negativeCount"`   // 负向因子数
+	PositiveTotal   float64             `json:"positiveTotal"`   // 正向影响总和
+	NegativeTotal   float64             `json:"negativeTotal"`   // 负向影响总和
+	NetAdjustment   float64             `json:"netAdjustment"`   // 净调整值
+	PositiveFactors []TotalFactorDetail `json:"positiveFactors"` // 正向因子列表
+	NegativeFactors []TotalFactorDetail `json:"negativeFactors"` // 负向因子列表
+}
+
+// OverallFactorSummary 综合因子汇总
+type OverallFactorSummary struct {
+	PositiveCount   int                 `json:"positiveCount"`   // 正向因子数
+	NegativeCount   int                 `json:"negativeCount"`   // 负向因子数
+	PositiveTotal   float64             `json:"positiveTotal"`   // 正向影响总和
+	NegativeTotal   float64             `json:"negativeTotal"`   // 负向影响总和
+	NetAdjustment   float64             `json:"netAdjustment"`   // 净调整值
+	PositiveFactors []TotalFactorDetail `json:"positiveFactors"` // 正向因子列表
+	NegativeFactors []TotalFactorDetail `json:"negativeFactors"` // 负向因子列表
+}
+
+// TotalFactorsResponse 全因子查询响应
+type TotalFactorsResponse struct {
+	QueryTime   string `json:"queryTime"`
+	Granularity string `json:"granularity"`
+
+	// 综合影响汇总
+	Overall OverallFactorSummary `json:"overall"`
+
+	// 五维度影响汇总
+	Dimensions map[string]DimensionFactorSummary `json:"dimensions"`
+
+	// 所有因子列表（按时间级别分组）
+	FactorsByLevel map[string][]TotalFactorDetail `json:"factorsByLevel"`
+
+	// 元信息
+	Meta TotalFactorsMeta `json:"meta"`
+}
+
+// TotalFactorsMeta 元信息
+type TotalFactorsMeta struct {
+	DataSource       string   `json:"dataSource"`
+	VisibleLevels    []string `json:"visibleLevels"`
+	TotalFactorCount int      `json:"totalFactorCount"`
+	ActiveFactors    int      `json:"activeFactors"`  // 在影响期内的因子数
+	ExpiredFactors   int      `json:"expiredFactors"` // 已过期的因子数（被过滤）
+}
+
+// GetTotalFactors 获取全因子数据
+func GetTotalFactors(chart *models.NatalChart, t time.Time, granularity string, userID string) TotalFactorsResponse {
+	// 1. 获取行运位置
+	transitPositions := GetTransitPositions(t)
+
+	// 2. 计算所有影响因子
+	factorResult := CalculateInfluenceFactors(chart, t, transitPositions)
+
+	// 3. 获取可见时间级别
+	visibleLevels := GetVisibleTimeLevels(granularity)
+	visibleLevelStrings := make([]string, len(visibleLevels))
+	for i, l := range visibleLevels {
+		visibleLevelStrings[i] = string(l)
+	}
+
+	// 4. 初始化数据结构
+	factorsByLevel := make(map[string][]TotalFactorDetail)
+	dimensions := map[string]DimensionFactorSummary{
+		"career":       {Dimension: "career", PositiveFactors: []TotalFactorDetail{}, NegativeFactors: []TotalFactorDetail{}},
+		"relationship": {Dimension: "relationship", PositiveFactors: []TotalFactorDetail{}, NegativeFactors: []TotalFactorDetail{}},
+		"health":       {Dimension: "health", PositiveFactors: []TotalFactorDetail{}, NegativeFactors: []TotalFactorDetail{}},
+		"finance":      {Dimension: "finance", PositiveFactors: []TotalFactorDetail{}, NegativeFactors: []TotalFactorDetail{}},
+		"spiritual":    {Dimension: "spiritual", PositiveFactors: []TotalFactorDetail{}, NegativeFactors: []TotalFactorDetail{}},
+	}
+	overall := OverallFactorSummary{
+		PositiveFactors: []TotalFactorDetail{},
+		NegativeFactors: []TotalFactorDetail{},
+	}
+
+	activeCount := 0
+	expiredCount := 0
+
+	// 5. 处理因子
+	if factorResult != nil {
+		for _, f := range factorResult.Factors {
+			// 检查因子是否可见（级别过滤）
+			if !IsFactorVisible(f.TimeLevel, granularity) {
+				continue
+			}
+
+			// 检查因子是否在影响期内（过滤过期因子）
+			if f.Lifecycle != nil && f.Lifecycle.EndTime.Before(t) {
+				expiredCount++
+				continue
+			}
+
+			activeCount++
+
+			// 构建因子详情
+			fd := buildFactorDetail(f, t)
+
+			// 按时间级别分组
+			levelStr := string(f.TimeLevel)
+			factorsByLevel[levelStr] = append(factorsByLevel[levelStr], fd)
+
+			// 使用新的有符号维度影响计算
+			signedImpact := GetFactorDimensionImpact(&f)
+			baseAdjustment := absValue2(f.BaseValue) * f.Weight * f.CurrentStrength
+
+			// 计算各维度的实际影响值（保留正负）
+			careerImpact := baseAdjustment * signedImpact.Career
+			relationshipImpact := baseAdjustment * signedImpact.Relationship
+			healthImpact := baseAdjustment * signedImpact.Health
+			financeImpact := baseAdjustment * signedImpact.Finance
+			spiritualImpact := baseAdjustment * signedImpact.Spiritual
+
+			// 更新维度汇总
+			updateDimensionSummary(dimensions, "career", fd, careerImpact)
+			updateDimensionSummary(dimensions, "relationship", fd, relationshipImpact)
+			updateDimensionSummary(dimensions, "health", fd, healthImpact)
+			updateDimensionSummary(dimensions, "finance", fd, financeImpact)
+			updateDimensionSummary(dimensions, "spiritual", fd, spiritualImpact)
+
+			// 更新综合汇总
+			if f.IsPositive {
+				overall.PositiveCount++
+				overall.PositiveTotal += fd.Adjustment
+				overall.PositiveFactors = append(overall.PositiveFactors, fd)
+			} else {
+				overall.NegativeCount++
+				overall.NegativeTotal += fd.Adjustment
+				overall.NegativeFactors = append(overall.NegativeFactors, fd)
+			}
+		}
+	}
+
+	// 6. 添加自定义因子
+	if userID != "" {
+		customFactors := GetActiveCustomFactors(userID, t)
+		for _, cf := range customFactors {
+			// 检查是否在影响期内
+			if cf.EndTime.Before(t) {
+				expiredCount++
+				continue
+			}
+
+			activeCount++
+
+			lifecycle := &models.FactorLifecycle{
+				StartTime: cf.StartTime,
+				PeakTime:  cf.StartTime.Add(time.Duration(cf.Duration/2) * time.Hour),
+				EndTime:   cf.EndTime,
+				Duration:  cf.Duration,
+			}
+			strength := CalculateFactorStrength(lifecycle, t)
+
+			fd := TotalFactorDetail{
+				ID:            cf.ID,
+				Name:          cf.Description,
+				Type:          "custom",
+				TimeLevel:     "hourly",
+				BaseValue:     cf.Value,
+				Weight:        1.0,
+				Strength:      strength,
+				Adjustment:    cf.Value * strength,
+				IsPositive:    cf.Value > 0,
+				Description:   cf.Description,
+				StartTime:     cf.StartTime.Format(time.RFC3339),
+				PeakTime:      lifecycle.PeakTime.Format(time.RFC3339),
+				EndTime:       cf.EndTime.Format(time.RFC3339),
+				RemainingDays: calculateRemainingDays(cf.EndTime, t),
+			}
+
+			factorsByLevel["custom"] = append(factorsByLevel["custom"], fd)
+
+			// 自定义因子的维度影响
+			if cf.Dimension != "" && cf.Dimension != "overall" {
+				updateDimensionSummary(dimensions, cf.Dimension, fd, fd.Adjustment)
+			} else {
+				// 平均分配到五个维度
+				avgImpact := fd.Adjustment / 5
+				updateDimensionSummary(dimensions, "career", fd, avgImpact)
+				updateDimensionSummary(dimensions, "relationship", fd, avgImpact)
+				updateDimensionSummary(dimensions, "health", fd, avgImpact)
+				updateDimensionSummary(dimensions, "finance", fd, avgImpact)
+				updateDimensionSummary(dimensions, "spiritual", fd, avgImpact)
+			}
+
+			if cf.Value > 0 {
+				overall.PositiveCount++
+				overall.PositiveTotal += fd.Adjustment
+				overall.PositiveFactors = append(overall.PositiveFactors, fd)
+			} else {
+				overall.NegativeCount++
+				overall.NegativeTotal += fd.Adjustment
+				overall.NegativeFactors = append(overall.NegativeFactors, fd)
+			}
+		}
+	}
+
+	// 7. 计算净调整值
+	overall.NetAdjustment = overall.PositiveTotal + overall.NegativeTotal
+	for dim, summary := range dimensions {
+		summary.NetAdjustment = summary.PositiveTotal + summary.NegativeTotal
+		dimensions[dim] = summary
+	}
+
+	// 8. 构建响应
+	return TotalFactorsResponse{
+		QueryTime:      t.Format(time.RFC3339),
+		Granularity:    granularity,
+		Overall:        overall,
+		Dimensions:     dimensions,
+		FactorsByLevel: factorsByLevel,
+		Meta: TotalFactorsMeta{
+			DataSource:       "Swiss Ephemeris",
+			VisibleLevels:    visibleLevelStrings,
+			TotalFactorCount: activeCount + expiredCount,
+			ActiveFactors:    activeCount,
+			ExpiredFactors:   expiredCount,
+		},
+	}
+}
+
+// buildFactorDetail 构建因子详情
+func buildFactorDetail(f models.InfluenceFactor, t time.Time) TotalFactorDetail {
+	// 获取过滤后的有符号维度影响
+	signedImpact := GetFactorDimensionImpact(&f)
+	baseAdjustment := absValue2(f.BaseValue) * f.Weight * f.CurrentStrength
+	
+	fd := TotalFactorDetail{
+		ID:           f.ID,
+		Name:         f.Name,
+		Type:         string(f.Type),
+		TimeLevel:    string(f.TimeLevel),
+		BaseValue:    f.BaseValue,
+		Weight:       f.Weight,
+		Strength:     f.CurrentStrength,
+		Adjustment:   f.Adjustment,
+		IsPositive:   f.IsPositive,
+		Description:  f.Description,
+		SourcePlanet: string(f.SourcePlanet),
+		// 使用过滤后的有符号影响，而不是原始的 DimensionImpact
+		DimensionImpact: DimensionImpactDetail{
+			Career:       baseAdjustment * signedImpact.Career,
+			Relationship: baseAdjustment * signedImpact.Relationship,
+			Health:       baseAdjustment * signedImpact.Health,
+			Finance:      baseAdjustment * signedImpact.Finance,
+			Spiritual:    baseAdjustment * signedImpact.Spiritual,
+		},
+	}
+
+	// 添加生命周期信息
+	if f.Lifecycle != nil {
+		fd.StartTime = f.Lifecycle.StartTime.Format(time.RFC3339)
+		fd.PeakTime = f.Lifecycle.PeakTime.Format(time.RFC3339)
+		fd.EndTime = f.Lifecycle.EndTime.Format(time.RFC3339)
+		fd.RemainingDays = calculateRemainingDays(f.Lifecycle.EndTime, t)
+	}
+
+	return fd
+}
+
+// calculateRemainingDays 计算剩余天数
+func calculateRemainingDays(endTime time.Time, currentTime time.Time) float64 {
+	if endTime.Before(currentTime) {
+		return 0
+	}
+	remaining := endTime.Sub(currentTime).Hours() / 24
+	return remaining
+}
+
+// updateDimensionSummary 更新维度汇总
+func updateDimensionSummary(dimensions map[string]DimensionFactorSummary, dim string, fd TotalFactorDetail, impact float64) {
+	if impact == 0 {
+		return
+	}
+
+	summary := dimensions[dim]
+
+	// 创建带有该维度影响值的因子副本
+	fdCopy := fd
+	fdCopy.Adjustment = impact
+
+	if impact > 0 {
+		summary.PositiveCount++
+		summary.PositiveTotal += impact
+		summary.PositiveFactors = append(summary.PositiveFactors, fdCopy)
+	} else {
+		summary.NegativeCount++
+		summary.NegativeTotal += impact
+		summary.NegativeFactors = append(summary.NegativeFactors, fdCopy)
+	}
+
+	dimensions[dim] = summary
+}
+
+// absValue2 返回浮点数的绝对值
+func absValue2(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

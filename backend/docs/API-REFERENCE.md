@@ -6,6 +6,288 @@
 
 ## 更新日志
 
+### 2026-01-16 (更新10)
+
+#### ⭐ 新增：统一事件接口（合并 daily-events + total-factors）
+
+**背景**：之前 daily-events 和 total-factors 是两个独立接口，现合并为统一接口，一次请求获取所有数据。
+
+**新增端点**：
+- `POST /api/calc/unified-events` - 统一事件查询
+
+**功能特点**：
+1. 返回精确时间的天体事件（来自 daily-events）
+2. 同时返回每个事件的因子影响数据（来自 total-factors）
+3. 包含仅存在于因子中的事件（尊贵度、逆行、年主星、月亮空亡等）
+4. 提供因子汇总统计
+
+**请求参数**：
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| birth/birthData | object | ✓ | Birth information |
+| date | string | alt | Single day query, format: 2026-01-16 |
+| startTime | string | alt | Range start, format: ISO 8601 |
+| endTime | string | alt | Range end, format: ISO 8601 |
+| timezone | int | - | Timezone offset (hours), default 0 |
+| granularity | string | - | Factor filter: hour/day/week/month/year, default day |
+| includeMinorAspects | bool | - | Include minor aspects, default false |
+| includeTransitHouse | bool | - | Include transit house events (planet through natal houses) |
+| includeProgressions | bool | - | Include secondary/tertiary progression aspects |
+
+**请求示例**：
+
+```bash
+curl -X POST http://localhost:8080/api/calc/unified-events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth": {
+      "year": 1990,
+      "month": 5,
+      "day": 15,
+      "hour": 10,
+      "minute": 30,
+      "latitude": 31.2304,
+      "longitude": 121.4737,
+      "timezone": 8
+    },
+    "date": "2026-01-16",
+    "timezone": 8,
+    "granularity": "day"
+  }'
+```
+
+**响应结构**：
+
+```json
+{
+  "startTime": "2026-01-16T00:00:00+08:00",
+  "endTime": "2026-01-17T00:00:00+08:00",
+  "timezone": 8,
+  "eventCount": 39,
+  "dayTheme": "Dynamic energy day with major cosmic influences",
+  "summary": "Today features multiple significant events...",
+  "factorSummary": {
+    "totalFactors": 30,
+    "positiveFactors": 25,
+    "negativeFactors": 5,
+    "netInfluence": 52.47,
+    "dominantFactor": "Sun Conjunction Moon"
+  },
+  "majorEvents": [
+    { /* 高强度事件 */ }
+  ],
+  "events": [
+    {
+      "time": "2026-01-16T03:59:59Z",
+      "type": "aspect",
+      "title": "Venus conjunction Venus",
+      "description": "Transiting Venus forms conjunction with natal Venus",
+      "theme": "Concentrated energy, new beginnings",
+      "advice": "Focus energy, concentrate on goals",
+      "isPositive": true,
+      "intensity": "medium",
+      "planet1": "venus",
+      "planet2": "venus",
+      "aspect": "conjunction",
+      "factor": {
+        "factorType": "aspectPhase",
+        "baseValue": 3.78,
+        "weight": 0.8,
+        "strength": 0.93,
+        "dimensionImpact": {
+          "career": 0.5,
+          "relationship": 1.0,
+          "health": 0.3,
+          "finance": 0.8,
+          "spiritual": 0.4
+        },
+        "lifecycle": {
+          "startTime": "2026-01-15T21:49:28+08:00",
+          "peakTime": "2026-01-16T16:17:09+08:00",
+          "endTime": "2026-01-17T10:44:51+08:00",
+          "durationHours": 22.75,
+          "phase": "applying"
+        }
+      }
+    }
+  ]
+}
+```
+
+**⭐ 用户信任度字段**：
+
+每个事件都包含以下字段，帮助用户理解影响来源：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| isExactToday | bool | 是否今日精确形成 |
+| influencePhase | string | 影响阶段：approaching/active/fading |
+
+**influencePhase 说明**：
+
+| 阶段 | 含义 | 用户提示 |
+|------|------|----------|
+| approaching | 即将到来 | "这个能量正在积聚中" |
+| active | 正在影响 | "这个能量正在发挥作用" |
+| fading | 逐渐消退 | "这个能量正在减弱" |
+
+**示例响应**：
+```json
+{
+  "events": [
+    {
+      "title": "Mars trine Jupiter",
+      "isExactToday": true,
+      "influencePhase": "active",
+      "factor": { "strength": 0.95, ... }
+    },
+    {
+      "title": "Saturn square Sun",
+      "isExactToday": false,
+      "influencePhase": "fading",
+      "factor": { "strength": 0.42, ... }
+    }
+  ]
+}
+```
+
+**统计示例**（2026-01-16）：
+- 总事件数：48
+- 今日精确：26 (54%)
+- 非今日精确：22 (46%) ← 这些是"余波"或"即将到来"的影响
+
+**Event Types (type)**：
+
+| type | Description | Granularity | Has Factor |
+|------|-------------|-------------|------------|
+| aspect | Transit aspect to natal | day/week | ✓ |
+| sign_change | Planet sign change | day | partial |
+| lunar_phase | Lunar phase event | day | ✓ |
+| planetary_hour_change | Planetary hour change | hour | ✓ |
+| dignity | Dignity status | month | ✓ |
+| retrograde | Retrograde status | week | ✓ |
+| profectionLord | Annual lord | year | ✓ |
+| voidOfCourse | Moon void of course | hour | ✓ |
+| **transit_house** | Transit planet through natal house | day/week | ✓ |
+| **secondary_progression** | SP aspect to natal | year | ✓ |
+| **tertiary_progression** | TP aspect to natal | month | ✓ |
+
+**New Event Types Details**：
+
+**1. Transit House (`transit_house`)** - Planet transiting through natal houses
+
+Example: "Sun in 10th House - Career"
+```json
+{
+  "type": "transit_house",
+  "title": "Sun in 10th House - Career",
+  "house": 10,
+  "planet1": "sun",
+  "startDate": "2025-12-21",
+  "endDate": "2026-01-19",
+  "durationDays": 29,
+  "theme": "Career spotlight",
+  "advice": "Focus your energy on this life area. Take initiative and lead."
+}
+```
+
+**2. Secondary Progression (`secondary_progression`)** - 1 day = 1 year
+
+Used for yearly forecasts. SP Moon and SP Sun are most significant.
+```json
+{
+  "type": "secondary_progression",
+  "title": "SP Moon trine natal Venus",
+  "aspect": "trine",
+  "planet1": "moon",
+  "planet2": "venus",
+  "isPositive": true,
+  "startDate": "2025-06-15",
+  "endDate": "2026-08-20",
+  "durationDays": 432
+}
+```
+
+**3. Tertiary Progression (`tertiary_progression`)** - 1 day = 1 month
+
+Used for monthly forecasts. Faster than secondary progressions.
+```json
+{
+  "type": "tertiary_progression",
+  "title": "TP Sun sextile natal Jupiter",
+  "aspect": "sextile",
+  "planet1": "sun",
+  "planet2": "jupiter",
+  "isPositive": true,
+  "startDate": "2026-01-05",
+  "endDate": "2026-01-28"
+}
+```
+
+**因子数据结构 (factor)**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| factorType | string | 因子类型 |
+| timeLevel | string | 时间级别：hourly/daily/weekly/monthly/yearly |
+| baseValue | float | 基础影响值 |
+| weight | float | 权重 (0-1) |
+| strength | float | 当前强度 (0-1) |
+| dimensionImpact | object | 对五维度的影响 |
+| lifecycle | object | 生命周期信息 |
+
+**Time Level (timeLevel)**：
+
+| Level | Duration | Typical Factors | Best For |
+|-------|----------|-----------------|----------|
+| yearly | 1+ year | profectionLord, **secondary_progression** | Year forecast |
+| monthly | 1+ month | dignity, **tertiary_progression**, outer planet transit_house | Month forecast |
+| weekly | 1-4 weeks | retrograde, Mars/Jupiter/Saturn transit_house | Week forecast |
+| daily | 1-3 days | aspectPhase, lunarPhase, inner planet transit_house | Day forecast |
+| hourly | 1-2 hours | planetaryHour, voidOfCourse, Moon transit_house | Hour forecast |
+
+**按时间级别分组 (eventsByLevel)**：
+
+响应中包含 `eventsByLevel` 字段，按时间级别分组：
+
+```json
+{
+  "eventsByLevel": {
+    "yearly": [/* 年度级别事件 */],
+    "monthly": [/* 月度级别事件 */],
+    "weekly": [/* 周级别事件 */],
+    "daily": [/* 日级别事件 */],
+    "hourly": [/* 小时级别事件 */],
+    "unknown": [/* 无因子数据的事件 */]
+  }
+}
+```
+
+**生命周期阶段 (lifecycle.phase)**：
+- `applying`: 入相阶段（能量积累中）
+- `exact`: 精确阶段（能量峰值）
+- `separating`: 出相阶段（能量消散中）
+
+**性能**：
+- 响应时间：< 500ms（首次），< 100ms（缓存命中）
+- 共享数据层缓存：避免 daily-events 和 factors 重复计算
+
+**与旧接口对比**：
+
+| 功能 | 旧方式 | 新方式 |
+|------|--------|--------|
+| 获取天体事件 | `POST /api/calc/daily-events` | `POST /api/calc/unified-events` |
+| 获取因子影响 | `POST /api/calc/total-factors` | 同上 |
+| 请求次数 | 2次 | 1次 |
+| 数据关联 | 需前端匹配 | 已关联 |
+
+**新增文件**：
+- `backend/api/unified_events_handlers.go` - 统一事件 API 处理器
+- `backend/astro/shared_astro_data.go` - 共享星象数据层
+
+---
+
 ### 2026-01-16 (更新9)
 
 #### ⭐ 新增：每日星象事件API（精确版）
