@@ -347,9 +347,9 @@ func mergeEventsAndFactors(events []astro.DailyEvent, factorResponse *astro.Tota
 			ue.InfluencePhase = getInfluencePhase(factor.Lifecycle, e.Time)
 			usedFactorIDs[factorID] = true
 		} else {
-			// 没有匹配到因子时，根据事件类型分配默认的 timeLevel 和 DimensionImpact
+			// 没有匹配到因子时，根据事件类型和涉及的行星分配精确的 timeLevel 和 DimensionImpact
 			factorType := eventTypeToFactorType(e.Type)
-			timeLevel := getDefaultTimeLevelForEventType(e.Type)
+			timeLevel := getSmartTimeLevel(e.Type, e.Planet1, e.Planet2)
 			dimensionImpact := models.DimensionImpact{}
 			
 			// 为相位事件计算维度影响
@@ -746,18 +746,170 @@ func eventTypeToFactorType(eventType string) string {
 func getDefaultTimeLevelForEventType(eventType string) string {
 	// 基于 FactorTimeLevelMapping 的逻辑
 	mapping := map[string]string{
-		"aspect":                 "daily",   // 相位默认日级别
-		"sign_change":            "monthly", // 换座默认月级别（尊贵度）
+		"aspect":                 "daily",   // 相位默认日级别（实际由 getAspectTimeLevel 细分）
+		"sign_change":            "monthly", // 换座默认月级别
 		"lunar_phase":            "daily",   // 月相默认日级别
 		"planetary_hour_change":  "hourly",  // 行星时默认小时级别
-		"transit_house":          "weekly",  // 行运过宫默认周级别
+		"transit_house":          "weekly",  // 行运过宫默认周级别（实际由行星细分）
 		"secondary_progression":  "yearly",  // 次限默认年级别
 		"tertiary_progression":   "monthly", // 三限默认月级别
+		"retrograde":             "monthly", // 逆行默认月级别（实际由行星细分）
+		"dignity":                "monthly", // 尊贵度默认月级别
+		"voidOfCourse":           "hourly",  // 月空默认小时级别
+		"profectionLord":         "yearly",  // 年主星默认年级别
 	}
 	if level, ok := mapping[eventType]; ok {
 		return level
 	}
 	return "daily" // 默认日级别
+}
+
+// ==================== 粒度分级系统 ====================
+// 根据天体运行速度和影响持续时间，精确分配每个事件的时间级别
+
+// getAspectTimeLevel 根据相位涉及的行星获取时间级别
+// 规则：取行运行星（planet1）的速度决定
+func getAspectTimeLevel(transitPlanet, natalPlanet models.PlanetID) string {
+	return getPlanetTimeLevel(transitPlanet)
+}
+
+// getPlanetTimeLevel 根据行星速度获取时间级别
+func getPlanetTimeLevel(planet models.PlanetID) string {
+	switch planet {
+	case models.Moon:
+		return "hourly" // 月亮：约2.5天过一宫，相位持续数小时
+	case models.Sun, models.Mercury, models.Venus:
+		return "daily" // 内行星：相位持续1-3天
+	case models.Mars:
+		return "weekly" // 火星：相位持续1-2周
+	case models.Jupiter, models.Saturn:
+		return "monthly" // 木土：相位持续数周到数月
+	case models.Uranus, models.Neptune, models.Pluto:
+		return "yearly" // 外行星：相位持续数月到数年
+	case models.NorthNode, models.Chiron:
+		return "monthly" // 交点和凯龙：较慢移动
+	default:
+		return "daily"
+	}
+}
+
+// getRetrogradeTimeLevel 根据逆行行星获取时间级别
+func getRetrogradeTimeLevel(planet models.PlanetID) string {
+	switch planet {
+	case models.Mercury:
+		return "weekly" // 水星逆行：约3周
+	case models.Venus, models.Mars:
+		return "monthly" // 金火逆行：约6周
+	case models.Jupiter, models.Saturn, models.Uranus, models.Neptune, models.Pluto:
+		return "yearly" // 外行星逆行：数月
+	default:
+		return "monthly"
+	}
+}
+
+// getDignityTimeLevel 根据行星获取尊贵度时间级别
+func getDignityTimeLevel(planet models.PlanetID) string {
+	switch planet {
+	case models.Moon:
+		return "hourly" // 月亮换座：约2.5天
+	case models.Sun:
+		return "monthly" // 太阳换座：约30天
+	case models.Mercury, models.Venus:
+		return "weekly" // 水金换座：数天到数周
+	case models.Mars:
+		return "monthly" // 火星换座：约2个月
+	case models.Jupiter:
+		return "yearly" // 木星换座：约1年
+	case models.Saturn, models.Uranus, models.Neptune, models.Pluto:
+		return "yearly" // 土星及外行星：数年
+	default:
+		return "monthly"
+	}
+}
+
+// getSignChangeTimeLevel 根据换座行星获取时间级别
+func getSignChangeTimeLevel(planet models.PlanetID) string {
+	// 换座事件的时间级别取决于行星在该星座停留多久
+	switch planet {
+	case models.Moon:
+		return "hourly" // 月亮：约2.5天/星座
+	case models.Sun:
+		return "monthly" // 太阳：约30天/星座
+	case models.Mercury, models.Venus:
+		return "weekly" // 水金：约3-4周/星座（逆行时更长）
+	case models.Mars:
+		return "monthly" // 火星：约2个月/星座
+	case models.Jupiter:
+		return "yearly" // 木星：约1年/星座
+	case models.Saturn:
+		return "yearly" // 土星：约2.5年/星座
+	case models.Uranus, models.Neptune, models.Pluto:
+		return "yearly" // 外行星：7-20年/星座
+	default:
+		return "monthly"
+	}
+}
+
+// getSmartTimeLevel 智能分配时间级别
+// 根据事件类型和涉及的行星，精确分配粒度级别
+func getSmartTimeLevel(eventType string, planet1, planet2 models.PlanetID) string {
+	switch eventType {
+	case "aspect":
+		// 相位事件：根据行运行星（planet1）速度决定
+		if planet1 != "" {
+			return getAspectTimeLevel(planet1, planet2)
+		}
+		return "daily"
+	
+	case "sign_change":
+		// 换座事件：根据换座行星决定
+		if planet1 != "" {
+			return getSignChangeTimeLevel(planet1)
+		}
+		return "monthly"
+	
+	case "retrograde":
+		// 逆行事件：根据逆行行星决定
+		if planet1 != "" {
+			return getRetrogradeTimeLevel(planet1)
+		}
+		return "monthly"
+	
+	case "dignity":
+		// 尊贵度事件：根据行星决定
+		if planet1 != "" {
+			return getDignityTimeLevel(planet1)
+		}
+		return "monthly"
+	
+	case "transit_house":
+		// 行运过宫：根据行运行星决定
+		if planet1 != "" {
+			return getPlanetTimeLevel(planet1)
+		}
+		return "weekly"
+	
+	case "lunar_phase":
+		return "daily" // 月相：固定日级别
+	
+	case "planetary_hour_change":
+		return "hourly" // 行星时：固定小时级别
+	
+	case "voidOfCourse":
+		return "hourly" // 月空：固定小时级别
+	
+	case "secondary_progression":
+		return "yearly" // 次限推进：固定年级别
+	
+	case "tertiary_progression":
+		return "monthly" // 三限推进：固定月级别
+	
+	case "profectionLord":
+		return "yearly" // 年主星：固定年级别
+	
+	default:
+		return getDefaultTimeLevelForEventType(eventType)
+	}
 }
 
 // convertTransitHouseToUnifiedEvent converts a transit house event to unified event

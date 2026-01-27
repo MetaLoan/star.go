@@ -688,15 +688,225 @@ Used for monthly forecasts. Faster than secondary progressions.
 | dimensionImpact | object | 对五维度的影响 |
 | lifecycle | object | 生命周期信息 |
 
-**Time Level (timeLevel)**：
+---
 
-| Level | Duration | Typical Factors | Best For |
-|-------|----------|-----------------|----------|
-| yearly | 1+ year | profectionLord, **secondary_progression** | Year forecast |
-| monthly | 1+ month | dignity, **tertiary_progression**, outer planet transit_house | Month forecast |
-| weekly | 1-4 weeks | retrograde, Mars/Jupiter/Saturn transit_house | Week forecast |
-| daily | 1-3 days | aspectPhase, lunarPhase, inner planet transit_house | Day forecast |
-| hourly | 1-2 hours | planetaryHour, voidOfCourse, Moon transit_house | Hour forecast |
+## 粒度分级系统 (Time Level System)
+
+### 概述
+
+每个事件都会根据其影响持续时间自动分配一个 `timeLevel`，前端可以根据此字段在不同视图中筛选显示合适的事件。
+
+**设计原则**：
+- 基于行星运行速度决定粒度
+- 快速行星（月亮）→ 小时级别
+- 慢速行星（外行星）→ 年级别
+- 同一事件类型可能有不同粒度（取决于涉及的行星）
+
+### 粒度级别定义
+
+| Level | 中文 | 持续时间 | 适用视图 |
+|-------|------|----------|----------|
+| `hourly` | 小时级 | 数小时 | 小时视图 |
+| `daily` | 日级 | 1-3天 | 日/小时视图 |
+| `weekly` | 周级 | 1-4周 | 周/日/小时视图 |
+| `monthly` | 月级 | 数周-数月 | 月/周/日/小时视图 |
+| `yearly` | 年级 | 数月-数年 | 所有视图 |
+
+### 前端筛选建议
+
+```javascript
+// 根据视图类型筛选事件
+function filterEventsByView(events, viewType) {
+  const levelHierarchy = {
+    hourly: ['hourly', 'daily', 'weekly', 'monthly', 'yearly'],
+    daily: ['daily', 'weekly', 'monthly', 'yearly'],
+    weekly: ['weekly', 'monthly', 'yearly'],
+    monthly: ['monthly', 'yearly'],
+    yearly: ['yearly']
+  };
+  
+  const allowedLevels = levelHierarchy[viewType] || levelHierarchy.daily;
+  return events.filter(e => allowedLevels.includes(e.factor?.timeLevel));
+}
+```
+
+### 按行星分配的粒度
+
+#### 行运过宫 (transit_house)
+
+| 行星 | 粒度 | 每宫停留时间 | 说明 |
+|------|------|-------------|------|
+| 月亮 | `hourly` | ~2.5天 | 最快，适合小时视图 |
+| 太阳 | `daily` | ~30天 | 内行星，日视图 |
+| 水星 | `daily` | ~3-4周 | 内行星（逆行时更长） |
+| 金星 | `daily` | ~3-4周 | 内行星（逆行时更长） |
+| 火星 | `weekly` | ~2个月 | 中速行星 |
+| 木星 | `monthly` | ~1年 | 社会行星 |
+| 土星 | `monthly` | ~2.5年 | 社会行星 |
+| 天王星 | `yearly` | ~7年 | 外行星 |
+| 海王星 | `yearly` | ~14年 | 外行星 |
+| 冥王星 | `yearly` | ~15-30年 | 外行星 |
+
+#### 相位事件 (aspect)
+
+相位粒度由**行运行星**（planet1）决定：
+
+| 行运行星 | 粒度 | 相位持续时间 | 说明 |
+|---------|------|-------------|------|
+| 月亮 | `hourly` | 数小时 | 快速来去 |
+| 太阳 | `daily` | 1-3天 | 日常影响 |
+| 水星 | `daily` | 1-3天 | 日常影响 |
+| 金星 | `daily` | 1-3天 | 日常影响 |
+| 火星 | `weekly` | 1-2周 | 中期影响 |
+| 木星 | `monthly` | 数周-数月 | 重要机遇 |
+| 土星 | `monthly` | 数周-数月 | 重要考验 |
+| 天王星 | `yearly` | 数月-数年 | 人生转折 |
+| 海王星 | `yearly` | 数月-数年 | 深层转化 |
+| 冥王星 | `yearly` | 数月-数年 | 根本性变化 |
+
+#### 逆行事件 (retrograde)
+
+| 行星 | 粒度 | 逆行持续时间 |
+|------|------|-------------|
+| 水星 | `weekly` | ~3周 |
+| 金星 | `monthly` | ~6周 |
+| 火星 | `monthly` | ~2个月 |
+| 木星 | `yearly` | ~4个月 |
+| 土星 | `yearly` | ~4.5个月 |
+| 天王星 | `yearly` | ~5个月 |
+| 海王星 | `yearly` | ~5个月 |
+| 冥王星 | `yearly` | ~5-6个月 |
+
+#### 换座事件 (sign_change)
+
+| 行星 | 粒度 | 每星座停留时间 |
+|------|------|---------------|
+| 月亮 | `hourly` | ~2.5天 |
+| 太阳 | `monthly` | ~30天 |
+| 水星 | `weekly` | ~3-4周 |
+| 金星 | `weekly` | ~3-4周 |
+| 火星 | `monthly` | ~2个月 |
+| 木星 | `yearly` | ~1年 |
+| 土星 | `yearly` | ~2.5年 |
+| 外行星 | `yearly` | 7-30年 |
+
+### 固定粒度事件
+
+| 事件类型 | 粒度 | 说明 |
+|---------|------|------|
+| `lunar_phase` | `daily` | 月相：新月/满月等 |
+| `planetary_hour_change` | `hourly` | 行星时：每2小时变化 |
+| `voidOfCourse` | `hourly` | 月空：持续数小时 |
+| `profectionLord` | `yearly` | 年主星：整年影响 |
+| `secondary_progression` | `yearly` | 次限推进：年级别变化 |
+| `tertiary_progression` | `monthly` | 三限推进：月级别变化 |
+
+### eventsByLevel 响应结构
+
+API 响应中包含 `eventsByLevel` 字段，按粒度分组：
+
+```json
+{
+  "eventsByLevel": {
+    "yearly": [
+      {
+        "type": "secondary_progression",
+        "title": "SP Moon trine Venus",
+        "factor": { "timeLevel": "yearly" }
+      },
+      {
+        "type": "transit_house", 
+        "title": "Uranus in 7th House",
+        "factor": { "timeLevel": "yearly" }
+      }
+    ],
+    "monthly": [
+      {
+        "type": "tertiary_progression",
+        "title": "TP Sun sextile Jupiter",
+        "factor": { "timeLevel": "monthly" }
+      },
+      {
+        "type": "transit_house",
+        "title": "Jupiter in 10th House",
+        "factor": { "timeLevel": "monthly" }
+      }
+    ],
+    "weekly": [
+      {
+        "type": "retrograde",
+        "title": "Mercury Retrograde",
+        "factor": { "timeLevel": "weekly" }
+      },
+      {
+        "type": "transit_house",
+        "title": "Mars in 6th House",
+        "factor": { "timeLevel": "weekly" }
+      }
+    ],
+    "daily": [
+      {
+        "type": "aspect",
+        "title": "Sun trine Jupiter",
+        "factor": { "timeLevel": "daily" }
+      },
+      {
+        "type": "lunar_phase",
+        "title": "Full Moon",
+        "factor": { "timeLevel": "daily" }
+      }
+    ],
+    "hourly": [
+      {
+        "type": "aspect",
+        "title": "Moon square Saturn",
+        "factor": { "timeLevel": "hourly" }
+      },
+      {
+        "type": "voidOfCourse",
+        "title": "Moon Void of Course",
+        "factor": { "timeLevel": "hourly" }
+      }
+    ],
+    "unknown": []
+  }
+}
+```
+
+### 粒度筛选最佳实践
+
+#### 1. 年度视图
+显示：`yearly` 事件
+- 次限推进（SP）
+- 外行星过宫（天海冥）
+- 年主星
+- 外行星逆行
+
+#### 2. 月度视图
+显示：`monthly` + `yearly` 事件
+- 三限推进（TP）
+- 木土过宫
+- 外行星相位
+- 木土逆行
+
+#### 3. 周视图
+显示：`weekly` + `monthly` + `yearly` 事件
+- 火星过宫
+- 火星相位
+- 水星逆行
+
+#### 4. 日视图
+显示：`daily` + `weekly` + `monthly` + `yearly` 事件
+- 太阳/水金相位
+- 月相事件
+- 内行星过宫
+
+#### 5. 小时视图
+显示：所有事件
+- 月亮相位
+- 行星时变化
+- 月空
+- 月亮过宫
 
 **按时间级别分组 (eventsByLevel)**：
 

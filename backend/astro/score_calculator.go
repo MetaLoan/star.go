@@ -516,12 +516,15 @@ func calculateRetrogradeFactorsV2(transitPositions []models.PlanetPosition, weig
 		// 创建生命周期
 		durationDays := GetRetrogradeDuration(p.ID)
 		lifecycle := CreateLifecycle(date.AddDate(0, 0, -int(durationDays/2)), durationDays*24)
+		
+		// 根据行星速度设置时间级别
+		retroTimeLevel := getRetrogradeTimeLevel(p.ID)
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorRetrograde,
 			Name:            planetInfo.Name + " Retrograde",
 			Description:     planetInfo.Name + " is retrograde, related areas may need review and adjustment",
-			TimeLevel:       models.TimeLevelWeekly,
+			TimeLevel:       retroTimeLevel,
 			Lifecycle:       lifecycle,
 			BaseValue:       value,
 			Weight:          weight,
@@ -591,12 +594,15 @@ func calculateAspectFactorsV2(chart *models.NatalChart, transitPositions []model
 			// 吉星（木星、金星）的合相倾向正面，凶星倾向负面
 			isPositive = baseValue > 0
 		}
+		
+		// 根据行运行星速度设置时间级别
+		aspectTimeLevel := getAspectTimeLevelByPlanet(asp.Planet1)
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorAspectPhase,
 			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
 			Description:     asp.Interpretation,
-			TimeLevel:       models.TimeLevelDaily,
+			TimeLevel:       aspectTimeLevel,
 			Lifecycle:       lifecycle,
 			BaseValue:       baseValue,
 			Weight:          weight,
@@ -663,12 +669,15 @@ func calculateAspectFactorsLite(chart *models.NatalChart, transitPositions []mod
 		if aspectDef.Nature == "neutral" {
 			isPositive = baseValue > 0
 		}
+		
+		// 根据行运行星速度设置时间级别
+		aspectTimeLevel := getAspectTimeLevelByPlanet(asp.Planet1)
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorAspectPhase,
 			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
 			Description:     asp.Interpretation,
-			TimeLevel:       models.TimeLevelDaily,
+			TimeLevel:       aspectTimeLevel,
 			Lifecycle:       lifecycle,
 			BaseValue:       baseValue,
 			Weight:          weight,
@@ -768,12 +777,15 @@ func calculateAspectFactorsWithSharedData(chart *models.NatalChart, transitPosit
 		if aspectDef.Nature == "neutral" {
 			isPositive = baseValue > 0
 		}
+		
+		// 根据行运行星速度设置时间级别
+		aspectTimeLevel := getAspectTimeLevelByPlanet(asp.Planet1)
 
 		factors = append(factors, models.InfluenceFactor{
 			Type:            models.FactorAspectPhase,
 			Name:            transitInfo.Name + " " + aspectDef.Name + " " + natalInfo.Name,
 			Description:     asp.Interpretation,
-			TimeLevel:       models.TimeLevelDaily,
+			TimeLevel:       aspectTimeLevel,
 			Lifecycle:       lifecycle,
 			BaseValue:       baseValue,
 			Weight:          weight,

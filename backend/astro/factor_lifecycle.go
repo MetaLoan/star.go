@@ -313,6 +313,45 @@ func GetRetrogradeDuration(planet models.PlanetID) float64 {
 	return 21 // 默认21天
 }
 
+// getRetrogradeTimeLevel 根据逆行行星获取时间级别
+func getRetrogradeTimeLevel(planet models.PlanetID) models.FactorTimeLevel {
+	switch planet {
+	case models.Mercury:
+		return models.TimeLevelWeekly // 水星逆行：约3周
+	case models.Venus, models.Mars:
+		return models.TimeLevelMonthly // 金火逆行：约6周-2个月
+	case models.Jupiter, models.Saturn:
+		return models.TimeLevelMonthly // 木土逆行：约4个月
+	case models.Uranus, models.Neptune, models.Pluto:
+		return models.TimeLevelYearly // 外行星逆行：约5个月
+	case models.NorthNode:
+		return models.TimeLevelYearly // 交点逆行：常态
+	default:
+		return models.TimeLevelMonthly
+	}
+}
+
+// getAspectTimeLevelByPlanet 根据行运行星获取相位时间级别
+// 相位持续时间主要由行运行星（较快移动者）决定
+func getAspectTimeLevelByPlanet(transitPlanet models.PlanetID) models.FactorTimeLevel {
+	switch transitPlanet {
+	case models.Moon:
+		return models.TimeLevelHourly // 月亮相位：持续数小时
+	case models.Sun, models.Mercury, models.Venus:
+		return models.TimeLevelDaily // 内行星相位：持续1-3天
+	case models.Mars:
+		return models.TimeLevelWeekly // 火星相位：持续1-2周
+	case models.Jupiter, models.Saturn:
+		return models.TimeLevelMonthly // 木土相位：持续数周
+	case models.Uranus, models.Neptune, models.Pluto:
+		return models.TimeLevelYearly // 外行星相位：持续数月
+	case models.NorthNode, models.Chiron:
+		return models.TimeLevelMonthly // 交点/凯龙：较慢移动
+	default:
+		return models.TimeLevelDaily
+	}
+}
+
 // ==================== 剩余时间计算 ====================
 
 // CalculateRemainingDays 计算因子从指定时间到结束的剩余天数
