@@ -347,13 +347,120 @@ func getRussianProgressionInterpretation(key string, isPositive bool) string {
 
 func getChineseAspectInterpretation(key string, isPositive bool) string {
 	interpretations := map[string]string{
+		// ========== 自合相 (Conjunction with Self) ==========
+		// 太阳自合相 - 年度重要周期
+		"sun_conjunction_sun": "这是你**个人身份和生命力**的重要更新周期。行运太阳回到你本命太阳的位置，标志着**新一年的开始**和**个人目标的重新设定**。你会感到**能量充沛**，**自信心增强**，对**未来方向**有了更清晰的认识。这是**设定年度目标**、**展现领导力**、**追求个人理想**的绝佳时机。你的**核心本质**得到强化，**自我表达**更加自然。适合**启动新项目**、**展现专业能力**，在**职业和生活中**追求**个人成就**。",
+		
+		// 月亮自合相 - 月度情感周期
+		"moon_conjunction_moon": "这是**情感和内在需求**的回归时刻。行运月亮回到你本命月亮的位置，带来**情感上的熟悉感**和**安全感**。你会重新连接到**内心深处的感受**，对**情感需求**有了更清晰的认识。这是**情感疗愈**、**家庭团聚**、**内心平静**的好时机。你的**直觉力**增强，能够**理解自己的情绪**并做出**符合内心**的决定。适合**照顾自己**、**与家人相处**、**处理情感议题**，让**内在的滋养**支持你的**日常生活**。",
+		
+		// 水星自合相 - 思维更新
+		"mercury_conjunction_mercury": "这是**思维和沟通**的重要更新期。行运水星回到你本命水星的位置，带来**思维上的清晰**和**表达能力的提升**。你会感到**学习能力增强**，对**信息处理**更加高效，**沟通交流**更加顺畅。这是**学习新知识**、**写作创作**、**商务洽谈**的好时机。你的**逻辑思维**和**分析能力**得到强化，适合**制定计划**、**解决问题**、**与他人交流想法**。注意**信息过载**，保持**专注**和**理性思考**。",
+		
+		// 金星自合相 - 爱与美的回归
+		"venus_conjunction_venus": "这是**爱情和美感**的重要周期。行运金星回到你本命金星的位置，带来**魅力的提升**和**关系的和谐**。你会感到**个人魅力**增强，**审美能力**提升，对**美好事物**更加敏感。这是**追求浪漫**、**深化感情**、**享受艺术**的好时机。你的**人际关系**更加顺畅，**社交活动**带来愉悦。适合**表达爱意**、**改善关系**、**从事创意工作**，让**爱与美**充满你的生活。",
+		
+		// 火星自合相 - 行动力回归
+		"mars_conjunction_mars": "这是**行动力和勇气**的重要更新期。行运火星回到你本命火星的位置，带来**能量的爆发**和**主动性的增强**。你会感到**精力充沛**，**行动力**提升，**竞争意识**增强。这是**启动新项目**、**追求目标**、**展现领导力**的好时机。你的**决断力**和**执行力**得到强化，适合**克服障碍**、**争取机会**、**展现个人能力**。注意**控制脾气**，避免**冲动行事**，将**能量**用于**建设性**的目标。",
+		
+		// 木星自合相 - 12年大周期
+		"jupiter_conjunction_jupiter": "这是**成长和机遇**的12年大周期。行运木星回到你本命木星的位置，标志着**人生新阶段的开始**和**重要机遇的到来**。你会感到**视野开阔**，**乐观精神**增强，对**未来**充满希望。这是**扩展人生**、**追求理想**、**获得成长**的绝佳时机。你的**幸运指数**提升，**贵人运**增强，**事业发展**和**个人成长**都有重要突破。适合**设定远大目标**、**学习深造**、**拓展视野**，让**木星的祝福**引领你走向**成功**。",
+		
+		// 土星自合相 - 29年大周期
+		"saturn_conjunction_saturn": "这是**责任和成熟**的29年大周期。行运土星回到你本命土星的位置，标志着**人生重要转折点**和**重大责任的到来**。你会感到**压力增加**，但也**更加成熟**，对**人生目标**有了更深刻的认识。这是**承担责任**、**建立结构**、**实现长期目标**的关键时期。你的**自律性**和**耐心**得到考验，**职业发展**和**人生规划**都需要**认真对待**。适合**制定长期计划**、**建立稳定基础**、**面对现实挑战**，让**土星的教导**帮助你**成长**。",
+		
+		// ========== 月亮相位 (Moon Aspects) ==========
+		// 月亮与太阳
+		"moon_conjunction_sun": "这是**情感与意志**的融合时刻。**内在感受**与**外在表达**达到和谐，你会感到**情感上的满足**和**个人身份的清晰**。这是**情感表达**、**自我展现**的好时机。",
+		"moon_trine_sun": "**情感与自我**和谐共振，带来**内心的平静**和**自信的提升**。你会感到**情感需求**得到满足，**个人表达**更加自然。适合**展现真实自我**、**深化情感连接**。",
+		"moon_square_sun": "**情感需求**与**个人目标**之间可能存在**冲突**。你需要在**内心感受**和**外在追求**之间找到平衡。这是**自我整合**的机会，学习**协调不同需求**。",
+		"moon_sextile_sun": "**情感与自我**相互支持，带来**温和的成长**。你会感到**情感稳定**，**个人发展**顺利。适合**表达情感**、**追求个人目标**，两者**相辅相成**。",
+		"moon_opposition_sun": "**情感与意志**形成**对立**，需要**平衡内在需求**和**外在表现**。你可能会感到**情感波动**，但这也是**自我认识**的机会。学习**整合**不同的**自我面向**。",
+		
+		// 月亮与金星
+		"moon_conjunction_venus": "这是**情感与爱情**的美好融合。**内心感受**与**爱的表达**和谐统一，你会感到**情感上的满足**和**关系的和谐**。这是**深化感情**、**享受美好**的好时机。",
+		"moon_trine_venus": "**情感与美感**和谐共振，带来**内心的愉悦**和**关系的顺畅**。你会感到**情感需求**得到满足，**审美能力**提升。适合**表达爱意**、**享受艺术**、**改善关系**。",
+		"moon_square_venus": "**情感需求**与**爱的表达**之间可能存在**不协调**。你需要在**内心感受**和**关系期待**之间找到平衡。这是**情感成长**的机会，学习**真实表达**自己的需求。",
+		"moon_sextile_venus": "**情感与美感**相互支持，带来**温和的愉悦**。你会感到**情感稳定**，**人际关系**顺畅。适合**表达情感**、**享受美好**，让**爱与美**充满生活。",
+		
+		// 月亮与火星
+		"moon_conjunction_mars": "这是**情感与行动**的强烈融合。**内心感受**驱动**外在行动**，你会感到**情绪激动**和**行动力增强**。这是**表达情感**、**采取行动**的好时机，但要注意**控制情绪**。",
+		"moon_trine_mars": "**情感与行动**和谐共振，带来**内在动力**和**外在表现**的统一。你会感到**情感能量**转化为**行动力**，**目标追求**更加顺畅。适合**主动出击**、**追求目标**。",
+		"moon_square_mars": "**情感与行动**之间可能存在**冲突**。你可能会感到**情绪激动**或**行动冲动**。这是**情绪管理**的机会，学习**理性行动**，避免**冲动决定**。",
+		"moon_sextile_mars": "**情感与行动**相互支持，带来**温和的动力**。你会感到**情感稳定**，**行动力**适中。适合**表达情感**、**采取行动**，两者**平衡发展**。",
+		
+		// 月亮与木星
+		"moon_conjunction_jupiter": "这是**情感与成长**的美好融合。**内心感受**与**乐观精神**和谐统一，你会感到**情感上的满足**和**视野的开阔**。这是**情感成长**、**追求理想**的好时机。",
+		"moon_trine_jupiter": "**情感与乐观**和谐共振，带来**内心的喜悦**和**生活的丰富**。你会感到**情感需求**得到满足，**人生视野**更加开阔。适合**表达情感**、**追求成长**、**享受生活**。",
+		"moon_square_jupiter": "**情感需求**与**理想追求**之间可能需要**平衡**。你需要在**内心感受**和**外在目标**之间找到协调。这是**情感成长**的机会，学习**真实表达**自己的需求。",
+		"moon_sextile_jupiter": "**情感与成长**相互支持，带来**温和的扩展**。你会感到**情感稳定**，**人生视野**开阔。适合**表达情感**、**追求理想**，让**成长**充满生活。",
+		
+		// 月亮与土星
+		"moon_conjunction_saturn": "这是**情感与责任**的严肃融合。**内心感受**与**现实责任**交织，你会感到**情感上的压力**但也**更加成熟**。这是**情感成长**、**承担责任**的好时机。",
+		"moon_trine_saturn": "**情感与责任**和谐共振，带来**内心的稳定**和**现实的支撑**。你会感到**情感需求**得到满足，**责任感**增强。适合**建立稳定关系**、**承担责任**、**情感成熟**。",
 		"moon_square_saturn": "近期是生机勃勃、精力旺盛的时期，你也许会通过卖力工作来取得不错的成绩，也非常适合启动新的项目。你的积极上进会令你获得上司的赏识和下属的尊重，但也需要警惕过度劳累。这段时间你可能会承担额外的责任，感到情感上的压力。学习在责任和自我关怀之间找到平衡，这是走向成熟的必经之路。",
+		"moon_sextile_saturn": "**情感与责任**相互支持，带来**温和的稳定**。你会感到**情感稳定**，**责任感**适中。适合**表达情感**、**承担责任**，两者**平衡发展**。",
+		
+		// ========== 太阳相位 (Sun Aspects) ==========
+		// 太阳与木星
+		"sun_conjunction_jupiter": "这是**自我与成长**的完美融合。**个人身份**与**乐观精神**和谐统一，你会感到**自信提升**和**视野开阔**。这是**追求理想**、**展现领导力**的好时机。",
+		"sun_trine_jupiter": "**自我与乐观**和谐共振，带来**自信的提升**和**机遇的增加**。你会感到**个人魅力**增强，**人生视野**更加开阔。适合**追求目标**、**展现能力**、**获得成长**。",
+		"sun_square_jupiter": "**个人目标**与**理想追求**之间可能需要**平衡**。你需要在**现实行动**和**远大理想**之间找到协调。这是**目标设定**的机会，学习**务实追求**理想。",
+		"sun_sextile_jupiter": "**自我与成长**相互支持，带来**温和的扩展**。你会感到**自信稳定**，**人生视野**开阔。适合**追求目标**、**展现能力**，让**成长**充满生活。",
+		
+		// 太阳与土星
+		"sun_conjunction_saturn": "这是**自我与责任**的严肃融合。**个人身份**与**现实责任**交织，你会感到**压力增加**但也**更加成熟**。这是**承担责任**、**建立结构**的好时机。",
+		"sun_trine_saturn": "**自我与责任**和谐共振，带来**稳定的成长**和**现实的支撑**。你会感到**个人能力**增强，**责任感**提升。适合**建立目标**、**承担责任**、**追求成就**。",
+		"sun_square_saturn": "**个人目标**与**现实责任**之间可能存在**冲突**。你可能会感到**压力增加**或**限制增多**。这是**成熟成长**的机会，学习**面对现实**，**承担责任**。",
+		"sun_sextile_saturn": "**自我与责任**相互支持，带来**温和的稳定**。你会感到**自信稳定**，**责任感**适中。适合**追求目标**、**承担责任**，两者**平衡发展**。",
+		
+		// 太阳与金星
+		"sun_conjunction_venus": "这是**自我与爱情**的美好融合。**个人魅力**与**爱的表达**和谐统一，你会感到**自信提升**和**关系和谐**。这是**展现魅力**、**追求爱情**的好时机。",
+		"sun_trine_venus": "**自我与美感**和谐共振，带来**魅力的提升**和**关系的顺畅**。你会感到**个人魅力**增强，**人际关系**更加和谐。适合**表达自我**、**改善关系**、**享受美好**。",
+		"sun_square_venus": "**个人表达**与**关系需求**之间可能需要**平衡**。你需要在**自我展现**和**关系和谐**之间找到协调。这是**关系成长**的机会，学习**真实表达**自己。",
+		"sun_sextile_venus": "**自我与美感**相互支持，带来**温和的魅力**。你会感到**自信稳定**，**人际关系**顺畅。适合**表达自我**、**改善关系**，让**爱与美**充满生活。",
+		
+		// ========== 金星相位 (Venus Aspects) ==========
+		// 金星与火星
+		"venus_conjunction_mars": "这是**爱情与激情**的强烈融合。**爱的表达**与**行动力**和谐统一，你会感到**魅力提升**和**关系活跃**。这是**追求爱情**、**表达激情**的好时机。",
+		"venus_trine_mars": "**爱情与行动**和谐共振，带来**关系的活跃**和**魅力的提升**。你会感到**关系顺畅**，**行动力**增强。适合**追求爱情**、**表达情感**、**采取行动**。",
+		"venus_square_mars": "**爱的表达**与**行动力**之间可能存在**冲突**。你可能会感到**关系紧张**或**行动冲动**。这是**关系成长**的机会，学习**理性表达**，避免**冲动决定**。",
+		"venus_sextile_mars": "**爱情与行动**相互支持，带来**温和的活跃**。你会感到**关系稳定**，**行动力**适中。适合**表达情感**、**采取行动**，两者**平衡发展**。",
+		
+		// 金星与木星
+		"venus_conjunction_jupiter": "这是**爱情与成长**的美好融合。**爱的表达**与**乐观精神**和谐统一，你会感到**关系和谐**和**视野开阔**。这是**深化感情**、**追求理想**的好时机。",
+		"venus_trine_jupiter": "**爱情与乐观**和谐共振，带来**关系的顺畅**和**生活的丰富**。你会感到**关系和谐**，**人生视野**更加开阔。适合**表达爱意**、**追求成长**、**享受生活**。",
+		"venus_square_jupiter": "**关系需求**与**理想追求**之间可能需要**平衡**。你需要在**关系和谐**和**个人目标**之间找到协调。这是**关系成长**的机会，学习**真实表达**自己的需求。",
+		"venus_sextile_jupiter": "**爱情与成长**相互支持，带来**温和的扩展**。你会感到**关系稳定**，**人生视野**开阔。适合**表达爱意**、**追求理想**，让**成长**充满生活。",
+		
+		// ========== 外行星相位 (Outer Planet Aspects) ==========
+		// 木星与土星
+		"jupiter_conjunction_saturn": "这是**成长与责任**的重要融合。**乐观精神**与**现实责任**交织，你会感到**机遇与挑战**并存。这是**建立长期目标**、**承担责任**的好时机。",
+		"jupiter_trine_saturn": "**成长与责任**和谐共振，带来**稳定的扩展**和**现实的支撑**。你会感到**机遇增加**，**责任感**提升。适合**追求目标**、**承担责任**、**实现理想**。",
+		"jupiter_square_saturn": "**理想追求**与**现实责任**之间可能存在**冲突**。你可能会感到**压力增加**或**限制增多**。这是**成熟成长**的机会，学习**面对现实**，**务实追求**理想。",
+		"jupiter_sextile_saturn": "**成长与责任**相互支持，带来**温和的稳定**。你会感到**机遇稳定**，**责任感**适中。适合**追求目标**、**承担责任**，两者**平衡发展**。",
+		
+		// 土星与天王星
+		"saturn_conjunction_uranus": "这是**传统与变革**的激烈融合。**稳定结构**与**创新突破**交织，你会感到**压力与机遇**并存。这是**面对变革**、**建立新结构**的好时机。",
+		"saturn_trine_uranus": "**传统与变革**和谐共振，带来**稳定的创新**和**结构的突破**。你会感到**变革顺利**，**稳定性**增强。适合**创新突破**、**建立新结构**、**追求变革**。",
+		"saturn_square_uranus": "**稳定结构**与**创新突破**之间可能存在**冲突**。你可能会感到**压力增加**或**变革困难**。这是**成长突破**的机会，学习**平衡传统与创新**。",
+		
+		// ========== 其他重要相位 ==========
+		// 水星与金星
+		"mercury_conjunction_venus": "这是**思维与美感**的优雅融合。**沟通表达**与**审美能力**和谐统一，你会感到**表达流畅**和**魅力提升**。这是**创意写作**、**艺术表达**的好时机。",
+		"mercury_trine_venus": "**思维与美感**和谐共振，带来**表达的优雅**和**沟通的顺畅**。你会感到**沟通能力**增强，**审美能力**提升。适合**创意表达**、**改善沟通**、**享受艺术**。",
+		
+		// 水星与火星
+		"mercury_conjunction_mars": "这是**思维与行动**的强烈融合。**沟通表达**与**行动力**和谐统一，你会感到**表达有力**和**行动迅速**。这是**快速决策**、**有效沟通**的好时机。",
+		"mercury_trine_mars": "**思维与行动**和谐共振，带来**表达的力度**和**行动的效率**。你会感到**沟通能力**增强，**行动力**提升。适合**快速决策**、**有效沟通**、**采取行动**。",
+		"mercury_square_mars": "**思维与行动**之间可能存在**冲突**。你可能会感到**表达冲动**或**行动急躁**。这是**沟通成长**的机会，学习**理性表达**，避免**冲动决定**。",
 	}
 	
 	if text, ok := interpretations[key]; ok {
 		return text
 	}
 	
+	// Fallback based on aspect type and positivity
 	if isPositive {
 		return "这段时间两颗行星的能量和谐共振，为你带来积极的发展机会。适合把握这股顺势的能量，在相关领域采取行动，会获得良好的结果。"
 	}
@@ -362,7 +469,101 @@ func getChineseAspectInterpretation(key string, isPositive bool) string {
 
 func getEnglishAspectInterpretation(key string, isPositive bool) string {
 	interpretations := map[string]string{
+		// ========== Self Conjunctions ==========
+		"sun_conjunction_sun": "This is an important renewal cycle for your **personal identity and vitality**. The transiting Sun returns to your natal Sun's position, marking the **beginning of a new year** and **reset of personal goals**. You'll feel **energized**, **more confident**, with clearer understanding of **future direction**. This is an ideal time to **set annual goals**, **show leadership**, and **pursue personal ideals**. Your **core essence** is strengthened, and **self-expression** becomes more natural. Suitable for **starting new projects**, **demonstrating professional abilities**, and pursuing **personal achievements** in **career and life**.",
+		
+		"moon_conjunction_moon": "This is a moment of return for **emotions and inner needs**. The transiting Moon returns to your natal Moon's position, bringing **emotional familiarity** and **sense of security**. You'll reconnect with **deep inner feelings** and gain clearer understanding of **emotional needs**. This is a good time for **emotional healing**, **family reunions**, and **inner peace**. Your **intuition** strengthens, enabling you to **understand your emotions** and make decisions **aligned with your heart**. Suitable for **self-care**, **spending time with family**, and **addressing emotional issues**.",
+		
+		"mercury_conjunction_mercury": "This is an important renewal period for **thinking and communication**. The transiting Mercury returns to your natal Mercury's position, bringing **mental clarity** and **enhanced expression**. You'll feel **improved learning ability**, more efficient **information processing**, and smoother **communication**. This is a good time for **learning new knowledge**, **creative writing**, and **business negotiations**. Your **logical thinking** and **analytical abilities** are strengthened. Be mindful of **information overload**; maintain **focus** and **rational thinking**.",
+		
+		"venus_conjunction_venus": "This is an important cycle for **love and beauty**. The transiting Venus returns to your natal Venus's position, bringing **enhanced charm** and **relationship harmony**. You'll feel **increased personal magnetism**, **improved aesthetic sense**, and greater sensitivity to **beautiful things**. This is a good time to **pursue romance**, **deepen relationships**, and **enjoy art**. Your **interpersonal relationships** become smoother, and **social activities** bring joy. Suitable for **expressing love**, **improving relationships**, and **creative work**.",
+		
+		"mars_conjunction_mars": "This is an important renewal period for **action and courage**. The transiting Mars returns to your natal Mars's position, bringing **energy bursts** and **increased initiative**. You'll feel **energized**, **more active**, and **more competitive**. This is a good time to **start new projects**, **pursue goals**, and **show leadership**. Your **decisiveness** and **execution** are strengthened. Be mindful of **controlling temper**; avoid **impulsive actions** and channel **energy** toward **constructive** goals.",
+		
+		"jupiter_conjunction_jupiter": "This is a major 12-year cycle of **growth and opportunity**. The transiting Jupiter returns to your natal Jupiter's position, marking the **beginning of a new life phase** and **arrival of important opportunities**. You'll feel **expanded vision**, **increased optimism**, and **hope for the future**. This is an ideal time to **expand your life**, **pursue ideals**, and **achieve growth**. Your **luck index** rises, **benefactor connections** increase, and both **career development** and **personal growth** see important breakthroughs. Suitable for **setting ambitious goals**, **advanced learning**, and **expanding horizons**.",
+		
+		"saturn_conjunction_saturn": "This is a major 29-year cycle of **responsibility and maturity**. The transiting Saturn returns to your natal Saturn's position, marking a **major life turning point** and **arrival of significant responsibilities**. You'll feel **increased pressure** but also **greater maturity**, with deeper understanding of **life goals**. This is a critical period for **taking responsibility**, **building structure**, and **achieving long-term goals**. Your **self-discipline** and **patience** are tested. Suitable for **making long-term plans**, **building stable foundations**, and **facing reality**.",
+		
+		// ========== Moon Aspects ==========
+		"moon_conjunction_sun": "This is a moment of fusion between **emotion and will**. **Inner feelings** and **outer expression** reach harmony. You'll feel **emotional fulfillment** and **clarity of personal identity**. This is a good time for **emotional expression** and **self-expression**.",
+		
+		"moon_trine_sun": "**Emotion and self** resonate harmoniously, bringing **inner peace** and **increased confidence**. You'll feel **emotional needs** are met, and **personal expression** becomes more natural. Suitable for **showing your true self** and **deepening emotional connections**.",
+		
+		"moon_square_sun": "There may be **conflict** between **emotional needs** and **personal goals**. You need to find balance between **inner feelings** and **outer pursuits**. This is an opportunity for **self-integration**; learn to **coordinate different needs**.",
+		
+		"moon_sextile_sun": "**Emotion and self** support each other, bringing **gentle growth**. You'll feel **emotionally stable** and **personal development** proceeds smoothly. Suitable for **expressing emotions** and **pursuing personal goals**.",
+		
+		"moon_conjunction_venus": "This is a beautiful fusion of **emotion and love**. **Inner feelings** and **love expression** harmonize. You'll feel **emotional fulfillment** and **relationship harmony**. This is a good time to **deepen relationships** and **enjoy beauty**.",
+		
+		"moon_trine_venus": "**Emotion and beauty** resonate harmoniously, bringing **inner joy** and **smooth relationships**. You'll feel **emotional needs** are met and **aesthetic sense** improves. Suitable for **expressing love**, **enjoying art**, and **improving relationships**.",
+		
+		"moon_square_venus": "There may be **disharmony** between **emotional needs** and **love expression**. You need to find balance between **inner feelings** and **relationship expectations**. This is an opportunity for **emotional growth**; learn to **express your needs authentically**.",
+		
+		"moon_conjunction_mars": "This is a strong fusion of **emotion and action**. **Inner feelings** drive **outer actions**. You'll feel **emotionally excited** and **more active**. This is a good time for **expressing emotions** and **taking action**, but be mindful of **controlling emotions**.",
+		
+		"moon_trine_mars": "**Emotion and action** resonate harmoniously, bringing unity of **inner drive** and **outer expression**. You'll feel **emotional energy** transforms into **action power**. Suitable for **taking initiative** and **pursuing goals**.",
+		
+		"moon_square_mars": "There may be **conflict** between **emotion and action**. You may feel **emotionally agitated** or **impulsive**. This is an opportunity for **emotional management**; learn to **act rationally** and avoid **impulsive decisions**.",
+		
+		"moon_conjunction_jupiter": "This is a beautiful fusion of **emotion and growth**. **Inner feelings** and **optimism** harmonize. You'll feel **emotional fulfillment** and **expanded vision**. This is a good time for **emotional growth** and **pursuing ideals**.",
+		
+		"moon_trine_jupiter": "**Emotion and optimism** resonate harmoniously, bringing **inner joy** and **life richness**. You'll feel **emotional needs** are met and **life vision** expands. Suitable for **expressing emotions**, **pursuing growth**, and **enjoying life**.",
+		
+		"moon_conjunction_saturn": "This is a serious fusion of **emotion and responsibility**. **Inner feelings** and **real-world responsibilities** intertwine. You'll feel **emotional pressure** but also **greater maturity**. This is a good time for **emotional growth** and **taking responsibility**.",
+		
+		"moon_trine_saturn": "**Emotion and responsibility** resonate harmoniously, bringing **inner stability** and **real-world support**. You'll feel **emotional needs** are met and **sense of responsibility** increases. Suitable for **building stable relationships**, **taking responsibility**, and **emotional maturity**.",
+		
 		"moon_square_saturn": "This is a period of vitality and vigor. You may achieve good results through hard work and it's very suitable for starting new projects. Your proactivity will earn you appreciation from superiors and respect from subordinates, but be wary of overwork. You may take on extra responsibilities and feel emotional pressure. Learning to balance duty and self-care is a necessary path to maturity.",
+		
+		// ========== Sun Aspects ==========
+		"sun_conjunction_jupiter": "This is a perfect fusion of **self and growth**. **Personal identity** and **optimism** harmonize. You'll feel **increased confidence** and **expanded vision**. This is a good time to **pursue ideals** and **show leadership**.",
+		
+		"sun_trine_jupiter": "**Self and optimism** resonate harmoniously, bringing **increased confidence** and **more opportunities**. You'll feel **enhanced personal charm** and **expanded life vision**. Suitable for **pursuing goals**, **demonstrating abilities**, and **achieving growth**.",
+		
+		"sun_conjunction_saturn": "This is a serious fusion of **self and responsibility**. **Personal identity** and **real-world responsibilities** intertwine. You'll feel **increased pressure** but also **greater maturity**. This is a good time to **take responsibility** and **build structure**.",
+		
+		"sun_trine_saturn": "**Self and responsibility** resonate harmoniously, bringing **stable growth** and **real-world support**. You'll feel **enhanced personal abilities** and **increased responsibility**. Suitable for **setting goals**, **taking responsibility**, and **pursuing achievements**.",
+		
+		"sun_square_saturn": "There may be **conflict** between **personal goals** and **real-world responsibilities**. You may feel **increased pressure** or **more limitations**. This is an opportunity for **mature growth**; learn to **face reality** and **take responsibility**.",
+		
+		"sun_conjunction_venus": "This is a beautiful fusion of **self and love**. **Personal charm** and **love expression** harmonize. You'll feel **increased confidence** and **relationship harmony**. This is a good time to **show charm** and **pursue love**.",
+		
+		"sun_trine_venus": "**Self and beauty** resonate harmoniously, bringing **enhanced charm** and **smooth relationships**. You'll feel **enhanced personal magnetism** and **more harmonious relationships**. Suitable for **self-expression**, **improving relationships**, and **enjoying beauty**.",
+		
+		// ========== Venus Aspects ==========
+		"venus_conjunction_mars": "This is a strong fusion of **love and passion**. **Love expression** and **action power** harmonize. You'll feel **enhanced charm** and **active relationships**. This is a good time to **pursue love** and **express passion**.",
+		
+		"venus_trine_mars": "**Love and action** resonate harmoniously, bringing **active relationships** and **enhanced charm**. You'll feel **smooth relationships** and **increased action power**. Suitable for **pursuing love**, **expressing emotions**, and **taking action**.",
+		
+		"venus_square_mars": "There may be **conflict** between **love expression** and **action power**. You may feel **relationship tension** or **impulsive actions**. This is an opportunity for **relationship growth**; learn to **express rationally** and avoid **impulsive decisions**.",
+		
+		"venus_conjunction_jupiter": "This is a beautiful fusion of **love and growth**. **Love expression** and **optimism** harmonize. You'll feel **relationship harmony** and **expanded vision**. This is a good time to **deepen relationships** and **pursue ideals**.",
+		
+		"venus_trine_jupiter": "**Love and optimism** resonate harmoniously, bringing **smooth relationships** and **life richness**. You'll feel **relationship harmony** and **expanded life vision**. Suitable for **expressing love**, **pursuing growth**, and **enjoying life**.",
+		
+		// ========== Outer Planet Aspects ==========
+		"jupiter_conjunction_saturn": "This is an important fusion of **growth and responsibility**. **Optimism** and **real-world responsibilities** intertwine. You'll feel **opportunities and challenges** coexist. This is a good time to **set long-term goals** and **take responsibility**.",
+		
+		"jupiter_trine_saturn": "**Growth and responsibility** resonate harmoniously, bringing **stable expansion** and **real-world support**. You'll feel **increased opportunities** and **enhanced responsibility**. Suitable for **pursuing goals**, **taking responsibility**, and **achieving ideals**.",
+		
+		"jupiter_square_saturn": "There may be **conflict** between **ideal pursuits** and **real-world responsibilities**. You may feel **increased pressure** or **more limitations**. This is an opportunity for **mature growth**; learn to **face reality** and **pursue ideals practically**.",
+		
+		"saturn_conjunction_uranus": "This is an intense fusion of **tradition and change**. **Stable structure** and **innovative breakthroughs** intertwine. You'll feel **pressure and opportunities** coexist. This is a good time to **face change** and **build new structures**.",
+		
+		"saturn_trine_uranus": "**Tradition and change** resonate harmoniously, bringing **stable innovation** and **structural breakthroughs**. You'll feel **smooth change** and **enhanced stability**. Suitable for **innovative breakthroughs**, **building new structures**, and **pursuing change**.",
+		
+		"saturn_square_uranus": "There may be **conflict** between **stable structure** and **innovative breakthroughs**. You may feel **increased pressure** or **difficult change**. This is an opportunity for **growth breakthrough**; learn to **balance tradition and innovation**.",
+		
+		// ========== Other Important Aspects ==========
+		"mercury_conjunction_venus": "This is an elegant fusion of **thinking and beauty**. **Communication** and **aesthetic sense** harmonize. You'll feel **smooth expression** and **enhanced charm**. This is a good time for **creative writing** and **artistic expression**.",
+		
+		"mercury_trine_venus": "**Thinking and beauty** resonate harmoniously, bringing **elegant expression** and **smooth communication**. You'll feel **enhanced communication abilities** and **improved aesthetic sense**. Suitable for **creative expression**, **improving communication**, and **enjoying art**.",
+		
+		"mercury_conjunction_mars": "This is a strong fusion of **thinking and action**. **Communication** and **action power** harmonize. You'll feel **powerful expression** and **rapid action**. This is a good time for **quick decisions** and **effective communication**.",
+		
+		"mercury_trine_mars": "**Thinking and action** resonate harmoniously, bringing **powerful expression** and **efficient action**. You'll feel **enhanced communication abilities** and **increased action power**. Suitable for **quick decisions**, **effective communication**, and **taking action**.",
+		
+		"mercury_square_mars": "There may be **conflict** between **thinking and action**. You may feel **impulsive expression** or **impatient action**. This is an opportunity for **communication growth**; learn to **express rationally** and avoid **impulsive decisions**.",
 	}
 	
 	if text, ok := interpretations[key]; ok {
@@ -376,6 +577,31 @@ func getEnglishAspectInterpretation(key string, isPositive bool) string {
 }
 
 func getRussianAspectInterpretation(key string, isPositive bool) string {
+	interpretations := map[string]string{
+		// ========== Self Conjunctions ==========
+		"sun_conjunction_sun": "Это важный цикл обновления для вашей **личной идентичности и жизненной силы**. Транзитный Солнце возвращается к положению натального Солнца, отмечая **начало нового года** и **переустановку личных целей**. Вы почувствуете себя **энергичным**, **более уверенным**, с более четким пониманием **будущего направления**. Это идеальное время для **постановки годовых целей**, **проявления лидерства** и **пursuit личных идеалов**.",
+		
+		"moon_conjunction_moon": "Это момент возврата для **эмоций и внутренних потребностей**. Транзитная Луна возвращается к положению натальной Луны, принося **эмоциональную знакомость** и **чувство безопасности**. Вы восстановите связь с **глубокими внутренними чувствами** и получите более четкое понимание **эмоциональных потребностей**.",
+		
+		"jupiter_conjunction_jupiter": "Это крупный 12-летний цикл **роста и возможностей**. Транзитный Юпитер возвращается к положению натального Юпитера, отмечая **начало новой жизненной фазы** и **приход важных возможностей**. Вы почувствуете **расширенное видение**, **возросший оптимизм** и **надежду на будущее**.",
+		
+		"saturn_conjunction_saturn": "Это крупный 29-летний цикл **ответственности и зрелости**. Транзитный Сатурн возвращается к положению натального Сатурна, отмечая **важный жизненный поворотный момент** и **приход значительных обязанностей**. Вы почувствуете **возросшее давление**, но также **большую зрелость**.",
+		
+		// ========== Moon Aspects ==========
+		"moon_trine_venus": "**Эмоция и красота** резонируют гармонично, принося **внутреннюю радость** и **гладкие отношения**. Вы почувствуете, что **эмоциональные потребности** удовлетворены, а **эстетическое чувство** улучшается.",
+		
+		"moon_square_saturn": "Это период жизненной силы и энергии. Вы можете достичь хороших результатов через упорный труд, и это очень подходящее время для начала новых проектов. Ваша проактивность принесет вам признание начальства и уважение подчиненных, но остерегайтесь переутомления.",
+		
+		// ========== Sun Aspects ==========
+		"sun_trine_jupiter": "**Я и оптимизм** резонируют гармонично, принося **возросшую уверенность** и **больше возможностей**. Вы почувствуете **усиленную личную привлекательность** и **расширенное жизненное видение**.",
+		
+		"sun_trine_saturn": "**Я и ответственность** резонируют гармонично, принося **стабильный рост** и **реальную поддержку**. Вы почувствуете **усиленные личные способности** и **возросшую ответственность**.",
+	}
+	
+	if text, ok := interpretations[key]; ok {
+		return text
+	}
+	
 	if isPositive {
 		return "В это время энергии планет гармонизируются, принося позитивные возможности для развития. Подходящее время для использования этой благоприятной энергии и действий в связанных областях."
 	}
