@@ -68,11 +68,21 @@ wget https://www.astro.com/ftp/swisseph/ephe/semo_18.se1
 ### 3. 编译 Star 后端（启用 Swiss Ephemeris）
 
 ```bash
-cd /Users/leo/Documents/Star/backend
+cd backend
 
 # 使用 swe 构建标签编译
 go build -tags swe -o bin/star-api .
 ```
+
+**macOS 下运行时找不到 libswe.dylib**：若出现 `dyld: Library not loaded: libswe.dylib`，需让可执行文件从同目录加载动态库：
+
+1. 将 `libswe.dylib` 放到 `backend/bin/`（与 `star-api` 同目录）。
+2. 在 `backend/bin/` 下执行：
+```bash
+install_name_tool -add_rpath @executable_path star-api
+install_name_tool -change libswe.dylib @executable_path/libswe.dylib star-api
+```
+3. 之后用 `./bin/star-api` 或 `bin/star-api` 启动即可（工作目录任意，只要不挪动 `bin/` 里的文件）。
 
 ### 4. 配置星历表路径
 
@@ -143,4 +153,8 @@ export CGO_ENABLED=1
 export CGO_LDFLAGS="-L/usr/local/lib -lswe"
 export CGO_CFLAGS="-I/usr/local/include"
 ```
+
+### macOS：`dyld: Library not loaded: libswe.dylib`
+
+编译成功但运行时报找不到 `libswe.dylib`，说明动态链接器没有在可执行文件所在目录查库。按「3. 编译」中的步骤，把 `libswe.dylib` 放进 `backend/bin/` 并对 `star-api` 执行两条 `install_name_tool` 即可。每次用 `go build -tags swe -o bin/star-api .` 重新编译后，若仍从 `bin/` 运行，只需再执行一次上述 `install_name_tool`。
 

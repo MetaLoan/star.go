@@ -54,9 +54,11 @@ curl -X POST http://localhost:8080/api/calc/unified-events \
     },
     "date": "2026-01-16",
     "timezone": 8,
-    "granularity": "day"
+    "granularity": "day",
+    "language": "zh"
   }'
 ```
+请求中的 `language`（`zh`/`en`/`ru`）决定 `emotionalTitle`、`detailedInterpretation`、`dimensionLabels` 等字段的返回语言。
 
 **响应结构**：
 
@@ -260,6 +262,8 @@ curl -X POST http://localhost:8080/api/calc/unified-events \
 ```
 
 ### 多语言支持
+
+`emotionalTitle`、`detailedInterpretation` 和 `dimensionLabels` 均随请求体中的 `language`（`zh` / `en` / `ru`）返回对应语言。相位类事件的详细解读覆盖约 200 种行星×相位组合，含回归（如 Sun/Saturn conjunction 自身）及常见行运相位。
 
 维度标签自动适配 API 的 `language` 参数：
 
@@ -625,8 +629,8 @@ Used for monthly forecasts. Faster than secondary progressions.
 
 | 字段 | 类型 | 出现场景 | 说明 |
 |------|------|----------|------|
-| `emotionalTitle` | string | 所有事件 | 情感化标题<br>中："表达沟通" / 英："Expression & Communication" / 俄："Общение" |
-| `detailedInterpretation` | string | 所有事件 | 详细段落解析（100-200字）<br>包含**粗体关键词**，提及具体维度影响 |
+| `emotionalTitle` | string | 所有事件 | 情感化标题，随 `language` 返回中/英/俄。<br>回归与常见相位有专门标题（如「木星回归·扩展之年」/ Jupiter Return · Year of Expansion），其余为「和谐能量」/ Harmonious Energy 或「挑战时刻」/ Challenging Moment。 |
+| `detailedInterpretation` | string | 所有事件 | 详细段落解析（约 100–200 字），随 `language` 返回中/英/俄。<br>**相位事件**：约 200 种行星组合有独立解读，风格为情感开篇 + 核心影响 + 行动建议，含**粗体关键词**。<br>**行运过宫 / 推进**：按行星/宫位或行星/相位有对应多语文案。 |
 | `dimensionLabels` | string[] | 有因子的事件 | 维度标签数组，最多2个<br>示例：["事业 ↑", "健康 ↓"] |
 | `durationText` | string | 行运过宫、推进 | 格式化时间文本<br>中："已开始X天，Y天后结束"<br>英："Started X days ago, ends in Y days"<br>俄："Началось X дней назад, закончится через Y дня" |
 
