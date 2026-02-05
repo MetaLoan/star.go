@@ -95,6 +95,7 @@ func CalculateDailyEvents(chart *models.NatalChart, date time.Time, includeMinor
 			Advice:      getLunarPhaseAdviceByPhase(lp.Phase),
 			Planet1:     models.Moon,
 			Planet2:     models.Sun,
+			Aspect:      lp.Phase,
 			Degree:      lp.Angle,
 			IsPositive:  isLunarPhasePositive(lp.Phase),
 			Intensity:   getLunarPhaseIntensity(lp.Phase),

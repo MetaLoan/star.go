@@ -2,14 +2,100 @@ package i18n
 
 // getChineseAspectInterpretation returns detailed interpretation for aspect events in Chinese.
 // Key format: planet1_aspect_planet2 (e.g. jupiter_sextile_moon)
+// Supports bidirectional lookup: if planet1_aspect_planet2 not found, tries planet2_aspect_planet1
 func getChineseAspectInterpretation(key string, isPositive bool) string {
 	if text, ok := chineseAspectInterpretations[key]; ok {
 		return text
 	}
+	// Try reverse key: planet2_aspect_planet1
+	if reverseKey := reverseAspectKey(key); reverseKey != "" {
+		if text, ok := chineseAspectInterpretations[reverseKey]; ok {
+			return text
+		}
+	}
+	
+	// Check for minor aspects (semi-sextile, semi-square, sesquiquadrate, quincunx)
+	parts := splitAspectKey(key)
+	if len(parts) == 3 {
+		aspect := parts[1]
+		switch aspect {
+		case "semi-sextile":
+			return getMinorAspectInterpretation(parts[0], parts[2], "semi-sextile", isPositive)
+		case "semi-square":
+			return getMinorAspectInterpretation(parts[0], parts[2], "semi-square", isPositive)
+		case "sesquiquadrate":
+			return getMinorAspectInterpretation(parts[0], parts[2], "sesquiquadrate", isPositive)
+		case "quincunx":
+			return getMinorAspectInterpretation(parts[0], parts[2], "quincunx", isPositive)
+		}
+	}
+	
 	if isPositive {
 		return "这段时间两颗行星的能量和谐共振，为你带来积极的发展机会。适合把握这股顺势的能量，在相关领域采取行动，会获得良好的结果。"
 	}
 	return "这段时间两颗行星形成挑战性的角度，可能会带来一些紧张或需要调整的情况。这是学习和成长的机会，面对挑战会让你变得更加成熟和强大。"
+}
+
+// getMinorAspectInterpretation returns interpretation for minor aspects
+func getMinorAspectInterpretation(planet1, planet2, aspect string, isPositive bool) string {
+	switch aspect {
+	case "semi-sextile":
+		if isPositive {
+			return "这两颗行星形成**半六分相**（30°），带来**微妙的和谐**与**小机会**。虽然能量不如主要相位强烈，但适合**小调整**、**细节优化**、**渐进式改进**。这是**润物细无声**的时期，适合**耐心积累**、**小步前进**。"
+		}
+		return "这两颗行星形成**半六分相**（30°），带来**微小的摩擦**或**需要调整的细节**。虽然影响不大，但适合**注意细节**、**小修正**、**避免小问题积累**。"
+	case "semi-square":
+		if isPositive {
+			return "这两颗行星形成**半四分相**（45°），带来**轻微的紧张**与**小挑战**。虽然不如四分相强烈，但适合**小调整**、**微调方向**、**在压力中成长**。这是**小试炼**的时期，适合**保持耐心**、**逐步改进**。"
+		}
+		return "这两颗行星形成**半四分相**（45°），带来**轻微的冲突**或**需要解决的细节问题**。虽然影响不大，但适合**及时处理**、**避免积累**、**在小问题变大前解决**。"
+	case "sesquiquadrate":
+		if isPositive {
+			return "这两颗行星形成**倍半四分相**（135°），带来**中度的紧张**与**需要调整的能量**。虽然不如四分相强烈，但适合**主动调整**、**寻找平衡**、**在挑战中成长**。这是**中等考验**的时期，适合**保持弹性**、**灵活应对**。"
+		}
+		return "这两颗行星形成**倍半四分相**（135°），带来**中度的冲突**或**需要解决的矛盾**。虽然影响中等，但适合**正视问题**、**寻找解决方案**、**在冲突中学习**。"
+	case "quincunx":
+		if isPositive {
+			return "这两颗行星形成**补十二分相**（150°），带来**需要调整的不协调**。虽然能量不和谐，但适合**寻找平衡**、**调整方向**、**在不适中成长**。这是**需要适应**的时期，适合**保持开放**、**灵活调整**。"
+		}
+		return "这两颗行星形成**补十二分相**（150°），带来**不协调**或**需要解决的矛盾**。虽然影响微妙，但适合**正视不协调**、**寻找平衡点**、**在调整中成长**。"
+	}
+	return ""
+}
+
+// reverseAspectKey reverses planet1_aspect_planet2 to planet2_aspect_planet1
+func reverseAspectKey(key string) string {
+	parts := splitAspectKey(key)
+	if len(parts) != 3 {
+		return ""
+	}
+	return parts[2] + "_" + parts[1] + "_" + parts[0]
+}
+
+// splitAspectKey splits "planet1_aspect_planet2" into [planet1, aspect, planet2]
+func splitAspectKey(key string) []string {
+	// Find aspect keywords
+	aspects := []string{"conjunction", "sextile", "square", "trine", "opposition", "semi-sextile", "semi-square", "sesquiquadrate", "quincunx"}
+	for _, asp := range aspects {
+		aspWithUnderscores := "_" + asp + "_"
+		idx := indexOfString(key, aspWithUnderscores)
+		if idx >= 0 {
+			planet1 := key[:idx]
+			planet2 := key[idx+len(aspWithUnderscores):]
+			return []string{planet1, asp, planet2}
+		}
+	}
+	return nil
+}
+
+// indexOfString finds substring index
+func indexOfString(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }
 
 // chineseAspectInterpretations Tier 1 detailed interpretations (情感+实用，混合风格)
@@ -82,7 +168,7 @@ var chineseAspectInterpretations = map[string]string{
 	"moon_opposition_jupiter": "**想要更多**与**现实限制**的张力。适合**在理想与能力**之间找平衡。",
 	"moon_conjunction_saturn": "**情感沉重**，**责任**或**孤独**感可能上升。适合**完成该做的事**、**给自己一点时间**。",
 	"moon_trine_saturn": "**情感成熟**，**稳定**与**承诺**感强。适合**建立习惯**、**巩固关系**、**处理家事**。",
-	"moon_square_saturn": "近期是生机勃勃、精力旺盛的时期，你也许会通过卖力工作来取得不错的成绩，也非常适合启动新的项目。你的积极上进会令你获得上司的赏识和下属的尊重，但也需要警惕过度劳累。这段时间你可能会承担额外的责任，感到情感上的压力。学习在责任和自我关怀之间找到平衡，这是走向成熟的必经之路。",
+	"moon_square_saturn": "**情绪低落**或**孤独压抑**感可能明显。你会感到**责任重**、**被限制**，或对**安全感**的需求得不到满足。适合**降低期待**、**给自己空间**、**完成该做的事**。避免**自我批评过度**或**逃避责任**。这是学习**在责任与自我关怀之间找平衡**的功课。",
 	"moon_opposition_saturn": "**情感**与**责任**或**依赖与独立**的冲突。适合**承认需求**、**一步步建立安全感**。",
 	"moon_conjunction_uranus": "**情绪突变**或**渴望自由**。可能**想离开**、**改变习惯**、**与某人和解或决裂**。适合**给自己空间**、**接受波动**。",
 	"moon_trine_uranus": "**直觉**与**创新**结合。适合**尝试新生活方式**、**结识新朋友**、**小改变**。",
@@ -99,11 +185,6 @@ var chineseAspectInterpretations = map[string]string{
 	"moon_sextile_pluto": "**小规模转化**，**安全感**可通过**放下**而增强。适合**精简**、**坦诚**。",
 	"moon_square_pluto": "**情绪**中的**权力**或**执著**。适合**看见自己在抓什么**、**慢慢放下**。",
 	"moon_opposition_pluto": "**关系**或**环境**中的**激烈情绪**。适合**不卷入权力游戏**、**先安顿自己**。",
-	"moon_trine_northNode": "**直觉**指引你往**对的方向**。适合**相信感觉**、**顺势而为**。",
-	"moon_sextile_northNode": "**小幸运**与**对的选择**。适合**跟随灵感**、**拓展圈子**。",
-	"moon_trine_chiron": "**情感疗愈**的友善期。适合**接纳过去**、**表达脆弱**、**关怀他人**。",
-	"moon_sextile_chiron": "**小疗愈**，**情绪**可通过**理解**缓解。适合**倾听**、**被倾听**。",
-	"moon_square_chiron": "**情感**中的**痛**被激活。适合**不逃不扛**、**一点点面对**。",
 
 	// ----- Mercury 行运 -----
 	"mercury_conjunction_venus": "**优雅表达**，**沟通**与**美感**结合。适合**写作**、**洽谈**、**约会**、**创意提案**。",
@@ -191,22 +272,94 @@ var chineseAspectInterpretations = map[string]string{
 	// ----- Outer planets 行运 -----
 	"uranus_conjunction_neptune": "**时代性**的**灵性**或**科技**变革感。适合**大愿景**、**集体**、**创新**。",
 	"uranus_trine_neptune": "**直觉**与**突破**结合。适合**灵感**、**社群**、**新可能**。",
+	"uranus_sextile_neptune": "**小创新**与**灵感**结合。适合**尝试新方法**、**艺术实验**、**社群连接**。",
+	"uranus_square_neptune": "**理想与现实**或**创新与逃避**的张力。适合**落地愿景**、**分清理想与幻想**。",
+	"uranus_opposition_neptune": "**变革**与**逃避**或**科技**与**灵性**的拉扯。适合**在创新中保持清醒**、**平衡突破与边界**。",
 	"uranus_conjunction_pluto": "**剧烈变革**或**权力重组**。适合**顺势**、**不执著旧结构**。",
+	"uranus_trine_pluto": "**突破**与**转化**结合。适合**结构性改革**、**权力重组**、**时代性转变**。",
+	"uranus_sextile_pluto": "**小变革**与**深度转化**。适合**渐进式改革**、**资源整合**、**影响力提升**。",
+	"uranus_square_pluto": "**突然变革**与**深层权力**冲突。适合**避免硬碰**、**顺势而为**、**在危机中找转机**。",
+	"uranus_opposition_pluto": "**外界**的**剧烈变化**或**权力斗争**。适合**保持弹性**、**不卷入冲突**、**从内在转化**。",
 	"neptune_conjunction_pluto": "**深层灵性**或**集体潜意识**主题。适合**内在**、**艺术**、**时代感**。",
 	"neptune_trine_pluto": "**超越**与**转化**。适合**灵性**、**艺术**、**疗愈**。",
+	"neptune_sextile_pluto": "**小灵感**与**深度转化**。适合**艺术创作**、**灵性修行**、**内在清理**。",
+	"neptune_square_pluto": "**理想与权力**或**逃避与控制**的张力。适合**面对现实**、**设定边界**、**在理想中落地**。",
+	"neptune_opposition_pluto": "**外界**的**深层变化**或**集体阴影**。适合**保持清醒**、**不逃避**、**在转化中保持边界**。",
+
+	// ----- Minor Aspects (Generic Templates) -----
+	"sun_semi-sextile_moon": "太阳与月亮形成**半六分相**。这带来**微妙的和谐**，适合在日常生活中寻找**微小的平衡**。你的意志与情感之间存在一种**轻微的连接**，有助于处理琐碎家务或进行**细节上的自我调整**。",
+	"mercury_semi-square_mars": "水星与火星形成**半四分相**。这可能带来**轻微的言语摩擦**或**思维上的急躁**。适合**放慢沟通速度**，在表达观点前多加思考，避免因**细节疏忽**而引发的小争执。",
+	"venus_sesquiquadrate_jupiter": "金星与木星形成**倍半四分相**。这可能引发**社交上的过度支出**或**情感上的小小不满**。适合**审视消费习惯**，在人际互动中保持**适度的期望**，寻找**情感与现实的平衡点**。",
+	"mars_quincunx_saturn": "火星与土星形成**补十二分相**。这带来一种**行动受阻的不协调感**。你可能感到**欲速则不达**，需要在**冲劲与纪律**之间进行**反复微调**。适合**耐心磨合**，接受进度的缓慢。",
 
 	// ----- North Node / Chiron -----
 	"sun_conjunction_northNode": "**自我**与**命运方向**对齐。适合**往成长方向**迈步、**做对的事**。",
+	"sun_trine_northNode": "**自我**与**命运**和谐共振。适合**大目标**、**贵人相助**、**远行拓展**。",
 	"sun_sextile_northNode": "**小幸运**与**对的选择**。适合**拓展**、**学习**、**对的人**。",
+	"sun_square_northNode": "**自我**与**命运**的拉扯。适合**调整方向**、**放下旧模式**、**往对的方向**。",
+	"sun_opposition_northNode": "**自我**与**命运**的张力。适合**检视是否偏离**、**重新对齐**、**放下执念**。",
 	"moon_conjunction_northNode": "**情感**与**命运**同步。适合**亲近对的人**、**在对的地方**花时间。",
+	"moon_trine_northNode": "**直觉**指引你往**对的方向**。适合**相信感觉**、**顺势而为**。",
+	"moon_sextile_northNode": "**小幸运**与**对的选择**。适合**跟随灵感**、**拓展圈子**。",
+	"moon_square_northNode": "**情感**与**命运**的冲突。适合**放下情感执念**、**在对的地方**投入。",
+	"moon_opposition_northNode": "**情感**与**命运**的张力。适合**检视情感模式**、**往对的方向**调整。",
+	"mercury_conjunction_northNode": "**思维**与**命运**对齐。适合**学习对的知识**、**与对的人交流**、**传播对的信息**。",
+	"mercury_trine_northNode": "**沟通**与**命运**顺畅。适合**教学**、**写作**、**传播**、**建立连接**。",
+	"mercury_sextile_northNode": "**小机会**与**对的信息**。适合**学习**、**交流**、**拓展认知**。",
+	"mercury_square_northNode": "**思维**与**命运**的冲突。适合**放下旧观念**、**接受新视角**、**在对的方向**学习。",
 	"venus_conjunction_northNode": "**爱**与**价值**往**对的方向**。适合**对的关系**、**对的投资**。",
+	"venus_trine_northNode": "**关系**与**价值**在**对的方向**。适合**深化对的关系**、**投资对的项目**、**享受美好**。",
+	"venus_sextile_northNode": "**小美好**与**对的选择**。适合**约会**、**合作**、**小投资**。",
+	"venus_square_northNode": "**关系**或**价值**与**命运**的冲突。适合**放下错的关系**、**调整价值观**、**往对的方向**。",
 	"mars_conjunction_northNode": "**行动**与**命运**一致。适合**在对的事情上**发力、**敢于争取**。",
+	"mars_trine_northNode": "**行动力**与**命运**结合。适合**大目标**、**竞争**、**突破**、**在对的方向**行动。",
+	"mars_sextile_northNode": "**小行动**与**对的方向**。适合**试水**、**小目标**、**短期冲刺**。",
+	"mars_square_northNode": "**行动**与**命运**的冲突。适合**停止错的方向**、**调整目标**、**在对的事情上**发力。",
 	"jupiter_conjunction_northNode": "**扩张**在**对的方向**。适合**大目标**、**贵人**、**远行**。",
+	"jupiter_trine_northNode": "**成长**与**命运**顺畅。适合**大计划**、**远行**、**贵人相助**、**在对的方向**扩展。",
+	"jupiter_sextile_northNode": "**小机会**与**对的方向**。适合**学习**、**小拓展**、**建立连接**。",
+	"jupiter_square_northNode": "**扩张**与**命运**的冲突。适合**检视目标**、**放下过度乐观**、**在对的方向**成长。",
 	"saturn_conjunction_northNode": "**责任**在**对的地方**。适合**结构**、**承诺**、**长期**。",
+	"saturn_trine_northNode": "**责任**与**命运**结合。适合**长期规划**、**建立结构**、**在对的方向**坚持。",
+	"saturn_sextile_northNode": "**小责任**与**对的方向**。适合**小承诺**、**建立习惯**、**逐步落实**。",
+	"saturn_square_northNode": "**责任**与**命运**的冲突。适合**放下错的责任**、**调整结构**、**在对的地方**承担。",
+	"uranus_conjunction_northNode": "**变革**在**对的方向**。适合**突破旧模式**、**创新**、**在对的方向**改变。",
+	"uranus_trine_northNode": "**突破**与**命运**结合。适合**创新**、**社群**、**在对的方向**变革。",
+	"neptune_conjunction_northNode": "**理想**在**对的方向**。适合**灵性成长**、**艺术**、**在对的方向**梦想。",
+	"neptune_trine_northNode": "**灵感**与**命运**结合。适合**创作**、**疗愈**、**在对的方向**理想。",
+	"pluto_conjunction_northNode": "**转化**在**对的方向**。适合**深度转型**、**放下旧模式**、**在对的方向**重生。",
+	"pluto_trine_northNode": "**转化**与**命运**结合。适合**深度改革**、**资源整合**、**在对的方向**转化。",
 	"sun_conjunction_chiron": "**伤口**与**自我**被看见。适合**疗愈**、**接纳**、**真实**。",
+	"sun_trine_chiron": "**自我**与**疗愈**结合。适合**教授**、**分享经验**、**帮助他人**、**在伤痛中成长**。",
+	"sun_sextile_chiron": "**小疗愈**与**自我成长**。适合**倾听**、**被倾听**、**小帮助**。",
+	"sun_square_chiron": "**自我**与**伤口**的冲突。适合**面对伤痛**、**不逃避**、**在痛苦中成长**。",
+	"sun_opposition_chiron": "**自我**与**伤口**的张力。适合**看见阴影**、**接纳不完美**、**在疗愈中重生**。",
 	"moon_conjunction_chiron": "**情感**中的**痛**被触动。适合**温柔对待**、**求助**、**放下**。",
+	"moon_trine_chiron": "**情感疗愈**的友善期。适合**接纳过去**、**表达脆弱**、**关怀他人**。",
+	"moon_sextile_chiron": "**小疗愈**，**情绪**可通过**理解**缓解。适合**倾听**、**被倾听**。",
+	"moon_square_chiron": "**情感**中的**痛**被激活。适合**不逃不扛**、**一点点面对**。",
+	"moon_opposition_chiron": "**情感**与**伤口**的张力。适合**温柔对待自己**、**寻求支持**、**在痛苦中成长**。",
+	"mercury_conjunction_chiron": "**思维**中的**痛**被触动。适合**表达伤痛**、**学习疗愈**、**分享经验**。",
+	"mercury_trine_chiron": "**沟通**与**疗愈**结合。适合**教学**、**写作**、**分享智慧**、**帮助他人**。",
+	"mercury_sextile_chiron": "**小沟通**与**小疗愈**。适合**倾听**、**交流**、**小帮助**。",
+	"mercury_square_chiron": "**思维**与**伤口**的冲突。适合**面对真相**、**不逃避**、**在痛苦中学习**。",
 	"venus_conjunction_chiron": "**关系**或**价值**中的**伤**。适合**疗愈型关系**、**自爱**。",
+	"venus_trine_chiron": "**关系**与**疗愈**结合。适合**疗愈型关系**、**自爱**、**帮助他人**、**在关系中成长**。",
+	"venus_sextile_chiron": "**小关系**与**小疗愈**。适合**小帮助**、**小关怀**、**小连接**。",
+	"venus_square_chiron": "**关系**或**价值**与**伤口**的冲突。适合**面对关系中的痛**、**不逃避**、**在痛苦中成长**。",
 	"mars_conjunction_chiron": "**行动**或**愤怒**下的**伤**。适合**看见**、**转化**、**适度表达**。",
+	"mars_trine_chiron": "**行动**与**疗愈**结合。适合**帮助他人**、**转化愤怒**、**在行动中疗愈**。",
+	"mars_sextile_chiron": "**小行动**与**小疗愈**。适合**小帮助**、**小表达**、**小转化**。",
+	"mars_square_chiron": "**行动**或**愤怒**与**伤口**的冲突。适合**面对愤怒**、**不逃避**、**在痛苦中转化**。",
 	"jupiter_conjunction_chiron": "**成长**通过**伤**与**智慧**。适合**教授**、**疗愈**、**扩展**。",
+	"jupiter_trine_chiron": "**成长**与**疗愈**结合。适合**大范围帮助**、**教授**、**分享智慧**、**在伤痛中扩展**。",
+	"jupiter_sextile_chiron": "**小成长**与**小疗愈**。适合**小帮助**、**小学习**、**小扩展**。",
+	"jupiter_square_chiron": "**成长**与**伤口**的冲突。适合**面对成长中的痛**、**不逃避**、**在痛苦中扩展**。",
 	"saturn_conjunction_chiron": "**责任**与**旧伤**相遇。适合**结构式疗愈**、**长期**、**耐心**。",
+	"saturn_trine_chiron": "**责任**与**疗愈**结合。适合**长期疗愈**、**建立结构**、**在责任中成长**。",
+	"saturn_sextile_chiron": "**小责任**与**小疗愈**。适合**小承诺**、**小结构**、**小耐心**。",
+	"saturn_square_chiron": "**责任**与**伤口**的冲突。适合**面对责任中的痛**、**不逃避**、**在痛苦中坚持**。",
+	"uranus_conjunction_chiron": "**变革**与**伤口**相遇。适合**突破旧伤**、**创新疗愈**、**在对的方向**改变。",
+	"neptune_conjunction_chiron": "**理想**与**伤口**相遇。适合**灵性疗愈**、**艺术表达**、**在理想中成长**。",
+	"pluto_conjunction_chiron": "**转化**与**伤口**相遇。适合**深度疗愈**、**放下旧模式**、**在转化中重生**。",
 }

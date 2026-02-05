@@ -2,14 +2,65 @@ package i18n
 
 // getEnglishAspectInterpretation returns detailed interpretation for aspect events in English.
 // Key format: planet1_aspect_planet2 (e.g. jupiter_sextile_moon)
+// Supports bidirectional lookup: if planet1_aspect_planet2 not found, tries planet2_aspect_planet1
 func getEnglishAspectInterpretation(key string, isPositive bool) string {
 	if text, ok := englishAspectInterpretations[key]; ok {
 		return text
 	}
+	// Try reverse key: planet2_aspect_planet1
+	if reverseKey := reverseAspectKey(key); reverseKey != "" {
+		if text, ok := englishAspectInterpretations[reverseKey]; ok {
+			return text
+		}
+	}
+	
+	// Check for minor aspects (semi-sextile, semi-square, sesquiquadrate, quincunx)
+	parts := splitAspectKey(key)
+	if len(parts) == 3 {
+		aspect := parts[1]
+		switch aspect {
+		case "semi-sextile":
+			return getEnglishMinorAspectInterpretation(parts[0], parts[2], "semi-sextile", isPositive)
+		case "semi-square":
+			return getEnglishMinorAspectInterpretation(parts[0], parts[2], "semi-square", isPositive)
+		case "sesquiquadrate":
+			return getEnglishMinorAspectInterpretation(parts[0], parts[2], "sesquiquadrate", isPositive)
+		case "quincunx":
+			return getEnglishMinorAspectInterpretation(parts[0], parts[2], "quincunx", isPositive)
+		}
+	}
+	
 	if isPositive {
 		return "During this time, the energies of these planets harmonize, bringing positive opportunities for development. It's suitable to harness this favorable energy and take action in related areas for good results."
 	}
 	return "During this time, these planets form a challenging angle, which may bring tension or situations requiring adjustment. This is an opportunity for learning and growth; facing challenges will make you more mature and stronger."
+}
+
+// getEnglishMinorAspectInterpretation returns interpretation for minor aspects in English
+func getEnglishMinorAspectInterpretation(planet1, planet2, aspect string, isPositive bool) string {
+	switch aspect {
+	case "semi-sextile":
+		if isPositive {
+			return "These planets form a **semi-sextile** (30°), bringing **subtle harmony** and **small opportunities**. Though less intense than major aspects, good for **small adjustments**, **detail optimization**, **gradual improvement**. A time of **quiet influence**; good for **patient accumulation**, **small steps forward**."
+		}
+		return "These planets form a **semi-sextile** (30°), bringing **minor friction** or **details needing adjustment**. Though impact is small, good for **minding details**, **small corrections**, **avoiding accumulation of small issues**."
+	case "semi-square":
+		if isPositive {
+			return "These planets form a **semi-square** (45°), bringing **mild tension** and **small challenges**. Though less intense than square, good for **small adjustments**, **fine-tuning direction**, **growing under pressure**. A time of **small trials**; good for **patience**, **gradual improvement**."
+		}
+		return "These planets form a **semi-square** (45°), bringing **minor conflict** or **detail issues needing resolution**. Though impact is small, good for **timely handling**, **avoiding accumulation**, **solving before small problems grow**."
+	case "sesquiquadrate":
+		if isPositive {
+			return "These planets form a **sesquiquadrate** (135°), bringing **moderate tension** and **energy needing adjustment**. Though less intense than square, good for **active adjustment**, **finding balance**, **growing through challenge**. A time of **moderate tests**; good for **staying flexible**, **responding flexibly**."
+		}
+		return "These planets form a **sesquiquadrate** (135°), bringing **moderate conflict** or **contradictions needing resolution**. Though impact is moderate, good for **facing problems**, **seeking solutions**, **learning through conflict**."
+	case "quincunx":
+		if isPositive {
+			return "These planets form a **quincunx** (150°), bringing **incoordination needing adjustment**. Though energy is discordant, good for **finding balance**, **adjusting direction**, **growing through discomfort**. A time of **needing adaptation**; good for **staying open**, **flexible adjustment**."
+		}
+		return "These planets form a **quincunx** (150°), bringing **incoordination** or **contradictions needing resolution**. Though impact is subtle, good for **facing incoordination**, **finding balance point**, **growing through adjustment**."
+	}
+	return ""
 }
 
 // englishAspectInterpretations Tier 1 detailed interpretations (emotional + practical, mixed style)
@@ -82,7 +133,7 @@ var englishAspectInterpretations = map[string]string{
 	"moon_opposition_jupiter": "Tension between **wanting more** and **practical limits**. Good for **balancing ideal and capacity**.",
 	"moon_conjunction_saturn": "**Heavy emotion**; **duty** or **loneliness** may rise. Good for **doing what must be done** and **giving yourself time**.",
 	"moon_trine_saturn": "**Emotional maturity**; **stability** and **commitment** feel stronger. Good for **habits**, **securing relationships**, **household matters**.",
-	"moon_square_saturn": "This is a period of vitality and vigor. You may achieve good results through hard work and it's very suitable for starting new projects. Your proactivity will earn you appreciation from superiors and respect from subordinates, but be wary of overwork. You may take on extra responsibilities and feel emotional pressure. Learning to balance duty and self-care is a necessary path to maturity.",
+	"moon_square_saturn": "**Emotional heaviness** or **loneliness** may be noticeable. You may feel **burdened by duty**, **restricted**, or find your **security needs** unmet. Good for **lowering expectations**, **giving yourself space**, **finishing necessary tasks**. Avoid **excessive self-criticism** or **evading responsibility**. This is a lesson in **balancing duty and self-care**.",
 	"moon_opposition_saturn": "Conflict between **emotion and duty** or **dependence and independence**. Good for **owning your needs** and **building security step by step**.",
 	"moon_conjunction_uranus": "**Sudden mood shifts** or **craving freedom**. You may **want to leave**, **change habits**, **reconcile or break** with someone. Good for **giving yourself space** and **accepting flux**.",
 	"moon_trine_uranus": "**Intuition** meets **innovation**. Good for **new ways of living**, **new friends**, **small changes**.",
@@ -99,13 +150,6 @@ var englishAspectInterpretations = map[string]string{
 	"moon_sextile_pluto": "**Small-scale transformation**; **security** can grow by **releasing**. Good for **simplifying**, **honesty**.",
 	"moon_square_pluto": "**Power** or **grip** in **emotions**. Good for **seeing what you cling to** and **releasing slowly**.",
 	"moon_opposition_pluto": "**Intense emotion** in **relationships** or **environment**. Good for **staying out of power games** and **settling yourself first**.",
-	"moon_conjunction_northNode": "**Emotion** aligns with **soul direction**. Good for **taking a step toward growth** and **connecting with the right people**.",
-	"moon_trine_northNode": "**Intuition** points toward the **right direction**. Good for **trusting feeling** and **going with the flow**.",
-	"moon_sextile_northNode": "**Small luck** and **right choices**. Good for **following inspiration**, **widening circles**.",
-	"moon_conjunction_chiron": "**Old wounds** or **vulnerability** touched. Good for **gentle self-care**, **healing**, **asking for help**.",
-	"moon_trine_chiron": "A supportive time for **emotional healing**. Good for **accepting the past**, **expressing vulnerability**, **caring for others**.",
-	"moon_sextile_chiron": "**Small healing**; **emotion** eases through **understanding**. Good for **listening** and **being heard**.",
-	"moon_square_chiron": "**Pain** in **emotion** activated. Good for **neither fleeing nor forcing**; **facing a little at a time**.",
 
 	// ----- Mercury transits -----
 	"mercury_conjunction_venus": "**Graceful expression**; **communication** and **beauty** combine. Good for **writing**, **negotiation**, **dating**, **creative pitches**.",
@@ -193,20 +237,94 @@ var englishAspectInterpretations = map[string]string{
 	// ----- Outer planets -----
 	"uranus_conjunction_neptune": "**Era** feel of **spiritual** or **tech** shift. Good for **big vision**, **collective**, **innovation**.",
 	"uranus_trine_neptune": "**Intuition** and **breakthrough** combine. Good for **inspiration**, **community**, **new possibility**.",
+	"uranus_sextile_neptune": "**Small innovation** meets **inspiration**. Good for **trying new methods**, **artistic experiments**, **community connection**.",
+	"uranus_square_neptune": "Tension between **ideal and reality** or **innovation and escape**. Good for **grounding vision**, **separating ideal from fantasy**.",
+	"uranus_opposition_neptune": "Pull between **change and escape** or **tech and spirit**. Good for **staying clear in innovation**, **balancing breakthrough and boundaries**.",
 	"uranus_conjunction_pluto": "**Major change** or **power shuffle**. Good for **going with the flow**, **not clinging to old structure**.",
+	"uranus_trine_pluto": "**Breakthrough** and **transformation** combine. Good for **structural reform**, **power restructuring**, **era shift**.",
+	"uranus_sextile_pluto": "**Small change** and **deep transformation**. Good for **gradual reform**, **resource integration**, **influence growth**.",
+	"uranus_square_pluto": "**Sudden change** conflicts with **deep power**. Good for **avoiding clash**, **going with flow**, **finding opportunity in crisis**.",
+	"uranus_opposition_pluto": "**Dramatic change** or **power struggle** from outside. Good for **staying flexible**, **not getting involved**, **transforming within**.",
 	"neptune_conjunction_pluto": "**Deep spirit** or **collective unconscious** theme. Good for **inner work**, **arts**, **era**.",
 	"neptune_trine_pluto": "**Transcendence** and **transformation**. Good for **spirituality**, **arts**, **healing**.",
+	"neptune_sextile_pluto": "**Small inspiration** and **deep transformation**. Good for **artistic creation**, **spiritual practice**, **inner clearing**.",
+	"neptune_square_pluto": "Tension between **ideal and power** or **escape and control**. Good for **facing reality**, **setting boundaries**, **grounding in ideal**.",
+	"neptune_opposition_pluto": "**Deep change** or **collective shadow** from outside. Good for **staying clear**, **not escaping**, **maintaining boundaries in transformation**.",
+
+	// ----- Minor Aspects (Generic Templates) -----
+	"sun_semi-sextile_moon": "Sun and Moon form a **semi-sextile**. This brings **subtle harmony**, suitable for finding **small balances** in daily life. There's a **slight connection** between your will and emotions, helpful for chores or **detailed self-adjustment**.",
+	"mercury_semi-square_mars": "Mercury and Mars form a **semi-square**. This may bring **minor verbal friction** or **mental haste**. Good for **slowing down communication**, thinking more before speaking, and avoiding small disputes from **oversights**.",
+	"venus_sesquiquadrate_jupiter": "Venus and Jupiter form a **sesquiquadrate**. This may trigger **social overspending** or **minor emotional dissatisfaction**. Good for **reviewing spending habits**, keeping **moderate expectations** in social interactions, and finding **balance between emotion and reality**.",
+	"mars_quincunx_saturn": "Mars and Saturn form a **quincunx**. This brings a sense of **incoordination in action**. You may feel **haste makes waste**, needing **repeated fine-tuning** between drive and discipline. Good for **patient adaptation**.",
 
 	// ----- North Node / Chiron -----
 	"sun_conjunction_northNode": "**Self** aligns with **soul direction**. Good for **stepping toward growth**, **doing the right thing**.",
+	"sun_trine_northNode": "**Self** and **destiny** harmonize. Good for **big goals**, **benefactors**, **travel expansion**.",
 	"sun_sextile_northNode": "**Small luck** and **right choices**. Good for **expansion**, **learning**, **right people**.",
+	"sun_square_northNode": "Pull between **self** and **destiny**. Good for **adjusting direction**, **releasing old patterns**, **moving toward right path**.",
+	"sun_opposition_northNode": "Tension between **self** and **destiny**. Good for **checking if off track**, **realigning**, **releasing attachment**.",
+	"moon_conjunction_northNode": "**Emotion** aligns with **soul direction**. Good for **connecting with right people**, **spending time in right places**.",
+	"moon_trine_northNode": "**Intuition** points toward the **right direction**. Good for **trusting feeling** and **going with the flow**.",
+	"moon_sextile_northNode": "**Small luck** and **right choices**. Good for **following inspiration**, **widening circles**.",
+	"moon_square_northNode": "Conflict between **emotion** and **destiny**. Good for **releasing emotional attachment**, **investing in right places**.",
+	"moon_opposition_northNode": "Tension between **emotion** and **destiny**. Good for **examining emotional patterns**, **adjusting toward right direction**.",
+	"mercury_conjunction_northNode": "**Mind** aligns with **soul direction**. Good for **learning right knowledge**, **communicating with right people**, **spreading right information**.",
+	"mercury_trine_northNode": "**Communication** and **destiny** flow. Good for **teaching**, **writing**, **spreading**, **building connections**.",
+	"mercury_sextile_northNode": "**Small opportunity** and **right information**. Good for **learning**, **exchange**, **expanding awareness**.",
+	"mercury_square_northNode": "Conflict between **mind** and **destiny**. Good for **releasing old ideas**, **accepting new perspectives**, **learning in right direction**.",
 	"venus_conjunction_northNode": "**Love** and **values** toward **right direction**. Good for **right relationship**, **right investment**.",
+	"venus_trine_northNode": "**Relationship** and **values** in **right direction**. Good for **deepening right relationships**, **investing in right projects**, **enjoying beauty**.",
+	"venus_sextile_northNode": "**Small beauty** and **right choices**. Good for **dating**, **partnership**, **small investment**.",
+	"venus_square_northNode": "Conflict between **relationship** or **values** and **destiny**. Good for **releasing wrong relationships**, **adjusting values**, **moving toward right direction**.",
 	"mars_conjunction_northNode": "**Action** and **destiny** align. Good for **putting force into right things**, **daring to go for it**.",
+	"mars_trine_northNode": "**Drive** and **destiny** combine. Good for **big goals**, **competition**, **breakthrough**, **action in right direction**.",
+	"mars_sextile_northNode": "**Small action** and **right direction**. Good for **testing waters**, **small goals**, **short sprints**.",
+	"mars_square_northNode": "Conflict between **action** and **destiny**. Good for **stopping wrong direction**, **adjusting goals**, **putting force into right things**.",
 	"jupiter_conjunction_northNode": "**Expansion** in **right direction**. Good for **big goals**, **benefactors**, **travel**.",
+	"jupiter_trine_northNode": "**Growth** and **destiny** flow. Good for **big plans**, **travel**, **benefactors**, **expansion in right direction**.",
+	"jupiter_sextile_northNode": "**Small opportunity** and **right direction**. Good for **learning**, **small expansion**, **building connections**.",
+	"jupiter_square_northNode": "Conflict between **expansion** and **destiny**. Good for **examining goals**, **releasing over-optimism**, **growing in right direction**.",
 	"saturn_conjunction_northNode": "**Responsibility** in **right place**. Good for **structure**, **commitment**, **long term**.",
+	"saturn_trine_northNode": "**Responsibility** and **destiny** combine. Good for **long-term planning**, **building structure**, **persisting in right direction**.",
+	"saturn_sextile_northNode": "**Small responsibility** and **right direction**. Good for **small commitments**, **building habits**, **gradual implementation**.",
+	"saturn_square_northNode": "Conflict between **responsibility** and **destiny**. Good for **releasing wrong responsibilities**, **adjusting structure**, **taking responsibility in right places**.",
+	"uranus_conjunction_northNode": "**Change** in **right direction**. Good for **breaking old patterns**, **innovation**, **change in right direction**.",
+	"uranus_trine_northNode": "**Breakthrough** and **destiny** combine. Good for **innovation**, **community**, **change in right direction**.",
+	"neptune_conjunction_northNode": "**Ideal** in **right direction**. Good for **spiritual growth**, **arts**, **dreaming in right direction**.",
+	"neptune_trine_northNode": "**Inspiration** and **destiny** combine. Good for **creation**, **healing**, **ideal in right direction**.",
+	"pluto_conjunction_northNode": "**Transformation** in **right direction**. Good for **deep transformation**, **releasing old patterns**, **rebirth in right direction**.",
+	"pluto_trine_northNode": "**Transformation** and **destiny** combine. Good for **deep reform**, **resource integration**, **transformation in right direction**.",
 	"sun_conjunction_chiron": "**Wound** and **self** seen. Good for **healing**, **acceptance**, **authenticity**.",
+	"sun_trine_chiron": "**Self** and **healing** combine. Good for **teaching**, **sharing experience**, **helping others**, **growing through pain**.",
+	"sun_sextile_chiron": "**Small healing** and **self-growth**. Good for **listening**, **being heard**, **small help**.",
+	"sun_square_chiron": "Conflict between **self** and **wound**. Good for **facing pain**, **not escaping**, **growing through suffering**.",
+	"sun_opposition_chiron": "Tension between **self** and **wound**. Good for **seeing shadow**, **accepting imperfection**, **rebirth through healing**.",
+	"moon_conjunction_chiron": "**Old wounds** or **vulnerability** touched. Good for **gentle self-care**, **healing**, **asking for help**.",
+	"moon_trine_chiron": "A supportive time for **emotional healing**. Good for **accepting the past**, **expressing vulnerability**, **caring for others**.",
+	"moon_sextile_chiron": "**Small healing**; **emotion** eases through **understanding**. Good for **listening** and **being heard**.",
+	"moon_square_chiron": "**Pain** in **emotion** activated. Good for **neither fleeing nor forcing**; **facing a little at a time**.",
+	"moon_opposition_chiron": "Tension between **emotion** and **wound**. Good for **gentle self-care**, **seeking support**, **growing through pain**.",
+	"mercury_conjunction_chiron": "**Pain** in **mind** touched. Good for **expressing pain**, **learning healing**, **sharing experience**.",
+	"mercury_trine_chiron": "**Communication** and **healing** combine. Good for **teaching**, **writing**, **sharing wisdom**, **helping others**.",
+	"mercury_sextile_chiron": "**Small communication** and **small healing**. Good for **listening**, **exchange**, **small help**.",
+	"mercury_square_chiron": "Conflict between **mind** and **wound**. Good for **facing truth**, **not escaping**, **learning through pain**.",
 	"venus_conjunction_chiron": "**Wound** in **relationship** or **values**. Good for **healing relationships**, **self-love**.",
+	"venus_trine_chiron": "**Relationship** and **healing** combine. Good for **healing relationships**, **self-love**, **helping others**, **growing in relationship**.",
+	"venus_sextile_chiron": "**Small relationship** and **small healing**. Good for **small help**, **small care**, **small connection**.",
+	"venus_square_chiron": "Conflict between **relationship** or **values** and **wound**. Good for **facing pain in relationship**, **not escaping**, **growing through pain**.",
 	"mars_conjunction_chiron": "**Wound** under **action** or **anger**. Good for **seeing**, **transforming**, **expressing in measure**.",
+	"mars_trine_chiron": "**Action** and **healing** combine. Good for **helping others**, **transforming anger**, **healing through action**.",
+	"mars_sextile_chiron": "**Small action** and **small healing**. Good for **small help**, **small expression**, **small transformation**.",
+	"mars_square_chiron": "Conflict between **action** or **anger** and **wound**. Good for **facing anger**, **not escaping**, **transforming through pain**.",
 	"jupiter_conjunction_chiron": "**Growth** through **wound** and **wisdom**. Good for **teaching**, **healing**, **expansion**.",
+	"jupiter_trine_chiron": "**Growth** and **healing** combine. Good for **large-scale help**, **teaching**, **sharing wisdom**, **expanding through pain**.",
+	"jupiter_sextile_chiron": "**Small growth** and **small healing**. Good for **small help**, **small learning**, **small expansion**.",
+	"jupiter_square_chiron": "Conflict between **growth** and **wound**. Good for **facing pain in growth**, **not escaping**, **expanding through pain**.",
 	"saturn_conjunction_chiron": "**Duty** meets **old wound**. Good for **structural healing**, **long term**, **patience**.",
+	"saturn_trine_chiron": "**Responsibility** and **healing** combine. Good for **long-term healing**, **building structure**, **growing in responsibility**.",
+	"saturn_sextile_chiron": "**Small responsibility** and **small healing**. Good for **small commitments**, **small structure**, **small patience**.",
+	"saturn_square_chiron": "Conflict between **responsibility** and **wound**. Good for **facing pain in responsibility**, **not escaping**, **persisting through pain**.",
+	"uranus_conjunction_chiron": "**Change** meets **wound**. Good for **breaking old wounds**, **innovative healing**, **change in right direction**.",
+	"neptune_conjunction_chiron": "**Ideal** meets **wound**. Good for **spiritual healing**, **artistic expression**, **growing in ideal**.",
+	"pluto_conjunction_chiron": "**Transformation** meets **wound**. Good for **deep healing**, **releasing old patterns**, **rebirth through transformation**.",
 }

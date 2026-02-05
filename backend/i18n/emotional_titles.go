@@ -1,6 +1,9 @@
 package i18n
 
-import "star/models"
+import (
+	"star/models"
+	"strings"
+)
 
 // GetEmotionalTitle returns an emotional/psychological title for an event
 func (t *Translator) GetEmotionalTitle(eventType string, planet1, planet2 models.PlanetID, aspect, house string, isPositive bool) string {
@@ -37,6 +40,21 @@ func (t *Translator) GetEmotionalTitle(eventType string, planet1, planet2 models
 	// For Moon void of course (hourly)
 	if eventType == "voidOfCourse" {
 		return t.getVoidOfCourseTitle()
+	}
+	
+	// For lunar phase events
+	if eventType == "lunar_phase" {
+		return t.getLunarPhaseTitle(aspect)
+	}
+	
+	// For sign change events
+	if eventType == "sign_change" {
+		return t.getSignChangeTitle(planet1, aspect)
+	}
+	
+	// For dignity events
+	if eventType == "dignity" {
+		return t.getDignityTitle(planet1, aspect)
 	}
 	
 	return ""
@@ -127,6 +145,39 @@ func (t *Translator) getVoidOfCourseTitle() string {
 		return getRussianVoidOfCourseTitle()
 	default:
 		return getEnglishVoidOfCourseTitle()
+	}
+}
+
+func (t *Translator) getLunarPhaseTitle(phase string) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseLunarPhaseTitle(phase)
+	case Russian:
+		return getRussianLunarPhaseTitle(phase)
+	default:
+		return getEnglishLunarPhaseTitle(phase)
+	}
+}
+
+func (t *Translator) getSignChangeTitle(planet models.PlanetID, newSign string) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseSignChangeTitle(planet, newSign)
+	case Russian:
+		return getRussianSignChangeTitle(planet, newSign)
+	default:
+		return getEnglishSignChangeTitle(planet, newSign)
+	}
+}
+
+func (t *Translator) getDignityTitle(planet models.PlanetID, dignityType string) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseDignityTitle(planet, dignityType)
+	case Russian:
+		return getRussianDignityTitle(planet, dignityType)
+	default:
+		return getEnglishDignityTitle(planet, dignityType)
 	}
 }
 
@@ -252,6 +303,12 @@ func getChineseAspectTitle(key string, isPositive bool) string {
 		"mars_conjunction_chiron":   "行动或愤怒下的伤",
 		"jupiter_conjunction_chiron": "成长通过伤与智慧",
 		"saturn_conjunction_chiron": "责任与旧伤相遇",
+		
+		// Minor aspects
+		"sun_semi-sextile_moon": "微妙的和谐",
+		"mercury_semi-square_mars": "言语摩擦",
+		"venus_sesquiquadrate_jupiter": "社交过度",
+		"mars_quincunx_saturn": "行动受阻",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -265,6 +322,7 @@ func getChineseAspectTitle(key string, isPositive bool) string {
 	return "挑战时刻"
 }
 
+// getChineseProgressionTitle returns emotional title for progressions in Chinese.
 func getChineseProgressionTitle(key string, isPositive bool) string {
 	titles := map[string]string{
 		"moon_trine_venus":  "亲密时光",
@@ -291,6 +349,12 @@ func getChineseProgressionTitle(key string, isPositive bool) string {
 	
 	if title, ok := titles[key]; ok {
 		return title
+	}
+
+	// Fallback to aspect title with progression context
+	aspectTitle := getChineseAspectTitle(key, isPositive)
+	if aspectTitle != "和谐能量" && aspectTitle != "挑战时刻" {
+		return aspectTitle + " (长期趋势)"
 	}
 	
 	if isPositive {
@@ -363,7 +427,7 @@ func getChineseTransitHouseTitle(key string) string {
 		"jupiter_house_8":  "转化的祝福",
 		"jupiter_house_9":  "智慧启蒙",
 		"jupiter_house_10": "事业机遇",
-		"jupiter_house_11": "贵人现身还请抓住",
+		"jupiter_house_11": "贵人现身，请抓住机会",
 		"jupiter_house_12": "灵性成长",
 		
 		"saturn_house_1":  "自律建设",
@@ -378,6 +442,58 @@ func getChineseTransitHouseTitle(key string) string {
 		"saturn_house_10": "事业建构",
 		"saturn_house_11": "社交筛选",
 		"saturn_house_12": "业力清理",
+
+		"mercury_house_1":  "表达与思考",
+		"mercury_house_2":  "财务与价值思考",
+		"mercury_house_3":  "沟通与学习",
+		"mercury_house_4":  "家庭沟通",
+		"mercury_house_5":  "创意表达",
+		"mercury_house_6":  "工作与健康沟通",
+		"mercury_house_7":  "伴侣沟通",
+		"mercury_house_8":  "深度交流",
+		"mercury_house_9":  "智慧与远见",
+		"mercury_house_10": "事业表达",
+		"mercury_house_11": "社交与理想沟通",
+		"mercury_house_12": "内在与灵感",
+
+		"uranus_house_1":  "自我革新",
+		"uranus_house_2":  "财务变革",
+		"uranus_house_3":  "沟通创新",
+		"uranus_house_4":  "家庭变革",
+		"uranus_house_5":  "创意突破",
+		"uranus_house_6":  "工作与健康革新",
+		"uranus_house_7":  "关系突变",
+		"uranus_house_8":  "深度与资源变革",
+		"uranus_house_9":  "信念与视野突破",
+		"uranus_house_10": "事业革新",
+		"uranus_house_11": "社群与理想变革",
+		"uranus_house_12": "内在觉醒",
+
+		"neptune_house_1":  "灵性自我",
+		"neptune_house_2":  "财务与价值直觉",
+		"neptune_house_3":  "灵感沟通",
+		"neptune_house_4":  "家庭与归属感",
+		"neptune_house_5":  "创意与灵感",
+		"neptune_house_6": "身心与灵性调理",
+		"neptune_house_7":  "关系与共情",
+		"neptune_house_8":  "深度共情与转化",
+		"neptune_house_9":  "信念与灵性探索",
+		"neptune_house_10": "事业与理想化",
+		"neptune_house_11": "社群与愿景",
+		"neptune_house_12": "灵性沉淀",
+
+		"pluto_house_1":  "自我转化",
+		"pluto_house_2":  "财富与价值深度",
+		"pluto_house_3":  "沟通深化",
+		"pluto_house_4":  "家庭与根源转化",
+		"pluto_house_5":  "创意与欲望深度",
+		"pluto_house_6": "工作与健康转化",
+		"pluto_house_7":  "关系深度转化",
+		"pluto_house_8":  "深度与重生",
+		"pluto_house_9":  "信念与哲学转化",
+		"pluto_house_10": "事业与权力转化",
+		"pluto_house_11": "社群与集体转化",
+		"pluto_house_12": "业力与潜意识",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -466,6 +582,12 @@ func getEnglishAspectTitle(key string, isPositive bool) string {
 		"mars_conjunction_chiron": "Wound Under Action or Anger",
 		"jupiter_conjunction_chiron": "Growth Through Wound & Wisdom",
 		"saturn_conjunction_chiron": "Duty Meets Old Wound",
+
+		// Minor aspects
+		"sun_semi-sextile_moon": "Subtle Harmony",
+		"mercury_semi-square_mars": "Verbal Friction",
+		"venus_sesquiquadrate_jupiter": "Social Excess",
+		"mars_quincunx_saturn": "Action Incoordination",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -488,6 +610,12 @@ func getEnglishProgressionTitle(key string, isPositive bool) string {
 	if title, ok := titles[key]; ok {
 		return title
 	}
+
+	// Fallback to aspect title with progression context
+	aspectTitle := getEnglishAspectTitle(key, isPositive)
+	if aspectTitle != "Harmonious Energy" && aspectTitle != "Challenging Moment" {
+		return aspectTitle + " (Long-term)"
+	}
 	
 	if isPositive {
 		return "Positive Development"
@@ -498,11 +626,129 @@ func getEnglishProgressionTitle(key string, isPositive bool) string {
 func getEnglishTransitHouseTitle(key string) string {
 	titles := map[string]string{
 		"sun_house_1":  "Self-Awakening",
+		"sun_house_2":  "Wealth Focus",
+		"sun_house_3":  "Expression & Communication",
+		"sun_house_4":  "Family Warmth",
+		"sun_house_5":  "Creation & Joy",
+		"sun_house_6":  "Health Focus",
+		"sun_house_7":  "Partnership",
+		"sun_house_8":  "Depth & Transformation",
+		"sun_house_9":  "Wider Horizons",
 		"sun_house_10": "Career Spotlight",
-		"moon_house_1": "Listen to Inner Voice",
+		"sun_house_11": "Social Activity",
+		"sun_house_12": "Inner Exploration",
+		"moon_house_1":  "Listen to Inner Voice",
+		"moon_house_2":  "Emotional Security",
+		"moon_house_3":  "Emotional Expression",
+		"moon_house_4":  "Sense of Belonging",
+		"moon_house_5":  "Emotional Joy",
+		"moon_house_6":  "Body & Mind Care",
+		"moon_house_7":  "Emotional Needs",
+		"moon_house_8":  "Emotional Depth",
+		"moon_house_9":  "Emotional Exploration",
+		"moon_house_10": "Public Image",
+		"moon_house_11": "Friendship Warmth",
+		"moon_house_12": "Subconscious Surfacing",
+		"venus_house_1":  "Charm Boost",
+		"venus_house_2":  "Enjoying Matter",
+		"venus_house_3":  "Pleasant Exchange",
+		"venus_house_4":  "Home Beauty",
+		"venus_house_5":  "Romance",
+		"venus_house_6":  "Work Harmony",
+		"venus_house_7":  "Sweet Relations",
+		"venus_house_8":  "Intimate Connection",
+		"venus_house_9":  "Cultural Appreciation",
+		"venus_house_10": "Workplace Charm",
 		"venus_house_11": "Social Charisma Blooms",
+		"venus_house_12": "Spiritual Love",
+		"mars_house_1":  "Drive Surge",
+		"mars_house_2":  "Earning Drive",
+		"mars_house_3":  "Forceful Words",
+		"mars_house_4":  "Home Action",
+		"mars_house_5":  "Competitive Spirit",
+		"mars_house_6":  "Work Push",
+		"mars_house_7":  "Relationship Tension",
+		"mars_house_8":  "Strong Desire",
+		"mars_house_9":  "Adventure & Travel",
+		"mars_house_10": "Career Ambition",
 		"mars_house_11": "Bold & Brave",
+		"mars_house_12": "Hidden Action",
+		"jupiter_house_1":  "Confidence Expansion",
+		"jupiter_house_2":  "Wealth & Opportunity",
+		"jupiter_house_3":  "Learning Opportunity",
+		"jupiter_house_4":  "Family Joy",
+		"jupiter_house_5":  "Creative Abundance",
+		"jupiter_house_6":  "Health Improvement",
+		"jupiter_house_7":  "Relationship Growth",
+		"jupiter_house_8":  "Blessing of Transformation",
+		"jupiter_house_9":  "Wisdom Enlightenment",
+		"jupiter_house_10": "Career Opportunity",
 		"jupiter_house_11": "Benefactors Appear",
+		"jupiter_house_12": "Spiritual Growth",
+		"saturn_house_1":  "Discipline & Structure",
+		"saturn_house_2":  "Financial Responsibility",
+		"saturn_house_3":  "Serious Communication",
+		"saturn_house_4":  "Family Responsibility",
+		"saturn_house_5":  "Creative Discipline",
+		"saturn_house_6":  "Health Caution",
+		"saturn_house_7":  "Relationship Test",
+		"saturn_house_8":  "Depth & Order",
+		"saturn_house_9":  "Philosophical Thought",
+		"saturn_house_10": "Career Structure",
+		"saturn_house_11": "Social Filtering",
+		"saturn_house_12": "Karma Clearing",
+
+		"mercury_house_1":  "Expression & Thought",
+		"mercury_house_2":  "Values & Money Thought",
+		"mercury_house_3":  "Communication & Learning",
+		"mercury_house_4":  "Family Communication",
+		"mercury_house_5":  "Creative Expression",
+		"mercury_house_6":  "Work & Health Communication",
+		"mercury_house_7":  "Partner Communication",
+		"mercury_house_8":  "Deep Exchange",
+		"mercury_house_9":  "Wisdom & Vision",
+		"mercury_house_10": "Career Expression",
+		"mercury_house_11": "Social & Ideal Communication",
+		"mercury_house_12": "Inner & Inspiration",
+
+		"uranus_house_1":  "Self Revolution",
+		"uranus_house_2":  "Financial Change",
+		"uranus_house_3":  "Communication Innovation",
+		"uranus_house_4":  "Family Revolution",
+		"uranus_house_5":  "Creative Breakthrough",
+		"uranus_house_6":  "Work & Health Revolution",
+		"uranus_house_7":  "Relationship Sudden Shift",
+		"uranus_house_8":  "Depth & Resource Change",
+		"uranus_house_9":  "Belief & Vision Breakthrough",
+		"uranus_house_10": "Career Revolution",
+		"uranus_house_11": "Community & Ideal Change",
+		"uranus_house_12": "Inner Awakening",
+
+		"neptune_house_1":  "Spiritual Self",
+		"neptune_house_2":  "Values & Intuition",
+		"neptune_house_3":  "Inspired Communication",
+		"neptune_house_4":  "Home & Belonging",
+		"neptune_house_5":  "Creativity & Inspiration",
+		"neptune_house_6":  "Body, Mind & Spirit",
+		"neptune_house_7":  "Relationship & Empathy",
+		"neptune_house_8":  "Deep Empathy & Transformation",
+		"neptune_house_9":  "Faith & Spiritual Quest",
+		"neptune_house_10": "Career & Idealization",
+		"neptune_house_11": "Community & Vision",
+		"neptune_house_12": "Spiritual Settling",
+
+		"pluto_house_1":  "Self Transformation",
+		"pluto_house_2":  "Wealth & Value Depth",
+		"pluto_house_3":  "Communication Depth",
+		"pluto_house_4":  "Family & Roots Transformation",
+		"pluto_house_5":  "Creativity & Desire Depth",
+		"pluto_house_6":  "Work & Health Transformation",
+		"pluto_house_7":  "Relationship Deep Transformation",
+		"pluto_house_8":  "Depth & Rebirth",
+		"pluto_house_9":  "Belief & Philosophy Transformation",
+		"pluto_house_10": "Career & Power Transformation",
+		"pluto_house_11": "Community & Collective Transformation",
+		"pluto_house_12": "Karma & Unconscious",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -566,6 +812,12 @@ func getRussianAspectTitle(key string, isPositive bool) string {
 		"mars_conjunction_chiron": "Рана под действием или гневом",
 		"jupiter_conjunction_chiron": "Рост через рану и мудрость",
 		"saturn_conjunction_chiron": "Долг встречает старую рану",
+
+		// Minor aspects
+		"sun_semi-sextile_moon": "Тонкая гармония",
+		"mercury_semi-square_mars": "Словесные трения",
+		"venus_sesquiquadrate_jupiter": "Социальный избыток",
+		"mars_quincunx_saturn": "Несогласованность действий",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -587,6 +839,12 @@ func getRussianProgressionTitle(key string, isPositive bool) string {
 	if title, ok := titles[key]; ok {
 		return title
 	}
+
+	// Fallback to aspect title with progression context
+	aspectTitle := getRussianAspectTitle(key, isPositive)
+	if aspectTitle != "Гармоничная энергия" && aspectTitle != "Сложный момент" {
+		return aspectTitle + " (Длительный)"
+	}
 	
 	if isPositive {
 		return "Позитивное развитие"
@@ -597,10 +855,129 @@ func getRussianProgressionTitle(key string, isPositive bool) string {
 func getRussianTransitHouseTitle(key string) string {
 	titles := map[string]string{
 		"sun_house_1":  "Пробуждение личности",
+		"sun_house_2":  "Фокус на благосостоянии",
+		"sun_house_3":  "Самовыражение и общение",
+		"sun_house_4":  "Семейное тепло",
+		"sun_house_5":  "Творчество и радость",
+		"sun_house_6":  "Фокус на здоровье",
+		"sun_house_7":  "Партнёрство",
+		"sun_house_8":  "Глубина и преображение",
+		"sun_house_9":  "Широкие горизонты",
 		"sun_house_10": "Карьерный прожектор",
-		"moon_house_1": "Слушай внутренний голос",
+		"sun_house_11": "Социальная активность",
+		"sun_house_12": "Внутреннее исследование",
+		"moon_house_1":  "Слушай внутренний голос",
+		"moon_house_2":  "Эмоциональная безопасность",
+		"moon_house_3":  "Эмоциональное выражение",
+		"moon_house_4":  "Чувство принадлежности",
+		"moon_house_5":  "Эмоциональная радость",
+		"moon_house_6":  "Забота о теле и душе",
+		"moon_house_7":  "Эмоциональные потребности",
+		"moon_house_8":  "Эмоциональная глубина",
+		"moon_house_9":  "Эмоциональное исследование",
+		"moon_house_10": "Публичный образ",
+		"moon_house_11": "Тепло дружбы",
+		"moon_house_12": "Подсознание на поверхности",
+		"venus_house_1":  "Усиление обаяния",
+		"venus_house_2":  "Наслаждение материальным",
+		"venus_house_3":  "Приятный обмен",
+		"venus_house_4":  "Красота дома",
+		"venus_house_5":  "Романтика",
+		"venus_house_6":  "Гармония в работе",
+		"venus_house_7":  "Сладкие отношения",
+		"venus_house_8":  "Интимная связь",
+		"venus_house_9":  "Культурное восприятие",
+		"venus_house_10": "Обаяние на работе",
 		"venus_house_11": "Расцвет социальной харизмы",
+		"venus_house_12": "Духовная любовь",
+		"mars_house_1":  "Всплеск энергии",
+		"mars_house_2":  "Драйв к заработку",
+		"mars_house_3":  "Напористые слова",
+		"mars_house_4":  "Действия дома",
+		"mars_house_5":  "Соревновательный дух",
+		"mars_house_6":  "Рабочий напор",
+		"mars_house_7":  "Напряжение в отношениях",
+		"mars_house_8":  "Сильное желание",
+		"mars_house_9":  "Приключения и путешествия",
+		"mars_house_10": "Карьерные амбиции",
+		"mars_house_11": "Смелость и отвага",
+		"mars_house_12": "Скрытое действие",
+		"jupiter_house_1":  "Расширение уверенности",
+		"jupiter_house_2":  "Богатство и возможности",
+		"jupiter_house_3":  "Возможность учиться",
+		"jupiter_house_4":  "Семейная радость",
+		"jupiter_house_5":  "Творческое изобилие",
+		"jupiter_house_6":  "Улучшение здоровья",
+		"jupiter_house_7":  "Рост отношений",
+		"jupiter_house_8":  "Благословение трансформации",
+		"jupiter_house_9":  "Просветление мудрости",
+		"jupiter_house_10": "Карьерная возможность",
 		"jupiter_house_11": "Появление покровителей",
+		"jupiter_house_12": "Духовный рост",
+		"saturn_house_1":  "Дисциплина и структура",
+		"saturn_house_2":  "Финансовая ответственность",
+		"saturn_house_3":  "Серьёзное общение",
+		"saturn_house_4":  "Семейная ответственность",
+		"saturn_house_5":  "Творческая дисциплина",
+		"saturn_house_6":  "Осторожность со здоровьем",
+		"saturn_house_7":  "Испытание отношений",
+		"saturn_house_8":  "Глубина и порядок",
+		"saturn_house_9":  "Философская мысль",
+		"saturn_house_10": "Карьерная структура",
+		"saturn_house_11": "Социальная фильтрация",
+		"saturn_house_12": "Очищение кармы",
+
+		"mercury_house_1":  "Выражение и мысль",
+		"mercury_house_2":  "Ценности и мысли о деньгах",
+		"mercury_house_3":  "Общение и обучение",
+		"mercury_house_4":  "Семейное общение",
+		"mercury_house_5":  "Творческое выражение",
+		"mercury_house_6":  "Общение о работе и здоровье",
+		"mercury_house_7":  "Общение с партнёром",
+		"mercury_house_8":  "Глубокий обмен",
+		"mercury_house_9":  "Мудрость и видение",
+		"mercury_house_10": "Карьерное выражение",
+		"mercury_house_11": "Социальное и идеальное общение",
+		"mercury_house_12": "Внутреннее и вдохновение",
+
+		"uranus_house_1":  "Революция себя",
+		"uranus_house_2":  "Финансовые перемены",
+		"uranus_house_3":  "Инновации в общении",
+		"uranus_house_4":  "Семейная революция",
+		"uranus_house_5":  "Творческий прорыв",
+		"uranus_house_6":  "Революция в работе и здоровье",
+		"uranus_house_7":  "Внезапный сдвиг в отношениях",
+		"uranus_house_8":  "Глубина и перемены в ресурсах",
+		"uranus_house_9":  "Прорыв в убеждениях и видении",
+		"uranus_house_10": "Карьерная революция",
+		"uranus_house_11": "Перемены в сообществе и идеалах",
+		"uranus_house_12": "Внутреннее пробуждение",
+
+		"neptune_house_1":  "Духовное я",
+		"neptune_house_2":  "Ценности и интуиция",
+		"neptune_house_3":  "Вдохновлённое общение",
+		"neptune_house_4":  "Дом и принадлежность",
+		"neptune_house_5":  "Творчество и вдохновение",
+		"neptune_house_6":  "Тело, ум и дух",
+		"neptune_house_7":  "Отношения и эмпатия",
+		"neptune_house_8":  "Глубокая эмпатия и трансформация",
+		"neptune_house_9":  "Вера и духовный поиск",
+		"neptune_house_10": "Карьера и идеализация",
+		"neptune_house_11": "Сообщество и видение",
+		"neptune_house_12": "Духовное оседание",
+
+		"pluto_house_1":  "Трансформация себя",
+		"pluto_house_2":  "Глубина богатства и ценностей",
+		"pluto_house_3":  "Глубина общения",
+		"pluto_house_4":  "Трансформация семьи и корней",
+		"pluto_house_5":  "Глубина творчества и желания",
+		"pluto_house_6":  "Трансформация работы и здоровья",
+		"pluto_house_7":  "Глубокая трансформация отношений",
+		"pluto_house_8":  "Глубина и возрождение",
+		"pluto_house_9":  "Трансформация убеждений и философии",
+		"pluto_house_10": "Трансформация карьеры и власти",
+		"pluto_house_11": "Трансформация сообщества и коллектива",
+		"pluto_house_12": "Карма и бессознательное",
 	}
 	
 	if title, ok := titles[key]; ok {
@@ -771,4 +1148,125 @@ func getEnglishVoidOfCourseTitle() string {
 
 func getRussianVoidOfCourseTitle() string {
 	return "Луна без курса · Завершайте, не начинайте нового"
+}
+
+// Lunar phase emotional titles
+func getChineseLunarPhaseTitle(phase string) string {
+	if phase == "first_quarter" {
+		phase = "firstQuarter"
+	} else if phase == "last_quarter" {
+		phase = "lastQuarter"
+	}
+	titles := map[string]string{
+		"new": "新月·设定意图", "crescent": "月牙·突破行动", "firstQuarter": "上弦月·考验与选择",
+		"gibbous": "渐盈月·打磨准备", "full": "满月·收获与释放", "disseminating": "渐亏月·分享智慧",
+		"lastQuarter": "下弦月·放下调整", "balsamic": "残月·整合与休息",
+	}
+	if s, ok := titles[phase]; ok {
+		return s
+	}
+	return "月相·能量周期"
+}
+
+func getEnglishLunarPhaseTitle(phase string) string {
+	if phase == "first_quarter" {
+		phase = "firstQuarter"
+	} else if phase == "last_quarter" {
+		phase = "lastQuarter"
+	}
+	titles := map[string]string{
+		"new": "New Moon · Set Intentions", "crescent": "Crescent · Break Through", "firstQuarter": "First Quarter · Test & Choose",
+		"gibbous": "Gibbous · Refine & Prepare", "full": "Full Moon · Harvest & Release", "disseminating": "Disseminating · Share Wisdom",
+		"lastQuarter": "Last Quarter · Let Go & Adjust", "balsamic": "Balsamic · Integrate & Rest",
+	}
+	if s, ok := titles[phase]; ok {
+		return s
+	}
+	return "Lunar Phase · Energy Cycle"
+}
+
+func getRussianLunarPhaseTitle(phase string) string {
+	if phase == "first_quarter" {
+		phase = "firstQuarter"
+	} else if phase == "last_quarter" {
+		phase = "lastQuarter"
+	}
+	titles := map[string]string{
+		"new": "Новолуние · Намерения", "crescent": "Молодая луна · Прорыв", "firstQuarter": "Первая четверть · Испытание",
+		"gibbous": "Растущая · Отделка", "full": "Полнолуние · Урожай и освобождение", "disseminating": "Убывающая · Делиться мудростью",
+		"lastQuarter": "Последняя четверть · Отпускание", "balsamic": "Бальзамическая · Интеграция",
+	}
+	if s, ok := titles[phase]; ok {
+		return s
+	}
+	return "Лунная фаза · Энергетический цикл"
+}
+
+// Sign change emotional titles (short; full text in detailed interpretation)
+func getChineseSignChangeTitle(planet models.PlanetID, newSign string) string {
+	p := string(planet)
+	names := map[string]string{"sun": "太阳", "moon": "月亮", "mercury": "水星", "venus": "金星", "mars": "火星", "jupiter": "木星", "saturn": "土星"}
+	signs := map[string]string{"aries": "白羊", "taurus": "金牛", "gemini": "双子", "cancer": "巨蟹", "leo": "狮子", "virgo": "处女", "libra": "天秤", "scorpio": "天蝎", "sagittarius": "射手", "capricorn": "摩羯", "aquarius": "水瓶", "pisces": "双鱼"}
+	n, sn := names[p], signs[strings.ToLower(newSign)]
+	if n == "" {
+		n = p
+	}
+	if sn == "" {
+		sn = newSign
+	}
+	return n + "进入" + sn + "座"
+}
+
+func getEnglishSignChangeTitle(planet models.PlanetID, newSign string) string {
+	names := map[string]string{"sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus", "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn"}
+	n := names[string(planet)]
+	if n == "" {
+		n = string(planet)
+	}
+	return n + " Enters " + newSign
+}
+
+func getRussianSignChangeTitle(planet models.PlanetID, newSign string) string {
+	names := map[string]string{"sun": "Солнце", "moon": "Луна", "mercury": "Меркурий", "venus": "Венера", "mars": "Марс", "jupiter": "Юпитер", "saturn": "Сатурн"}
+	n := names[string(planet)]
+	if n == "" {
+		n = string(planet)
+	}
+	return n + " входит в " + newSign
+}
+
+// Dignity emotional titles
+func getChineseDignityTitle(planet models.PlanetID, dignityType string) string {
+	names := map[string]string{"sun": "太阳", "moon": "月亮", "mercury": "水星", "venus": "金星", "mars": "火星", "jupiter": "木星", "saturn": "土星"}
+	d := map[string]string{"domicile": "入庙", "exaltation": "旺相", "detriment": "落陷", "fall": "失势"}
+	n, dn := names[string(planet)], d[dignityType]
+	if n == "" {
+		n = string(planet)
+	}
+	if dn == "" {
+		dn = dignityType
+	}
+	return n + "·" + dn
+}
+
+func getEnglishDignityTitle(planet models.PlanetID, dignityType string) string {
+	names := map[string]string{"sun": "Sun", "moon": "Moon", "mercury": "Mercury", "venus": "Venus", "mars": "Mars", "jupiter": "Jupiter", "saturn": "Saturn"}
+	n := names[string(planet)]
+	if n == "" {
+		n = string(planet)
+	}
+	return n + " in " + dignityType
+}
+
+func getRussianDignityTitle(planet models.PlanetID, dignityType string) string {
+	names := map[string]string{"sun": "Солнце", "moon": "Луна", "mercury": "Меркурий", "venus": "Венера", "mars": "Марс", "jupiter": "Юпитер", "saturn": "Сатурн"}
+	d := map[string]string{"domicile": "в доме", "exaltation": "в экзальтации", "detriment": "в изгнании", "fall": "в падении"}
+	n, dn := names[string(planet)], d[dignityType]
+	if n == "" {
+		n = string(planet)
+	}
+	if dn == "" {
+		dn = dignityType
+	}
+	return n + " " + dn
 }
