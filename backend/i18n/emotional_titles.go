@@ -19,6 +19,26 @@ func (t *Translator) GetEmotionalTitle(eventType string, planet1, planet2 models
 		return t.getAspectTitle(planet1, planet2, aspect, isPositive)
 	}
 	
+	// For retrograde events
+	if eventType == "retrograde" {
+		return t.getRetrogradeTitle(planet1)
+	}
+	
+	// For annual lord (profection) events
+	if eventType == "profectionLord" {
+		return t.getProfectionLordTitle(planet1)
+	}
+	
+	// For planetary hour (hourly); API may send "planetary_hour_change" or "planetaryHour"
+	if eventType == "planetaryHour" || eventType == "planetary_hour_change" {
+		return t.getPlanetaryHourTitle(planet1)
+	}
+	
+	// For Moon void of course (hourly)
+	if eventType == "voidOfCourse" {
+		return t.getVoidOfCourseTitle()
+	}
+	
 	return ""
 }
 
@@ -61,6 +81,52 @@ func (t *Translator) getTransitHouseTitle(planet models.PlanetID, house string) 
 		return getRussianTransitHouseTitle(key)
 	default:
 		return getEnglishTransitHouseTitle(key)
+	}
+}
+
+// getRetrogradeTitle returns emotional title for retrograde events (planet = retrograde planet)
+func (t *Translator) getRetrogradeTitle(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseRetrogradeTitle(planet)
+	case Russian:
+		return getRussianRetrogradeTitle(planet)
+	default:
+		return getEnglishRetrogradeTitle(planet)
+	}
+}
+
+// getProfectionLordTitle returns emotional title for annual lord events (planet = lord planet)
+func (t *Translator) getProfectionLordTitle(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseProfectionLordTitle(planet)
+	case Russian:
+		return getRussianProfectionLordTitle(planet)
+	default:
+		return getEnglishProfectionLordTitle(planet)
+	}
+}
+
+func (t *Translator) getPlanetaryHourTitle(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChinesePlanetaryHourTitle(planet)
+	case Russian:
+		return getRussianPlanetaryHourTitle(planet)
+	default:
+		return getEnglishPlanetaryHourTitle(planet)
+	}
+}
+
+func (t *Translator) getVoidOfCourseTitle() string {
+	switch t.lang {
+	case Chinese:
+		return getChineseVoidOfCourseTitle()
+	case Russian:
+		return getRussianVoidOfCourseTitle()
+	default:
+		return getEnglishVoidOfCourseTitle()
 	}
 }
 
@@ -542,4 +608,167 @@ func getRussianTransitHouseTitle(key string) string {
 	}
 	
 	return "Транзит по дому"
+}
+
+// Retrograde emotional titles (by planet)
+func getChineseRetrogradeTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"mercury": "水星逆行·复盘与修正",
+		"venus":   "金星逆行·价值与关系回顾",
+		"mars":    "火星逆行·策略与收束",
+		"jupiter": "木星逆行·夯实与内化",
+		"saturn":  "土星逆行·责任与成熟",
+		"uranus":  "天王星逆行·内在变革",
+		"neptune": "海王星逆行·边界与落地",
+		"pluto":   "冥王星逆行·转化与放下",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "逆行期·回顾与调整"
+}
+
+func getEnglishRetrogradeTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"mercury": "Mercury Retrograde · Review & Revise",
+		"venus":   "Venus Retrograde · Values & Relationships",
+		"mars":    "Mars Retrograde · Strategy & Restraint",
+		"jupiter": "Jupiter Retrograde · Consolidate & Integrate",
+		"saturn":  "Saturn Retrograde · Duty & Maturity",
+		"uranus":  "Uranus Retrograde · Inner Change",
+		"neptune": "Neptune Retrograde · Boundaries & Grounding",
+		"pluto":   "Pluto Retrograde · Transform & Release",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Retrograde · Review & Adjust"
+}
+
+func getRussianRetrogradeTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"mercury": "Ретроградный Меркурий · Обзор и правки",
+		"venus":   "Ретроградная Венера · Ценности и отношения",
+		"mars":    "Ретроградный Марс · Стратегия и сдержанность",
+		"jupiter": "Ретроградный Юпитер · Укрепление и интеграция",
+		"saturn":  "Ретроградный Сатурн · Долг и зрелость",
+		"uranus":  "Ретроградный Уран · Внутренние перемены",
+		"neptune": "Ретроградный Нептун · Границы и заземление",
+		"pluto":   "Ретроградный Плутон · Трансформация и отпускание",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Ретроградность · Обзор и корректировка"
+}
+
+// Profection Lord (Annual Lord) emotional titles (by planet)
+func getChineseProfectionLordTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "年主星太阳·自我与活力",
+		"moon":    "年主星月亮·情绪与家庭",
+		"mercury": "年主星水星·沟通与学习",
+		"venus":   "年主星金星·爱与价值",
+		"mars":    "年主星火星·行动与斗志",
+		"jupiter": "年主星木星·扩展与机遇",
+		"saturn":  "年主星土星·责任与结构",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "年主星·年度主题"
+}
+
+func getEnglishProfectionLordTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "Annual Lord Sun · Self & Vitality",
+		"moon":    "Annual Lord Moon · Emotions & Home",
+		"mercury": "Annual Lord Mercury · Communication & Learning",
+		"venus":   "Annual Lord Venus · Love & Value",
+		"mars":    "Annual Lord Mars · Action & Drive",
+		"jupiter": "Annual Lord Jupiter · Expansion & Opportunity",
+		"saturn":  "Annual Lord Saturn · Responsibility & Structure",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Annual Lord · Yearly Theme"
+}
+
+func getRussianProfectionLordTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "Годовой управитель Солнце · Самость и сила",
+		"moon":    "Годовой управитель Луна · Эмоции и дом",
+		"mercury": "Годовой управитель Меркурий · Общение и учёба",
+		"venus":   "Годовой управитель Венера · Любовь и ценность",
+		"mars":    "Годовой управитель Марс · Действие и драйв",
+		"jupiter": "Годовой управитель Юпитер · Расширение и возможности",
+		"saturn":  "Годовой управитель Сатурн · Ответственность и структура",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Годовой управитель · Тема года"
+}
+
+// Planetary Hour emotional titles (hourly)
+func getChinesePlanetaryHourTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "太阳时·自我与决断",
+		"moon":    "月亮时·情绪与直觉",
+		"mercury": "水星时·沟通与文书",
+		"venus":   "金星时·关系与金钱",
+		"mars":    "火星时·行动与竞争",
+		"jupiter": "木星时·扩展与机遇",
+		"saturn":  "土星时·责任与收尾",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "行星时·当下能量"
+}
+
+func getEnglishPlanetaryHourTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "Sun Hour · Self & Decision",
+		"moon":    "Moon Hour · Emotion & Intuition",
+		"mercury": "Mercury Hour · Communication & Paperwork",
+		"venus":   "Venus Hour · Relationship & Money",
+		"mars":    "Mars Hour · Action & Competition",
+		"jupiter": "Jupiter Hour · Expansion & Opportunity",
+		"saturn":  "Saturn Hour · Duty & Wrap-up",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Planetary Hour · Current Energy"
+}
+
+func getRussianPlanetaryHourTitle(planet models.PlanetID) string {
+	titles := map[string]string{
+		"sun":     "Час Солнца · Самость и решение",
+		"moon":    "Час Луны · Эмоция и интуиция",
+		"mercury": "Час Меркурия · Общение и документы",
+		"venus":   "Час Венеры · Отношения и деньги",
+		"mars":    "Час Марса · Действие и соревнование",
+		"jupiter": "Час Юпитера · Расширение и возможности",
+		"saturn":  "Час Сатурна · Долг и завершение",
+	}
+	if s, ok := titles[string(planet)]; ok {
+		return s
+	}
+	return "Планетарный час · Текущая энергия"
+}
+
+// Void of Course (Moon) emotional titles (hourly)
+func getChineseVoidOfCourseTitle() string {
+	return "月亮空亡·宜收尾不宜新启"
+}
+
+func getEnglishVoidOfCourseTitle() string {
+	return "Moon Void of Course · Wrap Up, Don't Start New"
+}
+
+func getRussianVoidOfCourseTitle() string {
+	return "Луна без курса · Завершайте, не начинайте нового"
 }

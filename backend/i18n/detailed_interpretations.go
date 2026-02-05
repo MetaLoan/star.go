@@ -19,6 +19,26 @@ func (t *Translator) GetDetailedInterpretation(eventType string, planet1, planet
 		return t.getAspectInterpretation(planet1, planet2, aspect, isPositive)
 	}
 	
+	// For retrograde events
+	if eventType == "retrograde" {
+		return t.getRetrogradeInterpretation(planet1)
+	}
+	
+	// For annual lord (profection) events
+	if eventType == "profectionLord" {
+		return t.getProfectionLordInterpretation(planet1)
+	}
+	
+	// For planetary hour (hourly); API may send "planetary_hour_change" or "planetaryHour"
+	if eventType == "planetaryHour" || eventType == "planetary_hour_change" {
+		return t.getPlanetaryHourInterpretation(planet1)
+	}
+	
+	// For Moon void of course (hourly)
+	if eventType == "voidOfCourse" {
+		return t.getVoidOfCourseInterpretation()
+	}
+	
 	return ""
 }
 
@@ -61,6 +81,54 @@ func (t *Translator) getAspectInterpretation(p1, p2 models.PlanetID, aspect stri
 		return getRussianAspectInterpretation(key, isPositive)
 	default:
 		return getEnglishAspectInterpretation(key, isPositive)
+	}
+}
+
+// getRetrogradeInterpretation returns detailed interpretation for retrograde events (planet1 = retrograde planet)
+func (t *Translator) getRetrogradeInterpretation(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseRetrogradeInterpretation(planet)
+	case Russian:
+		return getRussianRetrogradeInterpretation(planet)
+	default:
+		return getEnglishRetrogradeInterpretation(planet)
+	}
+}
+
+// getProfectionLordInterpretation returns detailed interpretation for annual lord events (planet1 = lord planet)
+func (t *Translator) getProfectionLordInterpretation(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChineseProfectionLordInterpretation(planet)
+	case Russian:
+		return getRussianProfectionLordInterpretation(planet)
+	default:
+		return getEnglishProfectionLordInterpretation(planet)
+	}
+}
+
+// getPlanetaryHourInterpretation returns detailed interpretation for planetary hour (planet1 = hour ruler)
+func (t *Translator) getPlanetaryHourInterpretation(planet models.PlanetID) string {
+	switch t.lang {
+	case Chinese:
+		return getChinesePlanetaryHourInterpretation(planet)
+	case Russian:
+		return getRussianPlanetaryHourInterpretation(planet)
+	default:
+		return getEnglishPlanetaryHourInterpretation(planet)
+	}
+}
+
+// getVoidOfCourseInterpretation returns detailed interpretation for Moon void of course (no planet param)
+func (t *Translator) getVoidOfCourseInterpretation() string {
+	switch t.lang {
+	case Chinese:
+		return getChineseVoidOfCourseInterpretation()
+	case Russian:
+		return getRussianVoidOfCourseInterpretation()
+	default:
+		return getEnglishVoidOfCourseInterpretation()
 	}
 }
 
@@ -347,3 +415,170 @@ func getRussianProgressionInterpretation(key string, isPositive bool) string {
 // getChineseAspectInterpretation is in aspect_interpretations_zh.go
 // getEnglishAspectInterpretation is in aspect_interpretations_en.go
 // getRussianAspectInterpretation is in aspect_interpretations_ru.go
+
+// ========== Retrograde Interpretations ==========
+
+func getChineseRetrogradeInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"mercury": "**水星逆行**期间，**沟通、合约、出行、电子设备**容易有延误或反复。适合**复盘旧项目**、**整理文档**、**修复关系**，而非开启全新合作或签大单。**工作沟通**请多确认、留书面记录；**学业**上宜复习多于突击。保持耐心与弹性，把逆行当作**内省与修正**的窗口。",
+		"venus":   "**金星逆行**时，**感情、审美、金钱、人际**易有回顾与调整。适合**厘清真正想要的关系与价值**，**修补旧怨**或**重审消费习惯**，不宜草率表白、整容或做大额投资。**关系**上多倾听、少计较；**财务**上以守成为主。利用这段时间**自爱**与**价值澄清**。",
+		"mars":    "**火星逆行**期间，**行动力、竞争、冲突、体能**会显得反复或受阻。适合**重新规划目标**、**处理积压事项**、**运动康复**，避免冲动决策、与人硬刚或开启新诉讼。**事业**上以稳为主；**健康**注意炎症与外伤。把能量用在**策略与复盘**上。",
+		"jupiter": "**木星逆行**时，**扩张、机会、信念、远行**会放缓或需要重新评估。适合**检视现有计划是否过大**、**修正过度乐观**、**内化信仰与哲学**，不宜盲目扩张、乱投资或轻信承诺。**学业与法律**事宜宜谨慎推进。借逆行**夯实基础**而非追逐新机会。",
+		"saturn":  "**土星逆行**期间，**责任、结构、权威、时间**主题被强化。适合**面对未完成的责任**、**调整长期规划**、**与长辈或上司理顺关系**，可能感到**被拖延或批评**。**事业与关系**上的考验是常态；用**耐心与纪律**一步步化解，而非逃避。",
+		"uranus":  "**天王星逆行**时，**变革、自由、突发、创新**更多转向内在或延迟表现。适合**审视自己的叛逆与固执**、**调整生活方式**而非强求外界剧变，**科技与社群**相关计划可能反复。保持**内在弹性**，等顺行后再大力推动改革。",
+		"neptune": "**海王星逆行**期间，**灵感、慈悲、边界、逃避**被检视。适合**分清理想与幻想**、**处理成瘾或依赖**、**艺术与灵性**上的沉淀，不宜在这时做重大牺牲或签模糊合约。**关系**中易有误会；**财务**需防骗。用逆行**落地梦想**、**设好边界**。",
+		"pluto":   "**冥王星逆行**时，**权力、执念、转化、阴影**更多在内心发酵。适合**面对恐惧与执著**、**结束不再服务你的模式**、**资源与关系的深度清理**，不宜强行控制他人或做毁灭式决定。**危机感**是转化前兆；用**觉察与放下**代替对抗。",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "该行星逆行期间，相关生活领域宜**回顾与调整**，少做全新开端，多**修正与内化**。"
+}
+
+func getEnglishRetrogradeInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"mercury": "During **Mercury retrograde**, **communication, contracts, travel, and devices** are prone to delays or mix-ups. Favor **reviewing old projects**, **organizing paperwork**, and **mending ties** over new deals or big commitments. **Confirm in writing** at work; **study** by revising rather than cramming. Use this period for **reflection and correction**.",
+		"venus":   "When **Venus is retrograde**, **love, beauty, money, and relationships** go through review. Good for **clarifying what you truly value**, **healing old rifts**, or **revisiting spending**; avoid rushed confessions, major cosmetic changes, or large investments. **Listen more** in relationships; **preserve** financially. Use the time for **self-worth and clarity**.",
+		"mars":    "During **Mars retrograde**, **drive, competition, conflict, and stamina** can feel blocked or uneven. Favor **replanning goals**, **clearing backlog**, and **recovery** over new fights or lawsuits. **Career**: stay steady; **health**: watch inflammation and injury. Channel energy into **strategy and review**.",
+		"jupiter": "When **Jupiter is retrograde**, **expansion, opportunity, belief, and travel** slow or need reassessment. Good for **checking if plans are overstretched**, **tempering optimism**, and **internalizing philosophy**; avoid over-expanding, speculative bets, or trusting big promises. **Education and legal** matters: proceed with care. **Consolidate** rather than chase new luck.",
+		"saturn":  "During **Saturn retrograde**, **duty, structure, authority, and time** are emphasized. Good for **facing unfinished responsibilities**, **adjusting long-term plans**, and **sorting dynamics with elders or bosses**. You may feel **delayed or criticized**. **Career and relationships** are under review; meet them with **patience and discipline**.",
+		"uranus":  "When **Uranus is retrograde**, **change, freedom, shocks, and innovation** turn inward or delay. Good for **examining your own rebellion and rigidity**, **adjusting lifestyle** rather than forcing outer upheaval. **Tech and community** plans may shift. Stay **internally flexible**; push big changes after it goes direct.",
+		"neptune": "During **Neptune retrograde**, **inspiration, compassion, boundaries, and escape** are under review. Good for **separating dream from delusion**, **addressing addiction or dependency**, and **digesting art and spirit**; avoid major sacrifices or vague contracts. **Relationships**: misunderstandings likely; **finance**: guard against deception. Use it to **ground dreams** and **set boundaries**.",
+		"pluto":   "When **Pluto is retrograde**, **power, obsession, transformation, and shadow** work inwardly. Good for **facing fear and attachment**, **ending patterns that no longer serve**, and **deep clearing of resources and ties**; avoid controlling others or destructive decisions. **Crisis feeling** can precede renewal; **awareness and release** over fight.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "During this planet's retrograde, related areas of life benefit from **review and adjustment**; favor **revision and integration** over brand-new starts."
+}
+
+func getRussianRetrogradeInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"mercury": "В период **ретроградного Меркурия** **общение, контракты, поездки и техника** склонны к задержкам и путанице. Уместны **разбор старых проектов**, **упорядочивание документов**, **восстановление связей** — лучше отложить новые сделки. **На работе** фиксируйте договорённости; **учёба**: повторение важнее авралов. Используйте время для **внутренней проверки и исправлений**.",
+		"venus":   "При **ретроградной Венере** **любовь, красота, деньги и отношения** пересматриваются. Хорошо **прояснить истинные ценности**, **залечить старые обиды**, **пересмотреть траты**; не спешите с признаниями, крупными изменениями во внешности или вложениями. **В отношениях** больше слушайте; **финансы** берегите. Время для **самооценки и ясности**.",
+		"mars":    "В **ретроградный Марс** **драйв, конкуренция, конфликты и выносливость** могут блокироваться. Уместны **перепланирование целей**, **разбор завалов**, **восстановление**; избегайте новых конфликтов и судов. **Карьера**: стабильность; **здоровье**: внимание к воспалениям и травмам. Направляйте энергию в **стратегию и анализ**.",
+		"jupiter": "При **ретроградном Юпитере** **расширение, возможности, вера и поездки** замедляются. Хорошо **проверить, не переоценены ли планы**, **снизить избыточный оптимизм**, **углубить философию**; не расширяйтесь вслепую и не доверяйте громким обещаниям. **Учёба и юридическое** — осторожно. **Укрепляйте основу**, а не гонитесь за новым.",
+		"saturn":  "В период **ретроградного Сатурна** усилены темы **долга, структуры, авторитета и времени**. Уместны **разбор незавершённых обязанностей**, **коррекция долгосрочных планов**, **выстраивание отношений с начальством и старшими**. Возможны **задержки и критика**. **Карьера и отношения** под проверкой; отвечайте **терпением и дисциплиной**.",
+		"uranus":  "При **ретроградном Уране** **перемены, свобода, неожиданности и инновации** уходят внутрь или откладываются. Хорошо **посмотреть на свой бунт и ригидность**, **скорректировать образ жизни**, а не провоцировать внешний переворот. **Технологии и сообщества** могут меняться. Сохраняйте **внутреннюю гибкость**; крупные реформы — после директа.",
+		"neptune": "В **ретроградный Нептун** пересматриваются **вдохновение, сострадание, границы и побег**. Хорошо **отделять мечту от иллюзии**, **работать с зависимостями**, **переваривать искусство и духовность**; избегайте жертв и размытых договоров. **Отношения**: недопонимания; **финансы**: остерегайтесь обмана. Используйте время, чтобы **приземлить мечты** и **обозначить границы**.",
+		"pluto":   "При **ретроградном Плутоне** **власть, одержимость, трансформация и тень** работают изнутри. Хорошо **встречать страхи и привязанности**, **завершать отжившие сценарии**, **глубоко чистить ресурсы и связи**; не контролируйте других и не принимайте разрушительных решений. **Чувство кризиса** может предшествовать обновлению; **осознанность и отпускание** вместо борьбы.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "В ретроградный период этой планеты связанные сферы жизни лучше **пересматривать и корректировать**; предпочтите **доработку и интеграцию** новым стартам."
+}
+
+// ========== Profection Lord (Annual Lord) Interpretations ==========
+
+func getChineseProfectionLordInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "今年**年主星是太阳**，整年的主题围绕**自我、身份、活力与领导力**。**健康**与**事业**是重点：适合确立**个人目标**、**展现专业能力**、**照顾身体**。你会更在意**被看见与被认可**；与**父亲、权威、上司**的关系也会被强调。利用这一年**夯实自我认同**、**在职场或生活中担当主角**。",
+		"moon":    "今年**年主星是月亮**，主题落在**情绪、家庭、安全感与内在需求**。**家庭关系**、**居住环境**、**与母亲或女性的关系**以及**身心健康**会被放大。适合**经营家庭**、**处理房产**、**照顾情绪**；**事业**上也可能与**公众、照顾、餐饮**相关。这一年**直觉**增强，适合**向内扎根**、**建立情感安全**。",
+		"mercury": "今年**年主星是水星**，**沟通、学习、短途出行、兄弟邻里**成为年度重点。**学业、写作、签约、传播**易有进展；**职场沟通**与**人脉**也重要。适合**考学、培训、谈判**，注意**信息准确**与**合同条款**。这一年思维活跃，宜**多学多表达**、**连接信息与人**。",
+		"venus":   "今年**年主星是金星**，**爱情、金钱、审美、人际**是核心。**感情**与**合作**有机会推进；**财务**与**享受**被强调。适合**深化关系**、**理财规划**、**艺术或美容**相关事务；注意**价值取舍**与**关系边界**。这一年**魅力**与**资源**易被看见，用好**爱与价值**的主题。",
+		"mars":    "今年**年主星是火星**，**行动、竞争、勇气、体能**被激活。**事业**上易有**冲刺与竞争**；**健康**需留意**发炎、外伤、过劳**。适合**设定目标并执行**、**运动健身**、**解决冲突**；避免**冲动与树敌**。这一年**斗志**强，宜**把能量用在建设性目标**上。",
+		"jupiter": "今年**年主星是木星**，**扩展、机会、信念、远行**成为年度基调。**学业、法律、出版、跨地域**事务易有进展；**贵人**与**资源**可能增多。适合**设定更大目标**、**投资成长**、**探索信仰与哲学**；避免**过度乐观与铺张**。这一年**机遇**多，宜**顺势而为、稳健扩张**。",
+		"saturn":  "今年**年主星是土星**，**责任、结构、时间、权威**是主题。**事业**与**关系**可能面临**考验与成熟**；**健康**需**规律与纪律**。适合**兑现承诺**、**建立长期结构**、**与长辈或规则共处**；避免**逃避责任**。这一年**坚持**会带来**认可**，宜**一步一个脚印**。",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "今年年主星影响整年主题，相关生活领域会得到**持续关注**；宜根据该行星象征的领域**规划与落实**。"
+}
+
+func getEnglishProfectionLordInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "This year **the annual lord is the Sun**; themes center on **self, identity, vitality, and leadership**. **Health** and **career** are in focus: good for **setting personal goals**, **showing competence**, **self-care**. You may care more about **being seen and recognized**; **father, authority, superiors** are highlighted. Use the year to **solidify self-identity** and **take the lead at work or in life**.",
+		"moon":    "This year **the annual lord is the Moon**; themes are **emotions, family, security, and inner needs**. **Family, home, relationship with mother or women**, and **wellbeing** are emphasized. Good for **nurturing home**, **property**, **emotional care**; **career** may involve **public, care, or food**. **Intuition** is stronger; use the year to **root inwardly** and **build emotional safety**.",
+		"mercury": "This year **the annual lord is Mercury**; **communication, learning, short travel, siblings and neighbors** are in focus. **Study, writing, contracts, media** can progress; **workplace communication** and **networks** matter. Good for **exams, training, negotiation**; mind **accuracy and contracts**. The year is mentally active — **learn, express, connect**.",
+		"venus":   "This year **the annual lord is Venus**; **love, money, beauty, relationships** are central. **Romance** and **partnership** can advance; **finance** and **pleasure** are emphasized. Good for **deepening relationships**, **financial planning**, **arts or beauty**; watch **values and boundaries**. **Charm** and **resources** are visible — lean into **love and value**.",
+		"mars":    "This year **the annual lord is Mars**; **action, competition, courage, stamina** are active. **Career** may see **drive and rivalry**; **health**: watch **inflammation, injury, overwork**. Good for **goals and execution**, **exercise**, **resolving conflict**; avoid **impulse and enemies**. **Channel energy** into constructive aims.",
+		"jupiter": "This year **the annual lord is Jupiter**; **expansion, opportunity, belief, travel** set the tone. **Education, law, publishing, abroad** can progress; **benefactors** and **resources** may increase. Good for **larger goals**, **investing in growth**, **exploring philosophy**; avoid **over-optimism and excess**. **Opportunity** is high — **expand with care**.",
+		"saturn":  "This year **the annual lord is Saturn**; **responsibility, structure, time, authority** are themes. **Career** and **relationships** may face **tests and maturity**; **health** benefits from **routine and discipline**. Good for **keeping commitments**, **building long-term structure**, **working with elders and rules**; avoid **evading duty**. **Persistence** brings **recognition** — **step by step**.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "The annual lord shapes the year's themes; related areas receive **ongoing emphasis** — **plan and act** according to that planet's symbolism."
+}
+
+func getRussianProfectionLordInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "В этом году **годовым управителем является Солнце**; темы — **самость, идентичность, жизненная сила и лидерство**. В фокусе **здоровье** и **карьера**: хорошее время для **личных целей**, **проявления компетентности**, **заботы о себе**. Важнее **быть замеченным**; актуальны **отец, авторитет, начальство**. Используйте год для **укрепления самоидентичности** и **роли лидера**.",
+		"moon":    "В этом году **годовым управителем является Луна**; темы — **эмоции, семья, безопасность, внутренние потребности**. Усилены **семья, дом, отношения с матерью или женщинами**, **благополучие**. Хорошо для **домашнего уюта**, **недвижимости**, **эмоциональной заботы**; **карьера** может быть связана с **публикой, заботой, питанием**. **Интуиция** сильнее; **углубляйтесь внутрь** и **стройте эмоциональную безопасность**.",
+		"mercury": "В этом году **годовым управителем является Меркурий**; в фокусе **общение, учёба, короткие поездки, братья и соседи**. **Учёба, письмо, контракты, медиа** могут продвинуться; важны **коммуникация на работе** и **сети**. Хорошо для **экзаменов, тренингов, переговоров**; следите за **точностью и договорами**. Год активного мышления — **учитесь, выражайтесь, связывайте**.",
+		"venus":   "В этом году **годовым управителем является Венера**; в центре **любовь, деньги, красота, отношения**. **Романтика** и **партнёрство** могут развиваться; усилены **финансы** и **удовольствие**. Хорошо для **углубления отношений**, **финансового планирования**, **искусства и красоты**; следите за **ценностями и границами**. **Очарование** и **ресурсы** на виду — опора на **любовь и ценность**.",
+		"mars":    "В этом году **годовым управителем является Марс**; активны **действие, соревнование, смелость, выносливость**. **Карьера** может дать **рывок и конкуренцию**; **здоровье**: внимание **воспалению, травмам, переутомлению**. Хорошо для **целей и исполнения**, **спорта**, **разрешения конфликтов**; избегайте **импульса и врагов**. Направляйте энергию в **конструктивные цели**.",
+		"jupiter": "В этом году **годовым управителем является Юпитер**; тон задают **расширение, возможности, вера, путешествия**. **Образование, право, издательства, зарубеж** могут продвинуться; **покровители** и **ресурсы** могут возрасти. Хорошо для **крупных целей**, **инвестиций в рост**, **философии**; избегайте **переоптимизма и избытка**. **Возможностей** много — **расширяйтесь с умом**.",
+		"saturn":  "В этом году **годовым управителем является Сатурн**; темы — **ответственность, структура, время, авторитет**. **Карьера** и **отношения** могут пройти **проверку и взросление**; **здоровье** выигрывает от **режима и дисциплины**. Хорошо для **обязательств**, **долгосрочной структуры**, **отношений со старшими и правилами**; не уходите от **долга**. **Настойчивость** приносит **признание** — **шаг за шагом**.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "Годовой управитель задаёт темы года; связанные сферы получают **постоянное внимание** — **планируйте и действуйте** в соответствии с символикой планеты."
+}
+
+// ========== Planetary Hour Interpretations (hourly) ==========
+
+func getChinesePlanetaryHourInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "当前处于**太阳时**，能量偏向**自我表达、权威与活力**。适合**拍板决定**、**展现领导力**、**处理与父亲或上司相关**的事；**重要会面、签约、健康相关**也较顺。避免在此时**过度妥协或隐藏主见**。",
+		"moon":    "当前处于**月亮时**，氛围偏**情绪与直觉**。适合**处理家事、照顾他人、饮食与休息**；**情感沟通、内心复盘**较顺。重大**签约或新项目启动**可考虑延后；宜**倾听感受、巩固安全感**。",
+		"mercury": "当前处于**水星时**，利于**沟通、学习、短途与文书**。适合**开会、邮件、签约、考试、短途出行**；**谈判与信息交换**效率高。避免此时做**重大情感或长期投资**决策；宜**多表达、多记录**。",
+		"venus":   "当前处于**金星时**，适合**关系、金钱与审美**相关事务。**约会、合作、理财、美容、艺术**较顺；**表达好感、谈条件**易被接受。不宜**冲动冲突或重大冒险**；宜**维系和谐、做让自己愉悦的事**。",
+		"mars":    "当前处于**火星时**，能量偏**行动与竞争**。适合**运动、截止日前冲刺、解决冲突、争取权益**；**启动项目、面试、竞赛**可借势。避免**无谓争吵或冒险**；宜**目标明确、执行果断**。",
+		"jupiter": "当前处于**木星时**，利于**扩展、机会与信念**。**求学、法律、出版、远行、大额规划**较顺；**求助贵人、拓展人脉**易有回应。不宜**过度承诺或挥霍**；宜**顺势而为、留有余地**。",
+		"saturn":  "当前处于**土星时**，适合**责任、结构与长期事务**。**汇报、承诺、纪律、与长辈/规则打交道**较顺；**收尾、复盘、制定计划**效率高。不宜**冒险或轻率承诺**；宜**务实、一步一个脚印**。",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "当前行星时强调该行星所象征的领域；可据此**安排相应类型的活动**，事半功倍。"
+}
+
+func getEnglishPlanetaryHourInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "You're in a **Sun hour** — energy favors **self-expression, authority, and vitality**. Good for **decisions**, **showing leadership**, **matters with father or superiors**; **meetings, contracts, health** also flow. Avoid **over-compromising or hiding your stance** now.",
+		"moon":    "You're in a **Moon hour** — mood is **emotional and intuitive**. Good for **home, caring for others, food and rest**; **heart-to-heart talks, inner review** work well. Consider postponing **big contracts or new launches**; **listen to feelings, build security**.",
+		"mercury": "You're in a **Mercury hour** — ideal for **communication, learning, short trips, paperwork**. Good for **meetings, emails, contracts, exams, short travel**; **negotiation and info exchange** are efficient. Avoid **major emotional or long-term money decisions**; **speak and write**.",
+		"venus":   "You're in a **Venus hour** — good for **relationships, money, and beauty**. **Dating, partnership, finance, looks, arts** flow; **expressing affection, discussing terms** are well received. Avoid **confrontation or big risks**; **keep harmony, do what pleases you**.",
+		"mars":    "You're in a **Mars hour** — energy is **action and competition**. Good for **exercise, deadline pushes, resolving conflict, standing your ground**; **launching projects, interviews, competition** can use this. Avoid **pointless arguments or recklessness**; **be clear and decisive**.",
+		"jupiter": "You're in a **Jupiter hour** — favors **expansion, opportunity, and belief**. **Study, law, publishing, travel, big plans** flow; **asking for help, networking** get responses. Avoid **over-committing or overspending**; **go with the flow, leave room**.",
+		"saturn":  "You're in a **Saturn hour** — good for **duty, structure, and long-term matters**. **Reporting, commitments, discipline, dealing with elders or rules** flow; **wrapping up, review, planning** are efficient. Avoid **gambles or rash promises**; **be practical, step by step**.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "The current planetary hour emphasizes that planet's domains; **schedule related activities** for better results."
+}
+
+func getRussianPlanetaryHourInterpretation(planet models.PlanetID) string {
+	texts := map[string]string{
+		"sun":     "Сейчас **час Солнца** — энергия в пользу **самовыражения, авторитета и жизненной силы**. Хорошо для **решений**, **лидерства**, **дел с отцом или начальством**; **встречи, контракты, здоровье** тоже в потоке. Избегайте **чрезмерных уступок или сокрытия позиции**.",
+		"moon":    "Сейчас **час Луны** — настроение **эмоциональное и интуитивное**. Хорошо для **дома, заботы о других, еды и отдыха**; **сердечные разговоры, внутренний разбор** уместны. Крупные **контракты или новые старты** лучше перенести; **слушайте чувства, укрепляйте безопасность**.",
+		"mercury": "Сейчас **час Меркурия** — идеально для **общения, учёбы, коротких поездок, документов**. Хорошо для **встреч, писем, контрактов, экзаменов**; **переговоры и обмен информацией** эффективны. Избегайте **крупных эмоциональных или финансовых решений**; **говорите и записывайте**.",
+		"venus":   "Сейчас **час Венеры** — хорошо для **отношений, денег и красоты**. **Свидания, партнёрство, финансы, внешность, искусство** в потоке; **выражение симпатии, обсуждение условий** воспринимаются хорошо. Избегайте **конфронтации и больших рисков**; **гармония и приятные дела**.",
+		"mars":    "Сейчас **час Марса** — энергия **действия и соревнования**. Хорошо для **спорта, рывков к дедлайнам, разрешения конфликтов, отстаивания прав**; **старт проектов, собеседования, состязания** уместны. Избегайте **бессмысленных споров и безрассудства**; **чёткость и решительность**.",
+		"jupiter": "Сейчас **час Юпитера** — в пользу **расширения, возможностей и веры**. **Учёба, право, издательства, поездки, крупные планы** в потоке; **обращение за помощью, нетворкинг** получают отклик. Избегайте **перегрузки обязательствами и трат**; **плывите по течению, оставляйте запас**.",
+		"saturn":  "Сейчас **час Сатурна** — хорошо для **долга, структуры и долгосрочных дел**. **Отчёты, обязательства, дисциплина, общение со старшими или правилами** в потоке; **завершение, разбор, планирование** эффективны. Избегайте **азарта и скоропалительных обещаний**; **практичность, шаг за шагом**.",
+	}
+	if s, ok := texts[string(planet)]; ok {
+		return s
+	}
+	return "Текущий планетарный час подчёркивает сферы этой планеты; **планируйте соответствующие дела** для лучшего результата."
+}
+
+// ========== Void of Course (Moon) Interpretations (hourly) ==========
+
+func getChineseVoidOfCourseInterpretation() string {
+	return "月亮在换星座前未再与其它行星形成主要相位，即进入**月亮空亡**时段。传统上此时**不宜开启重要新事**（签约、表白、大额投资、手术择时等），因「事难成、易反复」。适合**收尾、休息、创意发想、日常琐事**；若必须行动，可当作**试水或排练**，留出后续调整空间。"
+}
+
+func getEnglishVoidOfCourseInterpretation() string {
+	return "The Moon has left its last major aspect before changing sign — you're in a **void of course** period. Traditionally, **avoid starting major new things** (contracts, confessions, big investments, scheduling surgery) as outcomes may **stall or shift**. Good for **wrapping up, rest, brainstorming, routine tasks**; if you must act, treat it as a **trial run** and leave room to adjust."
+}
+
+func getRussianVoidOfCourseInterpretation() string {
+	return "Луна вышла из последнего мажорного аспекта перед сменой знака — вы в периоде **луны без курса**. Традиционно **не начинают важных новых дел** (контракты, признания, крупные вложения, плановая операция), так как результат может **застопориться или измениться**. Хорошо для **завершения, отдыха, мозгового штурма, рутины**; если действовать необходимо — считайте это **пробным запуском** и оставьте место для корректировок."
+}

@@ -157,4 +157,3 @@ export CGO_CFLAGS="-I/usr/local/include"
 ### macOS：`dyld: Library not loaded: libswe.dylib`
 
 编译成功但运行时报找不到 `libswe.dylib`，说明动态链接器没有在可执行文件所在目录查库。按「3. 编译」中的步骤，把 `libswe.dylib` 放进 `backend/bin/` 并对 `star-api` 执行两条 `install_name_tool` 即可。每次用 `go build -tags swe -o bin/star-api .` 重新编译后，若仍从 `bin/` 运行，只需再执行一次上述 `install_name_tool`。
-
