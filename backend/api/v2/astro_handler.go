@@ -78,9 +78,9 @@ func HandleAstro(c *gin.Context) {
 		return
 	}
 
-	// 生成缓存 key
+	// 生成缓存 key（包含语言参数）
 	userID := generateUserID(req.Birth)
-	cacheKey := cache.GenerateCacheKey(userID, req.Granularity, queryTime)
+	cacheKey := cache.GenerateCacheKey(userID, req.Granularity, queryTime, req.Language)
 
 	// 尝试从缓存获取
 	globalCache := cache.GetGlobalCache()

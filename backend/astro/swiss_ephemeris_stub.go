@@ -121,4 +121,3 @@ func FindExactAspectTime(planet1, planet2 models.PlanetID, targetAngle float64, 
 	midJd := (startJd + endJd) / 2.0
 	return midJd, true
 }
-

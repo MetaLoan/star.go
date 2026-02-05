@@ -148,9 +148,6 @@ func (c *Calculator) factorToAspectEvent(f *models.InfluenceFactor, t time.Time)
 		primaryPlanet = string(f.SourcePlanet)
 	}
 
-	// 生成事件 ID
-	eventID := GenerateEventID(EventTypeAspect, models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, t)
-
 	// 计算生命周期时间
 	var startTime, endTime, exactTime time.Time
 	if f.Lifecycle != nil {
@@ -162,6 +159,9 @@ func (c *Calculator) factorToAspectEvent(f *models.InfluenceFactor, t time.Time)
 		endTime = t.Add(12 * time.Hour)
 		exactTime = t
 	}
+
+	// 生成事件 ID（使用 exactTime 而不是查询时间 t，确保唯一性）
+	eventID := GenerateEventID(EventTypeAspect, models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, exactTime)
 
 	// 确定阶段
 	phase := c.determinePhase(t, startTime, exactTime, endTime)

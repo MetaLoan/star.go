@@ -27,6 +27,12 @@ var englishTranslations = map[string]string{
 	"planet.northNode": "North Node",
 	"planet.chiron":    "Chiron",
 
+	// Event title suffixes
+	"planetary_hour_suffix": " Hour",
+	"retrograde_suffix":     " Retrograde",
+	"void_of_course":        "Moon Void of Course",
+	"sign_change_suffix":    " Sign Change",
+
 	// Aspects
 	"aspect.conjunction": "conjunction",
 	"aspect.sextile":     "sextile",
@@ -109,6 +115,12 @@ var chineseTranslations = map[string]string{
 	"planet.northNode": "北交点",
 	"planet.chiron":    "凯龙星",
 
+	// Event title suffixes
+	"planetary_hour_suffix": "时",
+	"retrograde_suffix":     "逆行",
+	"void_of_course":        "月亮空亡",
+	"sign_change_suffix":    "换座",
+
 	// Aspects
 	"aspect.conjunction": "合相",
 	"aspect.sextile":     "六分相",
@@ -190,6 +202,12 @@ var russianTranslations = map[string]string{
 	"planet.pluto":     "Плутон",
 	"planet.northNode": "Северный Узел",
 	"planet.chiron":    "Хирон",
+
+	// Event title suffixes
+	"planetary_hour_suffix": " Час",
+	"retrograde_suffix":     " Ретроград",
+	"void_of_course":        "Луна без курса",
+	"sign_change_suffix":    " Смена знака",
 
 	// Aspects
 	"aspect.conjunction": "соединение",

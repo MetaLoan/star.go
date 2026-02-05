@@ -28,8 +28,8 @@ type Cache interface {
 // ==================== 缓存 Key 生成 ====================
 
 // GenerateCacheKey 生成缓存 Key
-// 格式: astro:{userId}:{granularity}:{timeKey}
-func GenerateCacheKey(userID, granularity string, t time.Time) string {
+// 格式: astro:{userId}:{granularity}:{timeKey}:{language}
+func GenerateCacheKey(userID, granularity string, t time.Time, language ...string) string {
 	var timeKey string
 	switch granularity {
 	case core.GranularityHour:
@@ -46,7 +46,13 @@ func GenerateCacheKey(userID, granularity string, t time.Time) string {
 	default:
 		timeKey = t.Format("2006010215")
 	}
-	return "astro:" + userID + ":" + granularity + ":" + timeKey
+
+	// 如果提供了语言参数，添加到缓存键
+	lang := "en"
+	if len(language) > 0 && language[0] != "" {
+		lang = language[0]
+	}
+	return "astro:" + userID + ":" + granularity + ":" + timeKey + ":" + lang
 }
 
 // formatWeekKey 格式化周 Key
