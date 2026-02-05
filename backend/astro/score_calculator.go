@@ -126,38 +126,39 @@ func NormalizeScoreV2(raw float64) float64 {
 
 // CalculateInfluenceFactorsV2 计算影响因子（新版）
 // 使用共享数据层，避免与 Daily Events 重复计算
+// 注意：小时级因子（行星时、月空）直接计算，不使用日级缓存
 func CalculateInfluenceFactorsV2(chart *models.NatalChart, date time.Time, transitPositions []models.PlanetPosition) *models.FactorResult {
 	weights := DefaultFactorWeights
 	var factors []models.InfluenceFactor
 
-	// 获取共享星象数据（带缓存）
+	// 获取共享星象数据（带缓存）- 用于日级以上的事件
 	sharedData := CalculateDailyAstroData(chart, date)
 
-	// 1. 尊贵度因子
+	// 1. 尊贵度因子（按日/月变化）
 	dignityFactors := calculateDignityFactorsV2(transitPositions, weights.Dignity)
 	factors = append(factors, dignityFactors...)
 
-	// 2. 逆行因子
+	// 2. 逆行因子（按周/月变化）
 	retrogradeFactors := calculateRetrogradeFactorsV2(transitPositions, weights.Retrograde, date)
 	factors = append(factors, retrogradeFactors...)
 
-	// 3. 相位因子（使用共享数据层中的精确时间）
+	// 3. 相位因子（使用共享数据层中的精确时间，但强度根据当前时间计算）
 	aspectFactors := calculateAspectFactorsWithSharedData(chart, transitPositions, weights.AspectPhase, date, sharedData)
 	factors = append(factors, aspectFactors...)
 
-	// 4. 月相因子（使用共享数据层）
+	// 4. 月相因子（按日变化，使用共享数据层）
 	lunarPhaseFactors := calculateLunarPhaseFactorsWithSharedData(weights.LunarPhase, date, sharedData)
 	factors = append(factors, lunarPhaseFactors...)
 
-	// 5. 行星时因子（使用共享数据层）
-	planetaryHourFactors := calculatePlanetaryHourFactorsWithSharedData(chart, date, weights.PlanetaryHour, sharedData)
+	// 5. 行星时因子（⚠️ 小时级变化，必须实时计算，不能使用日级缓存）
+	planetaryHourFactors := calculatePlanetaryHourFactorsV2(chart, date, weights.PlanetaryHour)
 	factors = append(factors, planetaryHourFactors...)
 
-	// 6. 年主星因子
+	// 6. 年主星因子（年级变化）
 	profectionFactors := calculateProfectionLordFactorsV2(chart, date, transitPositions, weights.ProfectionLord)
 	factors = append(factors, profectionFactors...)
 
-	// 7. 月亮空亡因子
+	// 7. 月亮空亡因子（⚠️ 小时级变化，必须实时计算）
 	jd := DateToJulianDay(date)
 	vocFactors := calculateVoidOfCourseFactorsV2(jd, weights.VoidOfCourse, date)
 	factors = append(factors, vocFactors...)

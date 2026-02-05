@@ -166,6 +166,152 @@ func findSignChangeEvents(startTime, endTime time.Time) []DailyEvent {
 	return events
 }
 
+// FindNextSignChange 计算行星离开当前星座的时间
+// 从 startTime 开始向前搜索，最多搜索 maxDays 天
+func FindNextSignChange(planetID models.PlanetID, startTime time.Time, maxDays int) *time.Time {
+	startJD := TimeToJulianDay(startTime)
+	startPos := CalculatePlanetPositionSwe(planetID, startJD)
+	currentSign := GetZodiacByLongitude(startPos.Longitude).ID
+
+	// 根据行星类型设置搜索步长和最大天数
+	var stepDays float64
+	switch planetID {
+	case models.Moon:
+		stepDays = 0.5   // 月亮：半天步长
+		if maxDays == 0 {
+			maxDays = 5
+		}
+	case models.Sun, models.Mercury, models.Venus:
+		stepDays = 1.0 // 内行星：1天步长
+		if maxDays == 0 {
+			maxDays = 45
+		}
+	case models.Mars:
+		stepDays = 2.0 // 火星：2天步长
+		if maxDays == 0 {
+			maxDays = 90
+		}
+	default:
+		stepDays = 7.0 // 外行星：7天步长
+		if maxDays == 0 {
+			maxDays = 400
+		}
+	}
+
+	// 粗搜索：找到星座变化的大致范围
+	var changeStartJD, changeEndJD float64
+	found := false
+	endJD := startJD + float64(maxDays)
+
+	for jd := startJD; jd < endJD; jd += stepDays {
+		pos := CalculatePlanetPositionSwe(planetID, jd)
+		sign := GetZodiacByLongitude(pos.Longitude).ID
+		if sign != currentSign {
+			changeStartJD = jd - stepDays
+			changeEndJD = jd
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil
+	}
+
+	// 精搜索：二分法精确到1分钟
+	for i := 0; i < 20; i++ {
+		midJD := (changeStartJD + changeEndJD) / 2.0
+		pos := CalculatePlanetPositionSwe(planetID, midJD)
+		sign := GetZodiacByLongitude(pos.Longitude).ID
+
+		if sign == currentSign {
+			changeStartJD = midJD
+		} else {
+			changeEndJD = midJD
+		}
+
+		if (changeEndJD-changeStartJD)*1440 < 1.0 {
+			break
+		}
+	}
+
+	exactTime := JulianDayToTime((changeStartJD + changeEndJD) / 2.0)
+	return &exactTime
+}
+
+// FindPrevSignChange 计算行星进入当前星座的时间
+// 从 startTime 开始向后搜索，最多搜索 maxDays 天
+func FindPrevSignChange(planetID models.PlanetID, startTime time.Time, maxDays int) *time.Time {
+	startJD := TimeToJulianDay(startTime)
+	startPos := CalculatePlanetPositionSwe(planetID, startJD)
+	currentSign := GetZodiacByLongitude(startPos.Longitude).ID
+
+	// 根据行星类型设置搜索步长和最大天数
+	var stepDays float64
+	switch planetID {
+	case models.Moon:
+		stepDays = 0.5
+		if maxDays == 0 {
+			maxDays = 5
+		}
+	case models.Sun, models.Mercury, models.Venus:
+		stepDays = 1.0
+		if maxDays == 0 {
+			maxDays = 45
+		}
+	case models.Mars:
+		stepDays = 2.0
+		if maxDays == 0 {
+			maxDays = 90
+		}
+	default:
+		stepDays = 7.0
+		if maxDays == 0 {
+			maxDays = 400
+		}
+	}
+
+	// 粗搜索：向后找到星座变化的大致范围
+	var changeStartJD, changeEndJD float64
+	found := false
+	endJD := startJD - float64(maxDays)
+
+	for jd := startJD; jd > endJD; jd -= stepDays {
+		pos := CalculatePlanetPositionSwe(planetID, jd)
+		sign := GetZodiacByLongitude(pos.Longitude).ID
+		if sign != currentSign {
+			changeStartJD = jd
+			changeEndJD = jd + stepDays
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil
+	}
+
+	// 精搜索：二分法精确到1分钟
+	for i := 0; i < 20; i++ {
+		midJD := (changeStartJD + changeEndJD) / 2.0
+		pos := CalculatePlanetPositionSwe(planetID, midJD)
+		sign := GetZodiacByLongitude(pos.Longitude).ID
+
+		if sign != currentSign {
+			changeStartJD = midJD
+		} else {
+			changeEndJD = midJD
+		}
+
+		if (changeEndJD-changeStartJD)*1440 < 1.0 {
+			break
+		}
+	}
+
+	exactTime := JulianDayToTime((changeStartJD + changeEndJD) / 2.0)
+	return &exactTime
+}
+
 // findSignChangeTime 使用二分法精确查找行星换座时间
 func findSignChangeTime(planetID models.PlanetID, startTime, endTime time.Time) *time.Time {
 	startJD := TimeToJulianDay(startTime)

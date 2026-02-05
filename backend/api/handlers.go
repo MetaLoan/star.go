@@ -8,6 +8,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RootHandler 根路径处理器
+func RootHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"service":    "Star API (Go)",
+		"version":    "2.0.0",
+		"status":     "running",
+		"dataSource": astro.GetDataSource(),
+		"endpoints": map[string]string{
+			"health":           "GET /health",
+			"chart":            "POST /api/calc/chart",
+			"astro":            "POST /api/v2/astro",
+			"monitor_dashboard": "GET /api/monitor/dashboard",
+			"monitor_summary":  "GET /api/monitor/summary",
+		},
+		"docs": "See /docs/API-REFERENCE.md for detailed API documentation",
+	})
+}
+
 // HealthCheck 健康检查
 func HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{

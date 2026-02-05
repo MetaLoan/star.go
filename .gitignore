@@ -1,1 +1,27 @@
+# Dependencies
 node_modules
+
+# Build / cache
+.next
+*.log
+server.log
+backend/server.log
+
+# Runtime / local
+.service-info
+*.local
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Backend binary (use backend/bin/star-api from build.sh)
+backend/star-api
+
+# Env
+.env
+.env.local
+.env.*.local

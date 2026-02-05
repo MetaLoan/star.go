@@ -283,7 +283,6 @@ curl -X POST http://localhost:8080/api/v2/astro \
         "startTime": "2026-01-14T10:00:00Z",
         "endTime": "2026-01-18T10:00:00Z",
         "exactTime": "2026-01-16T08:30:00Z",
-        "phase": "approaching",
         "interpretation": "详细解读文本...",
         "advice": "行动建议..."
       }
@@ -352,6 +351,13 @@ curl -X POST http://localhost:8080/api/v2/astro \
 | `transit_house` | 行星过宫 |
 | `void_of_course` | 月亮空亡 |
 | `planetary_hour` | 行星时 |
+
+**事件过滤规则**：
+
+- **返回与时间槽有交集的所有事件**
+- 事件只需与查询的时间范围有交集即可返回
+- `startTime` 可能早于时间槽开始，`endTime` 可能晚于时间槽结束
+- 客户端可根据 `startTime`/`endTime` 自行决定展示逻辑
 
 **粒度与子周期**：
 
@@ -683,6 +689,15 @@ curl http://localhost:8080/api/monitor/summary
 ---
 
 ## 版本历史
+
+### 2.0.1 (2026-02-05)
+
+- 移除 `phase` 字段：客户端根据 startTime/endTime 自行判断状态
+- 优化事件过滤：返回与时间槽有交集的所有事件
+- 修复 Dignity/SignChange 事件时间精度：使用真实的星座进入/离开时间
+- 修复并发安全问题（positionCache, longitudeCache, customFactorStore）
+- 扩展 i18n 翻译：添加南交点、次要相位、月相、尊贵度等翻译
+- 修复 "North Node" 等多词行星名称的解析问题
 
 ### 2.0.0 (2026-01-16)
 

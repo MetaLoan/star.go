@@ -112,7 +112,6 @@ type AstroEvent struct {
 	StartTime time.Time `json:"startTime"` // 事件/影响开始时间
 	EndTime   time.Time `json:"endTime"`   // 事件/影响结束时间
 	ExactTime time.Time `json:"exactTime"` // 精确时刻（相位精确成相的时间）
-	Phase     string    `json:"phase"`     // approaching/exact/separating（当前所处阶段）
 
 	// 解读文本
 	Interpretation string `json:"interpretation"` // 详细解读
@@ -143,13 +142,6 @@ const (
 	EventTypeDignity       = "dignity"
 )
 
-// 事件阶段
-const (
-	PhaseApproaching = "approaching"
-	PhaseExact       = "exact"
-	PhaseSeparating  = "separating"
-	PhaseActive      = "active"
-)
 
 // 时间层级
 const (

@@ -1,3 +1,4 @@
-2026/02/05 20:39:54 🌟 Starting Star API Server...
-2026/02/05 20:39:54 ❌ Swiss Ephemeris is not available. The application requires Swiss Ephemeris as the sole data source. Please rebuild with: CGO_ENABLED=1 go build -tags swe
-exit status 1
+2026/02/05 22:41:31 🌟 Starting Star API Server...
+2026/02/05 22:41:31 ✅ Data Source: Swiss Ephemeris (High Precision)
+2026/02/05 22:41:31 ✅ Server running on http://localhost:8080
+[GIN] 2026/02/05 - 22:41:34 | 200 |     924.375µs |       127.0.0.1 | GET      "/health"

@@ -23,6 +23,9 @@ func SetupRouter() *gin.Engine {
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
 	router.Use(cors.New(config))
 
+	// 根路径
+	router.GET("/", RootHandler)
+
 	// 健康检查
 	router.GET("/health", HealthCheck)
 

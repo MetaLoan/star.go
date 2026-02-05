@@ -6,6 +6,7 @@ import (
 	"star/models"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,7 +27,10 @@ type CustomFactorDefinition struct {
 }
 
 // CustomFactorStore 自定义因子存储（内存）
-var CustomFactorStore = make(map[string][]CustomFactorDefinition) // userID -> factors
+var (
+	customFactorStore   = make(map[string][]CustomFactorDefinition) // userID -> factors
+	customFactorStoreMu sync.RWMutex
+)
 
 // ParseCustomFactor 解析自定义因子字符串
 // 格式：AddScore=(2*healthScore,2.5,202501171230)
@@ -154,7 +158,9 @@ func AddCustomFactor(userID string, factorDef string) (*CustomFactorDefinition, 
 		return nil, err
 	}
 
-	CustomFactorStore[userID] = append(CustomFactorStore[userID], *factor)
+	customFactorStoreMu.Lock()
+	customFactorStore[userID] = append(customFactorStore[userID], *factor)
+	customFactorStoreMu.Unlock()
 	return factor, nil
 }
 
@@ -162,7 +168,10 @@ func AddCustomFactor(userID string, factorDef string) (*CustomFactorDefinition, 
 func GetActiveCustomFactors(userID string, t time.Time) []CustomFactorDefinition {
 	var active []CustomFactorDefinition
 
-	factors := CustomFactorStore[userID]
+	customFactorStoreMu.RLock()
+	factors := customFactorStore[userID]
+	customFactorStoreMu.RUnlock()
+
 	for _, f := range factors {
 		if t.After(f.StartTime) && t.Before(f.EndTime) {
 			active = append(active, f)
@@ -285,11 +294,15 @@ func ConvertCustomFactorToInfluenceFactor(cfd CustomFactorDefinition, t time.Tim
 
 // ClearCustomFactors 清除用户的自定义因子
 func ClearCustomFactors(userID string) {
-	delete(CustomFactorStore, userID)
+	customFactorStoreMu.Lock()
+	delete(customFactorStore, userID)
+	customFactorStoreMu.Unlock()
 }
 
 // GetAllCustomFactors 获取用户的所有自定义因子
 func GetAllCustomFactors(userID string) []CustomFactorDefinition {
-	return CustomFactorStore[userID]
+	customFactorStoreMu.RLock()
+	defer customFactorStoreMu.RUnlock()
+	return customFactorStore[userID]
 }
 

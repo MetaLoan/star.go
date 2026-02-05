@@ -25,7 +25,11 @@ var englishTranslations = map[string]string{
 	"planet.neptune":   "Neptune",
 	"planet.pluto":     "Pluto",
 	"planet.northNode": "North Node",
+	"planet.southNode": "South Node",
 	"planet.chiron":    "Chiron",
+	// Planet aliases
+	"planet.north": "North Node",
+	"planet.south": "South Node",
 
 	// Event title suffixes
 	"planetary_hour_suffix": " Hour",
@@ -33,12 +37,43 @@ var englishTranslations = map[string]string{
 	"void_of_course":        "Moon Void of Course",
 	"sign_change_suffix":    " Sign Change",
 
-	// Aspects
+	// Major Aspects
 	"aspect.conjunction": "conjunction",
 	"aspect.sextile":     "sextile",
 	"aspect.square":      "square",
 	"aspect.trine":       "trine",
 	"aspect.opposition":  "opposition",
+	// Minor Aspects
+	"aspect.semi-sextile":   "semi-sextile",
+	"aspect.semi-square":    "semi-square",
+	"aspect.sesquiquadrate": "sesquiquadrate",
+	"aspect.quincunx":       "quincunx",
+	// Node aspects
+	"aspect.node": "Node Axis",
+
+	// Lunar Phases
+	"lunar_phase.new":           "New Moon",
+	"lunar_phase.first_quarter": "First Quarter",
+	"lunar_phase.full":          "Full Moon",
+	"lunar_phase.last_quarter":  "Last Quarter",
+	"lunar_phase.waxing":        "Waxing",
+	"lunar_phase.waning":        "Waning",
+
+	// Dignities
+	"dignity.domicile":   "Domicile",
+	"dignity.exaltation": "Exaltation",
+	"dignity.detriment":  "Detriment",
+	"dignity.fall":       "Fall",
+
+	// Aspect Phases
+	"phase.applying":   "Applying",
+	"phase.exact":      "Exact",
+	"phase.separating": "Separating",
+
+	// Transit States
+	"transit.entering": "Entering",
+	"transit.active":   "Active",
+	"transit.leaving":  "Leaving",
 
 	// Signs
 	"sign.aries":       "Aries",
@@ -113,7 +148,11 @@ var chineseTranslations = map[string]string{
 	"planet.neptune":   "海王星",
 	"planet.pluto":     "冥王星",
 	"planet.northNode": "北交点",
+	"planet.southNode": "南交点",
 	"planet.chiron":    "凯龙星",
+	// Planet aliases
+	"planet.north": "北交点",
+	"planet.south": "南交点",
 
 	// Event title suffixes
 	"planetary_hour_suffix": "时",
@@ -121,12 +160,43 @@ var chineseTranslations = map[string]string{
 	"void_of_course":        "月亮空亡",
 	"sign_change_suffix":    "换座",
 
-	// Aspects
+	// Major Aspects
 	"aspect.conjunction": "合相",
 	"aspect.sextile":     "六分相",
 	"aspect.square":      "刑相",
 	"aspect.trine":       "拱相",
 	"aspect.opposition":  "对分相",
+	// Minor Aspects
+	"aspect.semi-sextile":   "半六分相",
+	"aspect.semi-square":    "半刑相",
+	"aspect.sesquiquadrate": "倍半刑相",
+	"aspect.quincunx":       "梅花相",
+	// Node aspects
+	"aspect.node": "交点轴",
+
+	// Lunar Phases
+	"lunar_phase.new":           "新月",
+	"lunar_phase.first_quarter": "上弦月",
+	"lunar_phase.full":          "满月",
+	"lunar_phase.last_quarter":  "下弦月",
+	"lunar_phase.waxing":        "盈月",
+	"lunar_phase.waning":        "亏月",
+
+	// Dignities
+	"dignity.domicile":   "入庙",
+	"dignity.exaltation": "旺相",
+	"dignity.detriment":  "落陷",
+	"dignity.fall":       "失势",
+
+	// Aspect Phases
+	"phase.applying":   "入相",
+	"phase.exact":      "精确",
+	"phase.separating": "离相",
+
+	// Transit States
+	"transit.entering": "进入",
+	"transit.active":   "活跃",
+	"transit.leaving":  "离开",
 
 	// Signs
 	"sign.aries":       "白羊座",
@@ -201,7 +271,11 @@ var russianTranslations = map[string]string{
 	"planet.neptune":   "Нептун",
 	"planet.pluto":     "Плутон",
 	"planet.northNode": "Северный Узел",
+	"planet.southNode": "Южный Узел",
 	"planet.chiron":    "Хирон",
+	// Planet aliases
+	"planet.north": "Северный Узел",
+	"planet.south": "Южный Узел",
 
 	// Event title suffixes
 	"planetary_hour_suffix": " Час",
@@ -209,12 +283,43 @@ var russianTranslations = map[string]string{
 	"void_of_course":        "Луна без курса",
 	"sign_change_suffix":    " Смена знака",
 
-	// Aspects
+	// Major Aspects
 	"aspect.conjunction": "соединение",
 	"aspect.sextile":     "секстиль",
 	"aspect.square":      "квадрат",
 	"aspect.trine":       "трин",
 	"aspect.opposition":  "оппозиция",
+	// Minor Aspects
+	"aspect.semi-sextile":   "полусекстиль",
+	"aspect.semi-square":    "полуквадрат",
+	"aspect.sesquiquadrate": "полутораквадрат",
+	"aspect.quincunx":       "квиконс",
+	// Node aspects
+	"aspect.node": "Ось Узлов",
+
+	// Lunar Phases
+	"lunar_phase.new":           "Новолуние",
+	"lunar_phase.first_quarter": "Первая четверть",
+	"lunar_phase.full":          "Полнолуние",
+	"lunar_phase.last_quarter":  "Последняя четверть",
+	"lunar_phase.waxing":        "Растущая",
+	"lunar_phase.waning":        "Убывающая",
+
+	// Dignities
+	"dignity.domicile":   "Обитель",
+	"dignity.exaltation": "Экзальтация",
+	"dignity.detriment":  "Изгнание",
+	"dignity.fall":       "Падение",
+
+	// Aspect Phases
+	"phase.applying":   "Сходящийся",
+	"phase.exact":      "Точный",
+	"phase.separating": "Расходящийся",
+
+	// Transit States
+	"transit.entering": "Входит",
+	"transit.active":   "Активный",
+	"transit.leaving":  "Выходит",
 
 	// Signs
 	"sign.aries":       "Овен",

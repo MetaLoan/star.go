@@ -124,23 +124,29 @@ func CalculatePlanetaryHourEnhanced(t time.Time, lat, lon float64) PlanetaryHour
 }
 
 // getPlanetaryHourInfluence 获取行星时影响值
+// 增强版：增加基础值差异，使小时级波动更明显
 func getPlanetaryHourInfluence(ruler, dayRuler models.PlanetID) float64 {
-	// 基础影响值
+	// 基础影响值（增强差异：从 -4 到 +8）
 	baseInfluence := map[models.PlanetID]float64{
-		models.Sun:     4.0,
-		models.Moon:    3.0,
-		models.Mercury: 2.0,
-		models.Venus:   4.0,
-		models.Mars:    -1.0,
-		models.Jupiter: 5.0,
-		models.Saturn:  -2.0,
+		models.Sun:     6.0,  // 太阳时：活力、领导力
+		models.Moon:    4.0,  // 月亮时：情感、直觉
+		models.Mercury: 3.0,  // 水星时：沟通、学习
+		models.Venus:   6.0,  // 金星时：爱情、美感
+		models.Mars:    -2.0, // 火星时：冲动、冲突
+		models.Jupiter: 8.0,  // 木星时：幸运、扩展
+		models.Saturn:  -4.0, // 土星时：限制、延迟
 	}
 
 	influence := baseInfluence[ruler]
 
-	// 如果行星时主管与日主星相同，加成
+	// 如果行星时主管与日主星相同，额外加成
 	if ruler == dayRuler {
-		influence += 2.0
+		influence += 3.0
+	}
+
+	// 吉星（木星、金星、太阳）时段额外正面加成
+	if ruler == models.Jupiter || ruler == models.Venus || ruler == models.Sun {
+		influence += 1.0
 	}
 
 	return influence

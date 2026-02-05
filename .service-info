@@ -1,8 +1,0 @@
-# Star API 服务信息 - 2026-01-26 11:41:03
-BACKEND_LOCAL=http://localhost:8080
-BACKEND_PUBLIC=https://nathalie-clothlike-urgently.ngrok-free.dev
-FRONTEND_LOCAL=http://localhost:5173
-NGROK_ADMIN=http://localhost:4040
-BACKEND_PID=39576
-FRONTEND_PID=39598
-NGROK_PID=39645

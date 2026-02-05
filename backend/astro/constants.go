@@ -263,6 +263,7 @@ func GetDignityScore(dignity models.Dignity) float64 {
 // ==================== 默认因子权重 ====================
 
 // DefaultFactorWeights 默认因子权重（可通过配置调整）
+// 注意：小时级因子（PlanetaryHour, VoidOfCourse）权重较高以产生明显的小时级波动
 var DefaultFactorWeights = models.FactorWeights{
 	Dignity:        1.0,
 	Retrograde:     1.0,
@@ -271,8 +272,8 @@ var DefaultFactorWeights = models.FactorWeights{
 	OuterPlanet:    1.2,
 	ProfectionLord: 1.0,
 	LunarPhase:     0.7,
-	PlanetaryHour:  0.3,
-	VoidOfCourse:   0.8,
+	PlanetaryHour:  2.0,  // 提升：0.3 → 2.0，增强小时级波动
+	VoidOfCourse:   1.5,  // 提升：0.8 → 1.5，月空时影响更明显
 	Personal:       1.0,
 	Custom:         1.0,
 }

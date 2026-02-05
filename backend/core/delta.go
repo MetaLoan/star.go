@@ -122,11 +122,32 @@ func (dc *DeltaCalculator) findMainChangeReason(current, prev *TimeSlot) string 
 	return "Multiple factors"
 }
 
-// ApplyDeltaToSlot 为时间槽中的所有事件计算 impactDelta
+// ApplyDeltaToSlot 为时间槽中的所有事件计算 impactDelta，过滤出与时间槽有交集的事件
 func (dc *DeltaCalculator) ApplyDeltaToSlot(slot *TimeSlot, granularity string, queryTime time.Time) {
+	// 过滤：只保留与时间槽有交集的事件
+	filteredEvents := make([]AstroEvent, 0, len(slot.Events))
+
 	for i := range slot.Events {
-		slot.Events[i].ImpactDelta = dc.CalculateImpactDelta(&slot.Events[i], granularity, queryTime)
+		event := &slot.Events[i]
+
+		// 检查事件是否与时间槽有交集
+		// 有交集 = event.StartTime < slot.EndTime && event.EndTime > slot.StartTime
+		if !dc.hasOverlap(event.StartTime, event.EndTime, slot.StartTime, slot.EndTime) {
+			continue
+		}
+
+		// 计算 impactDelta
+		event.ImpactDelta = dc.CalculateImpactDelta(event, granularity, queryTime)
+
+		filteredEvents = append(filteredEvents, *event)
 	}
+
+	slot.Events = filteredEvents
+}
+
+// hasOverlap 检查两个时间范围是否有交集
+func (dc *DeltaCalculator) hasOverlap(eventStart, eventEnd, slotStart, slotEnd time.Time) bool {
+	return eventStart.Before(slotEnd) && eventEnd.After(slotStart)
 }
 
 // ==================== 时间周期计算 ====================

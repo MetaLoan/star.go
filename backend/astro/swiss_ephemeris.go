@@ -6,6 +6,7 @@ package astro
 import (
 	"math"
 	"star/models"
+	"sync"
 
 	"github.com/mshafiee/swephgo"
 )
@@ -21,8 +22,11 @@ type positionCacheKey struct {
 	jd     float64 // 精确到小数点后6位（约10秒精度）
 }
 
-var positionCache = make(map[positionCacheKey]models.PlanetPosition)
-var cacheMaxSize = 1000 // 最多缓存1000个位置
+var (
+	positionCache   = make(map[positionCacheKey]models.PlanetPosition)
+	positionCacheMu sync.RWMutex
+	cacheMaxSize    = 1000 // 最多缓存1000个位置
+)
 
 func roundJD(jd float64) float64 {
 	// 精确到10秒级别（足够用）
@@ -78,9 +82,13 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 	// 检查缓存
 	roundedJD := roundJD(jd)
 	cacheKey := positionCacheKey{planet: planet, jd: roundedJD}
+
+	positionCacheMu.RLock()
 	if cached, ok := positionCache[cacheKey]; ok {
+		positionCacheMu.RUnlock()
 		return cached
 	}
+	positionCacheMu.RUnlock()
 
 	sweBody, ok := sweBodyMap[planet]
 	if !ok {
@@ -133,9 +141,11 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 	}
 
 	// 保存到缓存（限制大小）
+	positionCacheMu.Lock()
 	if len(positionCache) < cacheMaxSize {
 		positionCache[cacheKey] = position
 	}
+	positionCacheMu.Unlock()
 
 	return position
 }

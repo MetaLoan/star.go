@@ -163,9 +163,6 @@ func (c *Calculator) factorToAspectEvent(f *models.InfluenceFactor, t time.Time)
 	// 生成事件 ID（使用 exactTime 而不是查询时间 t，确保唯一性）
 	eventID := GenerateEventID(EventTypeAspect, models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, exactTime)
 
-	// 确定阶段
-	phase := c.determinePhase(t, startTime, exactTime, endTime)
-
 	return &AstroEvent{
 		EventID:         eventID,
 		Type:            EventTypeAspect,
@@ -180,22 +177,73 @@ func (c *Calculator) factorToAspectEvent(f *models.InfluenceFactor, t time.Time)
 		StartTime:       startTime,
 		EndTime:         endTime,
 		ExactTime:       exactTime,
-		Phase:           phase,
 	}
 }
 
 // parseFactorName 解析因子名称获取行星和相位信息
-// 格式: "Planet1 AspectType Planet2" 如 "Mars Trine Venus"
+// 格式: "Planet1 AspectType Planet2" 如 "Mars Trine Venus" 或 "North Node Opposition Venus"
 func parseFactorName(name string) (primary, secondary, aspect string) {
 	parts := splitBySpace(name)
-	if len(parts) >= 3 {
+	if len(parts) < 3 {
+		if len(parts) >= 1 {
+			primary = toLowerPlanetID(parts[0])
+		}
+		return
+	}
+
+	// 处理多词行星名称（如 "North Node", "South Node"）
+	// 已知相位词列表
+	aspectWords := map[string]bool{
+		"conjunction": true, "trine": true, "square": true,
+		"opposition": true, "sextile": true, "quincunx": true,
+		"semi-sextile": true, "semi-square": true, "sesquiquadrate": true,
+	}
+
+	// 找到相位词的位置
+	aspectIdx := -1
+	for i, part := range parts {
+		if aspectWords[toLower(part)] {
+			aspectIdx = i
+			break
+		}
+	}
+
+	if aspectIdx == -1 {
+		// 没找到相位词，使用原有逻辑
 		primary = toLowerPlanetID(parts[0])
 		aspect = toLowerAspect(parts[1])
-		secondary = toLowerPlanetID(parts[2])
-	} else if len(parts) >= 1 {
-		primary = toLowerPlanetID(parts[0])
+		if len(parts) > 2 {
+			secondary = toLowerPlanetID(parts[2])
+		}
+		return
 	}
+
+	// 相位词之前的部分是第一个行星
+	primaryParts := parts[:aspectIdx]
+	primary = toLowerPlanetID(joinWithSpace(primaryParts))
+
+	// 相位词
+	aspect = toLowerAspect(parts[aspectIdx])
+
+	// 相位词之后的部分是第二个行星
+	if aspectIdx+1 < len(parts) {
+		secondaryParts := parts[aspectIdx+1:]
+		secondary = toLowerPlanetID(joinWithSpace(secondaryParts))
+	}
+
 	return
+}
+
+// joinWithSpace 用空格连接字符串数组
+func joinWithSpace(parts []string) string {
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += " "
+		}
+		result += p
+	}
+	return result
 }
 
 // splitBySpace 按空格分割字符串
@@ -225,8 +273,10 @@ func toLowerPlanetID(name string) string {
 		"sun": "sun", "moon": "moon", "mercury": "mercury",
 		"venus": "venus", "mars": "mars", "jupiter": "jupiter",
 		"saturn": "saturn", "uranus": "uranus", "neptune": "neptune",
-		"pluto": "pluto", "chiron": "chiron", "north node": "northNode",
-		"south node": "southNode", "ascendant": "ascendant", "midheaven": "midheaven",
+		"pluto": "pluto", "chiron": "chiron",
+		"north node": "northNode", "northnode": "northNode", "north": "northNode",
+		"south node": "southNode", "southnode": "southNode", "south": "southNode",
+		"ascendant": "ascendant", "midheaven": "midheaven",
 	}
 	if id, ok := planetMap[lower]; ok {
 		return id
@@ -287,7 +337,6 @@ func (c *Calculator) calculatePlanetaryHourEvent(t time.Time) *AstroEvent {
 		StartTime:     hourStart,
 		EndTime:       hourEnd,
 		ExactTime:     hourStart,
-		Phase:         PhaseActive,
 	}
 }
 
@@ -316,7 +365,6 @@ func (c *Calculator) calculateRetrogradeEvents(transitPositions []models.PlanetP
 				StartTime:     startTime,
 				EndTime:       endTime,
 				ExactTime:     t,
-				Phase:         PhaseActive,
 			})
 		}
 	}
@@ -358,7 +406,6 @@ func (c *Calculator) calculateVoidOfCourseEvent(t time.Time) *AstroEvent {
 		StartTime: hourStart,
 		EndTime:   hourEnd,
 		ExactTime: t,
-		Phase:     PhaseActive,
 	}
 }
 
@@ -393,7 +440,6 @@ func (c *Calculator) calculateLunarPhaseEvents(start, end time.Time) []AstroEven
 			StartTime:     lp.ExactTime.Add(-6 * time.Hour),
 			EndTime:       lp.ExactTime.Add(6 * time.Hour),
 			ExactTime:     lp.ExactTime,
-			Phase:         PhaseExact,
 		})
 	}
 
@@ -419,6 +465,9 @@ func (c *Calculator) calculateSignChangeEvents(start, end time.Time) []AstroEven
 		newSign := strings.ToLower(sc.NewSign)
 		eventID := GenerateEventID(EventTypeSignChange, sc.Planet, "", newSign, sc.ExactTime)
 
+		// 计算行星离开新星座的时间作为 endTime
+		endTime := c.calculateSignChangeEndTime(sc.Planet, sc.ExactTime)
+
 		events = append(events, AstroEvent{
 			EventID:       eventID,
 			Type:          EventTypeSignChange,
@@ -430,13 +479,23 @@ func (c *Calculator) calculateSignChangeEvents(start, end time.Time) []AstroEven
 			Aspect:        newSign, // i18n 会使用此字段作为新星座
 			Impact:        c.getSignChangeImpact(sc.Planet, newSign),
 			StartTime:     sc.ExactTime,
-			EndTime:       sc.ExactTime.Add(24 * time.Hour),
+			EndTime:       endTime,
 			ExactTime:     sc.ExactTime,
-			Phase:         PhaseExact,
 		})
 	}
 
 	return events
+}
+
+// calculateSignChangeEndTime 计算换座事件的结束时间（行星离开新星座的时间）
+func (c *Calculator) calculateSignChangeEndTime(planetID models.PlanetID, entryTime time.Time) time.Time {
+	// 从进入时间开始，查找下一次换座
+	nextChange := astro.FindNextSignChange(planetID, entryTime.Add(time.Hour), 0) // +1小时避免找到同一个换座点
+	if nextChange != nil {
+		return *nextChange
+	}
+	// 回退：使用估算值
+	return entryTime.Add(c.getEstimatedSignDuration(planetID))
 }
 
 // calculateDignityEvents 计算尊贵度事件
@@ -461,7 +520,10 @@ func (c *Calculator) calculateDignityEvents(transitPositions []models.PlanetPosi
 			continue // 跳过 peregrine
 		}
 
-		eventID := GenerateEventID(EventTypeDignity, p.ID, "", dignityType, t)
+		// 计算精确的开始和结束时间
+		startTime, endTime := c.calculateDignityTimeRange(p.ID, t)
+
+		eventID := GenerateEventID(EventTypeDignity, p.ID, "", dignityType, startTime)
 
 		events = append(events, AstroEvent{
 			EventID:       eventID,
@@ -473,14 +535,58 @@ func (c *Calculator) calculateDignityEvents(transitPositions []models.PlanetPosi
 			PrimaryPlanet: string(p.ID),
 			Aspect:        dignityType, // i18n 会使用此字段 (domicile, exaltation, detriment, fall)
 			Impact:        c.getDignityImpact(dignity),
-			StartTime:     t,
-			EndTime:       t.Add(24 * time.Hour),
-			ExactTime:     t,
-			Phase:         PhaseActive,
+			StartTime:     startTime,
+			EndTime:       endTime,
+			ExactTime:     t, // 查询时间作为"当前时刻"
 		})
 	}
 
 	return events
+}
+
+// calculateDignityTimeRange 计算行星在当前星座的精确时间范围
+func (c *Calculator) calculateDignityTimeRange(planetID models.PlanetID, t time.Time) (startTime, endTime time.Time) {
+	// 计算进入当前星座的时间
+	prevChange := astro.FindPrevSignChange(planetID, t, 0)
+	if prevChange != nil {
+		startTime = *prevChange
+	} else {
+		// 回退：使用估算值
+		startTime = t.Add(-c.getEstimatedSignDuration(planetID) / 2)
+	}
+
+	// 计算离开当前星座的时间
+	nextChange := astro.FindNextSignChange(planetID, t, 0)
+	if nextChange != nil {
+		endTime = *nextChange
+	} else {
+		// 回退：使用估算值
+		endTime = t.Add(c.getEstimatedSignDuration(planetID) / 2)
+	}
+
+	return startTime, endTime
+}
+
+// getEstimatedSignDuration 获取行星在星座停留的估算时间
+func (c *Calculator) getEstimatedSignDuration(planetID models.PlanetID) time.Duration {
+	switch planetID {
+	case models.Moon:
+		return 2*24*time.Hour + 12*time.Hour // ~2.5 天
+	case models.Sun:
+		return 30 * 24 * time.Hour // ~30 天
+	case models.Mercury:
+		return 21 * 24 * time.Hour // ~3 周（可能逆行延长）
+	case models.Venus:
+		return 25 * 24 * time.Hour // ~25 天
+	case models.Mars:
+		return 45 * 24 * time.Hour // ~45 天
+	case models.Jupiter:
+		return 365 * 24 * time.Hour // ~1 年
+	case models.Saturn:
+		return 2 * 365 * 24 * time.Hour // ~2.5 年
+	default:
+		return 7 * 365 * 24 * time.Hour // 外行星：多年
+	}
 }
 
 // ==================== 月相辅助方法 ====================
@@ -685,20 +791,6 @@ func (c *Calculator) getTimeLevel(level models.FactorTimeLevel) string {
 	}
 }
 
-// determinePhase 确定事件阶段
-func (c *Calculator) determinePhase(now, start, exact, end time.Time) string {
-	if now.Before(exact) {
-		return PhaseApproaching
-	}
-	if now.After(exact) && now.Before(end) {
-		return PhaseSeparating
-	}
-	if now.Equal(exact) || (now.After(exact.Add(-time.Hour)) && now.Before(exact.Add(time.Hour))) {
-		return PhaseExact
-	}
-	return PhaseActive
-}
-
 // normalizeIntensity 归一化强度到 0-1
 func normalizeIntensity(strength float64) float64 {
 	if strength < 0 {
@@ -799,9 +891,19 @@ func (c *Calculator) applyI18n(event *AstroEvent, translator *i18n.Translator) {
 		event.SecondaryPlanetName = translator.GetPlanetName(models.PlanetID(event.SecondaryPlanet))
 	}
 
-	// 翻译相位名称
+	// 翻译相位/尊贵度名称（根据事件类型决定）
 	if event.Aspect != "" {
-		event.AspectName = translator.GetAspectName(event.Aspect)
+		switch event.Type {
+		case EventTypeDignity:
+			// dignity 事件的 Aspect 字段存储 dignity 类型
+			event.AspectName = translator.T("dignity." + event.Aspect)
+		case EventTypeLunarPhase:
+			// 月相事件的 Aspect 字段存储月相类型
+			event.AspectName = translator.T("lunar_phase." + event.Aspect)
+		default:
+			// 其他事件使用相位翻译
+			event.AspectName = translator.GetAspectName(event.Aspect)
+		}
 	}
 
 	// 获取详细解读

@@ -6,6 +6,7 @@ package astro
 import (
 	"math"
 	"star/models"
+	"sync"
 	"time"
 
 	"github.com/mshafiee/swephgo"
@@ -20,8 +21,11 @@ type longitudeCacheKey struct {
 	jd     float64
 }
 
-var longitudeCache = make(map[longitudeCacheKey]float64)
-var longitudeCacheMaxSize = 500
+var (
+	longitudeCache        = make(map[longitudeCacheKey]float64)
+	longitudeCacheMu      sync.RWMutex
+	longitudeCacheMaxSize = 500
+)
 
 // GetPlanetLongitudeAt 获取行星在指定儒略日的黄经
 func GetPlanetLongitudeAt(planet models.PlanetID, jd float64) float64 {
@@ -32,9 +36,13 @@ func GetPlanetLongitudeAt(planet models.PlanetID, jd float64) float64 {
 	// 检查缓存（精确到6位小数）
 	roundedJD := math.Floor(jd*1000000+0.5) / 1000000
 	cacheKey := longitudeCacheKey{planet: planet, jd: roundedJD}
+
+	longitudeCacheMu.RLock()
 	if cached, ok := longitudeCache[cacheKey]; ok {
+		longitudeCacheMu.RUnlock()
 		return cached
 	}
+	longitudeCacheMu.RUnlock()
 
 	sweBody, ok := sweBodyMap[planet]
 	if !ok {
@@ -53,9 +61,11 @@ func GetPlanetLongitudeAt(planet models.PlanetID, jd float64) float64 {
 	longitude := NormalizeAngle(xx[0])
 
 	// 保存到缓存
+	longitudeCacheMu.Lock()
 	if len(longitudeCache) < longitudeCacheMaxSize {
 		longitudeCache[cacheKey] = longitude
 	}
+	longitudeCacheMu.Unlock()
 
 	return longitude
 }
