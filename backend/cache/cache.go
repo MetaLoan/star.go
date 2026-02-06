@@ -130,6 +130,21 @@ func (m *MultiLevelCache) Size() int {
 	return m.L1.Size()
 }
 
+// GetTrend 获取趋势缓存
+func (m *MultiLevelCache) GetTrend(key string) (interface{}, bool) {
+	if mc, ok := m.L1.(*MemoryCache); ok {
+		return mc.GetGeneric(key)
+	}
+	return nil, false
+}
+
+// SetTrend 设置趋势缓存
+func (m *MultiLevelCache) SetTrend(key string, value interface{}, ttl time.Duration) {
+	if mc, ok := m.L1.(*MemoryCache); ok {
+		mc.SetGeneric(key, value, ttl)
+	}
+}
+
 // ==================== 默认 TTL 配置 ====================
 
 // DefaultTTL 获取默认 TTL

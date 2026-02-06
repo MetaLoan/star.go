@@ -19,6 +19,7 @@
 | `/health` | GET | 健康检查 |
 | `/api/calc/chart` | POST | 基础星盘数据查询 |
 | `/api/v2/astro` | POST | 五维运势统一接口（核心） |
+| `/api/v2/astro/trend` | POST | 趋势图数据接口（独立） |
 | `/api/monitor/dashboard` | GET | 监控仪表板页面 |
 | `/api/monitor/summary` | GET | 监控概览统计 |
 | `/api/monitor/stats` | GET | API 统计详情 |
@@ -367,7 +368,141 @@ curl -X POST http://localhost:8080/api/v2/astro \
 | `day` | 24 个小时分数 |
 | `week` | 7 天分数 |
 | `month` | 30 天分数 |
-| `year` | 12 个月分数 |
+| `year` | 4 个季度分数 |
+
+---
+
+## 趋势图接口（独立）
+
+### POST /api/v2/astro/trend
+
+一次性返回指定粒度下的所有趋势数据点，用于绘制趋势曲线图。
+
+**设计目的**：
+- 前端无需多次请求，一次获取整条曲线数据
+- 与主接口解耦，可并行请求，加速首屏加载
+- 只返回分数，不包含事件/指导等重数据
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `birth` | object | ✓ | 出生信息（BirthData） |
+| `start_time` | string | ✓ | 基准时间，ISO 8601 格式 |
+| `granularity` | string | - | 粒度：`hour`/`day`/`week`/`month`/`year`，默认 `day` |
+| `language` | string | - | 语言：`zh`/`en`/`ru`，默认 `en` |
+
+**请求示例**：
+
+```bash
+curl -X POST http://localhost:8080/api/v2/astro/trend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth": {
+      "year": 1990, "month": 5, "day": 15,
+      "hour": 10, "minute": 30,
+      "latitude": 39.9, "longitude": 116.4,
+      "timezone": 8
+    },
+    "start_time": "2026-02-06",
+    "granularity": "month",
+    "language": "zh"
+  }'
+```
+
+**响应结构**：
+
+```json
+{
+  "granularity": "month",
+  "points": [
+    {
+      "time": "2026-01-15T12:00:00+08:00",
+      "label": "1月",
+      "scores": {
+        "overall": 72.5,
+        "career": 70.2,
+        "relationship": 65.8,
+        "health": 75.1,
+        "finance": 68.4,
+        "spiritual": 80.3
+      }
+    },
+    {
+      "time": "2026-02-15T12:00:00+08:00",
+      "label": "2月",
+      "scores": { ... }
+    }
+  ],
+  "summary": {
+    "max": 78.5,
+    "min": 65.2,
+    "trend": "upward"
+  },
+  "meta": {
+    "cached": false,
+    "computeTime": "5.8s"
+  }
+}
+```
+
+**响应字段说明**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `granularity` | string | 返回数据的粒度 |
+| `points` | array | 趋势数据点数组 |
+| `points[].time` | string | 数据点时间 |
+| `points[].label` | string | 显示标签（如 "Jan"、"1月"、"W1"） |
+| `points[].scores` | object | 五维分数 |
+| `summary.max` | float | 最高综合分 |
+| `summary.min` | float | 最低综合分 |
+| `summary.trend` | string | 趋势方向：`upward`/`downward`/`stable` |
+| `meta.cached` | bool | 是否缓存命中 |
+| `meta.computeTime` | string | 计算耗时 |
+
+**各粒度返回点数**：
+
+| 粒度 | 数据点数 | 说明 |
+|------|----------|------|
+| `hour` | 24 | 当天 00:00-23:00 每小时 |
+| `day` | 28-31 | 当月每天中午 |
+| `week` | 4-5 | 当月每周一（及月初） |
+| `month` | 12 | 当年每月 15 号 |
+| `year` | 5 | 前后各 2 年（共 5 年） |
+
+**Label 格式**：
+
+| 粒度 | 英文 | 中文 |
+|------|------|------|
+| `hour` | "00:00", "01:00"... | 同左 |
+| `day` | "1", "2"... | 同左 |
+| `week` | "W1", "W2"... | 同左 |
+| `month` | "Jan", "Feb"... | "1月", "2月"... |
+| `year` | "2024", "2025"... | 同左 |
+
+**前端使用建议**：
+
+```javascript
+// 并行请求主数据和趋势数据
+const [mainData, trendData] = await Promise.all([
+  fetch('/api/v2/astro', { method: 'POST', body: JSON.stringify({
+    birth: birthData,
+    time: queryTime,
+    granularity: 'year',
+    language: 'zh'
+  })}),
+  fetch('/api/v2/astro/trend', { method: 'POST', body: JSON.stringify({
+    birth: birthData,
+    start_time: queryTime,
+    granularity: 'year',
+    language: 'zh'
+  })})
+]);
+
+// 主数据先渲染（分数、事件、指导）
+// 趋势图异步绘制
+```
 
 ---
 
@@ -671,24 +806,42 @@ curl http://localhost:8080/api/monitor/summary
 
 ## 性能说明
 
-| 接口 | 典型响应时间 |
-|------|-------------|
-| `/health` | < 10ms |
-| `/api/calc/chart` | < 100ms |
-| `/api/v2/astro` (hour) | < 200ms |
-| `/api/v2/astro` (day) | < 500ms |
-| `/api/v2/astro` (week) | < 1s |
-| `/api/v2/astro` (month) | < 2s |
-| `/api/v2/astro` (year) | < 5s |
+### 主接口 `/api/v2/astro`
+
+| 粒度 | 首次请求 | 缓存命中 |
+|------|----------|----------|
+| hour | < 200ms | < 1ms |
+| day | < 500ms | < 1ms |
+| week | 5-7s | < 1ms |
+| month | 2-3s | < 1ms |
+| year | 7-14s | < 1ms |
+
+### 趋势接口 `/api/v2/astro/trend`
+
+| 粒度 | 数据点 | 首次请求 | 缓存命中 |
+|------|--------|----------|----------|
+| hour | 24 | ~350ms | < 1ms |
+| day | 28-31 | ~14s | < 1ms |
+| week | 4-5 | ~50ms | < 1ms |
+| month | 12 | ~6s | < 1ms |
+| year | 5 | ~2s | < 1ms |
 
 **缓存机制**：
 - V2 接口内置多级缓存
-- 相同查询参数会命中缓存，响应时间 < 50ms
-- 缓存 TTL 根据粒度自动设置
+- 相同查询参数会命中缓存，响应时间 < 1ms
+- 缓存 TTL 根据粒度自动设置（hour 1h, day 6h, week/month 12h, year 24h）
+- 首次请求后自动异步预热相邻时间段
 
 ---
 
 ## 版本历史
+
+### 2.0.2 (2026-02-06)
+
+- 新增趋势图接口 `/api/v2/astro/trend`：一次性返回所有趋势数据点
+- Year 粒度性能优化：采样点从 12 个月减少到 4 个季度
+- 添加异步缓存预热机制：首次请求后自动预热相邻时间段
+- 前端可并行请求主数据和趋势数据，加速首屏加载
 
 ### 2.0.1 (2026-02-05)
 

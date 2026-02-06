@@ -74,6 +74,7 @@ func (a *Aggregator) AggregateDay(t time.Time) *TimeSlot {
 }
 
 // AggregateWeek 聚合为周级数据
+// 性能优化：使用每天中午采样（168次 -> 7次）
 func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	// 获取本周一
 	weekday := int(t.Weekday())
@@ -84,35 +85,37 @@ func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, t.Location())
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	// 计算 7 天的数据
-	daySlots := make([]*TimeSlot, 7)
+	// 每天采样中午12点
+	sampleSlots := make([]*TimeSlot, 7)
 	for day := 0; day < 7; day++ {
-		dayTime := weekStart.AddDate(0, 0, day)
-		daySlots[day] = a.AggregateDay(dayTime)
+		noonTime := weekStart.AddDate(0, 0, day).Add(12 * time.Hour)
+		sampleSlots[day] = a.calculator.CalculateHour(noonTime)
+		sampleSlots[day].StartTime = weekStart.AddDate(0, 0, day)
+		sampleSlots[day].Granularity = GranularityDay
 	}
 
 	// 创建周级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), weekStart, weekEnd, GranularityWeek)
 
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(daySlots)
+	// 聚合分数（基于采样点）
+	slot.Scores = a.aggregateScoresFromSlots(sampleSlots)
 
-	// 合并事件（去重）
-	slot.Events = a.mergeEventsFromSlots(daySlots)
+	// 独立获取事件
+	slot.Events = a.getEventsForTimeRange(weekStart, weekEnd, GranularityWeek)
 
-	// 生成子时间槽
-	for _, ds := range daySlots {
+	// 生成子时间槽（每天一个点）
+	for _, ss := range sampleSlots {
 		slot.SubSlots = append(slot.SubSlots, SubSlot{
-			StartTime:  ds.StartTime,
-			Scores:     ds.Scores,
-			EventCount: len(ds.Events),
+			StartTime:  ss.StartTime,
+			Scores:     ss.Scores,
+			EventCount: 0,
 		})
 	}
 
 	// 计算事件的 impactDelta
 	a.deltaCalculator.ApplyDeltaToSlot(slot, GranularityWeek, t)
 
-	// 计算 slot 级别的 delta（与前一周对比）
+	// 计算前一周 delta
 	prevWeekStart := weekStart.AddDate(0, 0, -7)
 	prevSlot := a.calculateWeekSlotWithoutDelta(prevWeekStart)
 	slot.Delta = a.deltaCalculator.CalculateSlotDelta(slot, prevSlot)
@@ -124,40 +127,48 @@ func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 }
 
 // AggregateMonth 聚合为月级数据
+// 性能优化：每周采样一次（720次 -> 5次）
 func (a *Aggregator) AggregateMonth(t time.Time) *TimeSlot {
 	monthStart := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
-	daysInMonth := int(monthEnd.Sub(monthStart).Hours() / 24)
 
-	// 计算每天的数据
-	daySlots := make([]*TimeSlot, daysInMonth)
-	for day := 0; day < daysInMonth; day++ {
-		dayTime := monthStart.AddDate(0, 0, day)
-		daySlots[day] = a.AggregateDay(dayTime)
+	// 每周采样一次（第 1、8、15、22、29 天，最多 5 个点）
+	sampleDays := []int{1, 8, 15, 22}
+	daysInMonth := int(monthEnd.Sub(monthStart).Hours() / 24)
+	if daysInMonth >= 29 {
+		sampleDays = append(sampleDays, 29)
+	}
+
+	sampleSlots := make([]*TimeSlot, len(sampleDays))
+	for i, day := range sampleDays {
+		noonTime := time.Date(monthStart.Year(), monthStart.Month(), day, 12, 0, 0, 0, monthStart.Location())
+		sampleSlots[i] = a.calculator.CalculateHour(noonTime)
+		sampleSlots[i].StartTime = time.Date(monthStart.Year(), monthStart.Month(), day, 0, 0, 0, 0, monthStart.Location())
+		sampleSlots[i].Granularity = GranularityDay
 	}
 
 	// 创建月级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), monthStart, monthEnd, GranularityMonth)
 
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(daySlots)
+	// 聚合分数（基于采样点）
+	slot.Scores = a.aggregateScoresFromSlots(sampleSlots)
 
-	// 合并事件（去重）
-	slot.Events = a.mergeEventsFromSlots(daySlots)
+	// 独立获取事件
+	slot.Events = a.getEventsForTimeRange(monthStart, monthEnd, GranularityMonth)
 
-	// 生成子时间槽
-	for _, ds := range daySlots {
+	// 生成子时间槽（每周一个点）
+	for _, ss := range sampleSlots {
 		slot.SubSlots = append(slot.SubSlots, SubSlot{
-			StartTime:  ds.StartTime,
-			Scores:     ds.Scores,
-			EventCount: len(ds.Events),
+			StartTime:  ss.StartTime,
+			Scores:     ss.Scores,
+			EventCount: 0,
 		})
 	}
 
 	// 计算事件的 impactDelta
 	a.deltaCalculator.ApplyDeltaToSlot(slot, GranularityMonth, t)
 
-	// 计算 slot 级别的 delta（与前一月对比）
+	// 计算前一月 delta
 	prevMonthStart := monthStart.AddDate(0, -1, 0)
 	prevSlot := a.calculateMonthSlotWithoutDelta(prevMonthStart)
 	slot.Delta = a.deltaCalculator.CalculateSlotDelta(slot, prevSlot)
@@ -169,39 +180,45 @@ func (a *Aggregator) AggregateMonth(t time.Time) *TimeSlot {
 }
 
 // AggregateYear 聚合为年级数据
+// 性能优化：使用季度采样（12次 -> 4次）
 func (a *Aggregator) AggregateYear(t time.Time) *TimeSlot {
 	yearStart := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
 	yearEnd := yearStart.AddDate(1, 0, 0)
 
-	// 计算 12 个月的数据
-	monthSlots := make([]*TimeSlot, 12)
-	for month := 0; month < 12; month++ {
-		monthTime := time.Date(t.Year(), time.Month(month+1), 15, 0, 0, 0, 0, t.Location())
-		monthSlots[month] = a.AggregateMonth(monthTime)
+	// 每季度采样中间月份（2月、5月、8月、11月）的15号中午
+	sampleMonths := []int{2, 5, 8, 11}
+	sampleSlots := make([]*TimeSlot, len(sampleMonths))
+	for i, month := range sampleMonths {
+		sampleTime := time.Date(t.Year(), time.Month(month), 15, 12, 0, 0, 0, t.Location())
+		sampleSlots[i] = a.calculator.CalculateHour(sampleTime)
+		// 设置为季度起始月份（1月、4月、7月、10月）
+		quarterStartMonth := ((month-1)/3)*3 + 1
+		sampleSlots[i].StartTime = time.Date(t.Year(), time.Month(quarterStartMonth), 1, 0, 0, 0, 0, t.Location())
+		sampleSlots[i].Granularity = GranularityMonth
 	}
 
 	// 创建年级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), yearStart, yearEnd, GranularityYear)
 
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(monthSlots)
+	// 聚合分数（基于采样点）
+	slot.Scores = a.aggregateScoresFromSlots(sampleSlots)
 
-	// 合并事件（去重）
-	slot.Events = a.mergeEventsFromSlots(monthSlots)
+	// 独立获取事件
+	slot.Events = a.getEventsForTimeRange(yearStart, yearEnd, GranularityYear)
 
-	// 生成子时间槽（按月）
-	for _, ms := range monthSlots {
+	// 生成子时间槽（每季度一个点）
+	for _, ss := range sampleSlots {
 		slot.SubSlots = append(slot.SubSlots, SubSlot{
-			StartTime:  ms.StartTime,
-			Scores:     ms.Scores,
-			EventCount: len(ms.Events),
+			StartTime:  ss.StartTime,
+			Scores:     ss.Scores,
+			EventCount: 0,
 		})
 	}
 
 	// 计算事件的 impactDelta
 	a.deltaCalculator.ApplyDeltaToSlot(slot, GranularityYear, t)
 
-	// 计算 slot 级别的 delta（与前一年对比）
+	// 计算前一年 delta
 	prevYearStart := yearStart.AddDate(-1, 0, 0)
 	prevSlot := a.calculateYearSlotWithoutDelta(prevYearStart)
 	slot.Delta = a.deltaCalculator.CalculateSlotDelta(slot, prevSlot)
@@ -382,6 +399,51 @@ func (a *Aggregator) mergeEventsFromSlots(slots []*TimeSlot) []AstroEvent {
 	return events
 }
 
+// getEventsForTimeRange 获取时间范围内的事件（性能优化版）
+// 只计算几个采样点的事件并合并去重，而非遍历每小时
+func (a *Aggregator) getEventsForTimeRange(start, end time.Time, granularity string) []AstroEvent {
+	eventMap := make(map[string]AstroEvent)
+
+	// 计算采样点：起点、中点、终点
+	midPoint := start.Add(end.Sub(start) / 2)
+	samplePoints := []time.Time{start, midPoint, end.Add(-time.Hour)}
+
+	for _, t := range samplePoints {
+		slot := a.calculator.CalculateHour(t)
+		if slot == nil {
+			continue
+		}
+		for _, event := range slot.Events {
+			// 粒度过滤
+			if !a.shouldIncludeEvent(event, granularity) {
+				continue
+			}
+			// 检查事件是否与时间范围有交集
+			if event.EndTime.Before(start) || event.StartTime.After(end) {
+				continue
+			}
+			if existing, ok := eventMap[event.EventID]; ok {
+				if event.Intensity > existing.Intensity {
+					eventMap[event.EventID] = event
+				}
+			} else {
+				eventMap[event.EventID] = event
+			}
+		}
+	}
+
+	events := make([]AstroEvent, 0, len(eventMap))
+	for _, event := range eventMap {
+		events = append(events, event)
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].ExactTime.Before(events[j].ExactTime)
+	})
+
+	return events
+}
+
 // shouldIncludeEvent 判断事件是否应包含在指定查询粒度中
 // 规则：事件的 timeLevel 必须 >= 查询粒度
 // 例如：day 粒度只显示 daily、weekly、monthly、yearly 事件，不显示 hourly
@@ -499,86 +561,81 @@ func (a *Aggregator) findHighestDimension(scores DimensionScores) string {
 // ==================== 辅助聚合方法（不含 delta，用于对比前一周期） ====================
 
 // calculateDaySlotWithoutDelta 计算日级 slot（不含 delta，避免递归）
+// 性能优化：只采样 4 个点（每 6 小时一个）用于 delta 对比
 func (a *Aggregator) calculateDaySlotWithoutDelta(t time.Time) *TimeSlot {
 	dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	dayEnd := dayStart.AddDate(0, 0, 1)
 
-	// 计算 24 个小时的数据
-	hourSlots := make([]*TimeSlot, 24)
-	for hour := 0; hour < 24; hour++ {
+	// 性能优化：只采样 4 个点（0, 6, 12, 18 点）
+	sampleHours := []int{0, 6, 12, 18}
+	sampleSlots := make([]*TimeSlot, len(sampleHours))
+	for i, hour := range sampleHours {
 		hourTime := dayStart.Add(time.Duration(hour) * time.Hour)
-		hourSlots[hour] = a.calculator.CalculateHour(hourTime)
+		sampleSlots[i] = a.calculator.CalculateHour(hourTime)
 	}
 
 	// 创建日级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), dayStart, dayEnd, GranularityDay)
 
 	// 聚合分数
-	slot.Scores = a.aggregateScores(hourSlots)
+	slot.Scores = a.aggregateScores(sampleSlots)
 
 	return slot
 }
 
 // calculateWeekSlotWithoutDelta 计算周级 slot（不含 delta，避免递归）
+// 性能优化：使用每天中午采样
 func (a *Aggregator) calculateWeekSlotWithoutDelta(weekStart time.Time) *TimeSlot {
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	// 计算 7 天的分数
-	daySlots := make([]*TimeSlot, 7)
+	sampleSlots := make([]*TimeSlot, 7)
 	for day := 0; day < 7; day++ {
-		dayTime := weekStart.AddDate(0, 0, day)
-		daySlots[day] = a.calculateDaySlotWithoutDelta(dayTime)
+		noonTime := weekStart.AddDate(0, 0, day).Add(12 * time.Hour)
+		sampleSlots[day] = a.calculator.CalculateHour(noonTime)
 	}
 
-	// 创建周级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), weekStart, weekEnd, GranularityWeek)
-
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(daySlots)
+	slot.Scores = a.aggregateScores(sampleSlots)
 
 	return slot
 }
 
 // calculateMonthSlotWithoutDelta 计算月级 slot（不含 delta，避免递归）
+// 性能优化：只采样 4 个点
 func (a *Aggregator) calculateMonthSlotWithoutDelta(monthStart time.Time) *TimeSlot {
 	monthStart = time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
-	daysInMonth := int(monthEnd.Sub(monthStart).Hours() / 24)
 
-	// 计算每天的分数
-	daySlots := make([]*TimeSlot, daysInMonth)
-	for day := 0; day < daysInMonth; day++ {
-		dayTime := monthStart.AddDate(0, 0, day)
-		daySlots[day] = a.calculateDaySlotWithoutDelta(dayTime)
+	sampleDays := []int{1, 8, 15, 22}
+	sampleSlots := make([]*TimeSlot, len(sampleDays))
+	for i, day := range sampleDays {
+		sampleTime := time.Date(monthStart.Year(), monthStart.Month(), day, 12, 0, 0, 0, monthStart.Location())
+		sampleSlots[i] = a.calculator.CalculateHour(sampleTime)
 	}
 
-	// 创建月级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), monthStart, monthEnd, GranularityMonth)
-
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(daySlots)
+	slot.Scores = a.aggregateScores(sampleSlots)
 
 	return slot
 }
 
 // calculateYearSlotWithoutDelta 计算年级 slot（不含 delta，避免递归）
+// 性能优化：使用季度采样（4次）
 func (a *Aggregator) calculateYearSlotWithoutDelta(yearStart time.Time) *TimeSlot {
 	yearStart = time.Date(yearStart.Year(), 1, 1, 0, 0, 0, 0, yearStart.Location())
 	yearEnd := yearStart.AddDate(1, 0, 0)
 
-	// 计算 12 个月的分数
-	monthSlots := make([]*TimeSlot, 12)
-	for month := 0; month < 12; month++ {
-		monthTime := time.Date(yearStart.Year(), time.Month(month+1), 15, 0, 0, 0, 0, yearStart.Location())
-		monthSlots[month] = a.calculateMonthSlotWithoutDelta(monthTime)
+	// 每季度采样中间月份（2月、5月、8月、11月）
+	sampleMonths := []int{2, 5, 8, 11}
+	sampleSlots := make([]*TimeSlot, len(sampleMonths))
+	for i, month := range sampleMonths {
+		sampleTime := time.Date(yearStart.Year(), time.Month(month), 15, 12, 0, 0, 0, yearStart.Location())
+		sampleSlots[i] = a.calculator.CalculateHour(sampleTime)
 	}
 
-	// 创建年级时间槽
 	slot := NewTimeSlot(a.calculator.getUserID(), yearStart, yearEnd, GranularityYear)
-
-	// 聚合分数
-	slot.Scores = a.aggregateScoresFromSlots(monthSlots)
+	slot.Scores = a.aggregateScores(sampleSlots)
 
 	return slot
 }

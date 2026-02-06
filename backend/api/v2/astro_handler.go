@@ -105,6 +105,9 @@ func HandleAstro(c *gin.Context) {
 	ttl := cache.DefaultTTL(req.Granularity)
 	globalCache.Set(cacheKey, slot, ttl)
 
+	// 异步预热相邻时间段的缓存
+	go prewarmAdjacentSlots(chart, queryTime, req.Granularity, req.Language, userID, globalCache)
+
 	// 返回响应
 	computeTime := time.Since(startTime)
 	c.JSON(http.StatusOK, AstroResponse{
@@ -209,6 +212,65 @@ func formatPositiveFloat(f float64) string {
 	return formatInt(intPart) + "p" + formatInt(decPart)
 }
 
+// ==================== 缓存预热 ====================
+
+// prewarmAdjacentSlots 异步预热相邻时间段的缓存
+func prewarmAdjacentSlots(chart *models.NatalChart, queryTime time.Time, granularity, language, userID string, globalCache *cache.MultiLevelCache) {
+	// 只对大粒度进行预热（week, month, year）
+	if granularity != core.GranularityWeek && granularity != core.GranularityMonth && granularity != core.GranularityYear {
+		return
+	}
+
+	calculator := core.NewCalculator(chart, language)
+	aggregator := core.NewAggregator(calculator)
+	ttl := cache.DefaultTTL(granularity)
+
+	// 计算前后时间点
+	var adjacentTimes []time.Time
+	switch granularity {
+	case core.GranularityWeek:
+		// 预热前后各1周
+		adjacentTimes = []time.Time{
+			queryTime.AddDate(0, 0, -7),
+			queryTime.AddDate(0, 0, 7),
+		}
+	case core.GranularityMonth:
+		// 预热前后各1月
+		adjacentTimes = []time.Time{
+			queryTime.AddDate(0, -1, 0),
+			queryTime.AddDate(0, 1, 0),
+		}
+	case core.GranularityYear:
+		// 预热前后各1年
+		adjacentTimes = []time.Time{
+			queryTime.AddDate(-1, 0, 0),
+			queryTime.AddDate(1, 0, 0),
+		}
+	}
+
+	// 预热相邻时间段
+	for _, t := range adjacentTimes {
+		key := cache.GenerateCacheKey(userID, granularity, t, language)
+		// 检查是否已缓存
+		if _, ok := globalCache.Get(key); ok {
+			continue
+		}
+		// 计算并缓存
+		var slot *core.TimeSlot
+		switch granularity {
+		case core.GranularityWeek:
+			slot = aggregator.AggregateWeek(t)
+		case core.GranularityMonth:
+			slot = aggregator.AggregateMonth(t)
+		case core.GranularityYear:
+			slot = aggregator.AggregateYear(t)
+		}
+		if slot != nil {
+			globalCache.Set(key, slot, ttl)
+		}
+	}
+}
+
 // ==================== 路由注册 ====================
 
 // RegisterRoutes 注册 v2 路由
@@ -216,5 +278,6 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	v2 := router.Group("/v2")
 	{
 		v2.POST("/astro", HandleAstro)
+		v2.POST("/astro/trend", HandleTrend) // 趋势图接口
 	}
 }

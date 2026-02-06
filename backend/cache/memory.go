@@ -14,11 +14,18 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
+// genericCacheEntry 通用缓存条目
+type genericCacheEntry struct {
+	value     interface{}
+	expiresAt time.Time
+}
+
 // MemoryCache 内存缓存（L1）
 type MemoryCache struct {
-	data    map[string]*cacheEntry
-	mu      sync.RWMutex
-	maxSize int // 最大条目数
+	data        map[string]*cacheEntry
+	genericData map[string]*genericCacheEntry // 通用缓存（用于趋势数据等）
+	mu          sync.RWMutex
+	maxSize     int // 最大条目数
 }
 
 // NewMemoryCache 创建内存缓存
@@ -27,8 +34,9 @@ func NewMemoryCache(maxSize int) *MemoryCache {
 		maxSize = 10000 // 默认 10000 条
 	}
 	mc := &MemoryCache{
-		data:    make(map[string]*cacheEntry),
-		maxSize: maxSize,
+		data:        make(map[string]*cacheEntry),
+		genericData: make(map[string]*genericCacheEntry),
+		maxSize:     maxSize,
 	}
 	// 启动后台清理过期条目
 	go mc.startCleanup()
@@ -81,6 +89,35 @@ func (mc *MemoryCache) Clear() {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.data = make(map[string]*cacheEntry)
+	mc.genericData = make(map[string]*genericCacheEntry)
+}
+
+// GetGeneric 获取通用缓存
+func (mc *MemoryCache) GetGeneric(key string) (interface{}, bool) {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	entry, ok := mc.genericData[key]
+	if !ok {
+		return nil, false
+	}
+
+	if time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+
+	return entry.value, true
+}
+
+// SetGeneric 设置通用缓存
+func (mc *MemoryCache) SetGeneric(key string, value interface{}, ttl time.Duration) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
+	mc.genericData[key] = &genericCacheEntry{
+		value:     value,
+		expiresAt: time.Now().Add(ttl),
+	}
 }
 
 // Size 获取缓存大小
@@ -139,6 +176,11 @@ func (mc *MemoryCache) cleanupExpired() {
 	for key, entry := range mc.data {
 		if now.After(entry.expiresAt) {
 			delete(mc.data, key)
+		}
+	}
+	for key, entry := range mc.genericData {
+		if now.After(entry.expiresAt) {
+			delete(mc.genericData, key)
 		}
 	}
 }
