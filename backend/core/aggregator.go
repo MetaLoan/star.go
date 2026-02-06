@@ -596,17 +596,17 @@ func (a *Aggregator) findHighestDimension(scores DimensionScores) string {
 // ==================== 辅助聚合方法（不含 delta，用于对比前一周期） ====================
 
 // calculateDaySlotWithoutDelta 计算日级 slot（不含 delta，避免递归）
-// 性能优化：只采样 4 个点（每 6 小时一个）用于 delta 对比
+// 性能优化：只采样 2 个点，使用 CalculateHourScoreOnly 跳过事件计算
 func (a *Aggregator) calculateDaySlotWithoutDelta(t time.Time) *TimeSlot {
 	dayStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	dayEnd := dayStart.AddDate(0, 0, 1)
 
-	// 性能优化：只采样 2 个点（8, 20 点）用于 delta 计算
+	// 性能优化：只采样 2 个点（8, 20 点），使用轻量级函数
 	sampleHours := []int{8, 20}
 	sampleSlots := make([]*TimeSlot, len(sampleHours))
 	for i, hour := range sampleHours {
 		hourTime := dayStart.Add(time.Duration(hour) * time.Hour)
-		sampleSlots[i] = a.calculator.CalculateHour(hourTime)
+		sampleSlots[i] = a.calculator.CalculateHourScoreOnly(hourTime)
 	}
 
 	// 创建日级时间槽
@@ -619,17 +619,17 @@ func (a *Aggregator) calculateDaySlotWithoutDelta(t time.Time) *TimeSlot {
 }
 
 // calculateWeekSlotWithoutDelta 计算周级 slot（不含 delta，避免递归）
-// 性能优化：使用每天中午采样
+// 性能优化：使用 CalculateHourScoreOnly 跳过事件计算
 func (a *Aggregator) calculateWeekSlotWithoutDelta(weekStart time.Time) *TimeSlot {
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	// 只采样 2 个点（周二、周五）用于 delta 计算
+	// 只采样 2 个点（周二、周五），使用轻量级函数
 	sampleDays := []int{1, 4} // 周二、周五
 	sampleSlots := make([]*TimeSlot, len(sampleDays))
 	for i, day := range sampleDays {
 		noonTime := weekStart.AddDate(0, 0, day).Add(12 * time.Hour)
-		sampleSlots[i] = a.calculator.CalculateHour(noonTime)
+		sampleSlots[i] = a.calculator.CalculateHourScoreOnly(noonTime)
 	}
 
 	slot := NewTimeSlot(a.calculator.getUserID(), weekStart, weekEnd, GranularityWeek)
@@ -639,17 +639,17 @@ func (a *Aggregator) calculateWeekSlotWithoutDelta(weekStart time.Time) *TimeSlo
 }
 
 // calculateMonthSlotWithoutDelta 计算月级 slot（不含 delta，避免递归）
-// 性能优化：只采样 4 个点
+// 性能优化：使用 CalculateHourScoreOnly 跳过事件计算
 func (a *Aggregator) calculateMonthSlotWithoutDelta(monthStart time.Time) *TimeSlot {
 	monthStart = time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
-	// 只采样 2 个点（第 8、22 天）用于 delta 计算
+	// 只采样 2 个点（第 8、22 天），使用轻量级函数
 	sampleDays := []int{8, 22}
 	sampleSlots := make([]*TimeSlot, len(sampleDays))
 	for i, day := range sampleDays {
 		sampleTime := time.Date(monthStart.Year(), monthStart.Month(), day, 12, 0, 0, 0, monthStart.Location())
-		sampleSlots[i] = a.calculator.CalculateHour(sampleTime)
+		sampleSlots[i] = a.calculator.CalculateHourScoreOnly(sampleTime)
 	}
 
 	slot := NewTimeSlot(a.calculator.getUserID(), monthStart, monthEnd, GranularityMonth)
@@ -659,17 +659,17 @@ func (a *Aggregator) calculateMonthSlotWithoutDelta(monthStart time.Time) *TimeS
 }
 
 // calculateYearSlotWithoutDelta 计算年级 slot（不含 delta，避免递归）
-// 性能优化：使用季度采样（4次）
+// 性能优化：使用 CalculateHourScoreOnly 跳过事件计算
 func (a *Aggregator) calculateYearSlotWithoutDelta(yearStart time.Time) *TimeSlot {
 	yearStart = time.Date(yearStart.Year(), 1, 1, 0, 0, 0, 0, yearStart.Location())
 	yearEnd := yearStart.AddDate(1, 0, 0)
 
-	// 只采样 2 个点（4月、10月）用于 delta 计算
+	// 只采样 2 个点（4月、10月），使用轻量级函数
 	sampleMonths := []int{4, 10}
 	sampleSlots := make([]*TimeSlot, len(sampleMonths))
 	for i, month := range sampleMonths {
 		sampleTime := time.Date(yearStart.Year(), time.Month(month), 15, 12, 0, 0, 0, yearStart.Location())
-		sampleSlots[i] = a.calculator.CalculateHour(sampleTime)
+		sampleSlots[i] = a.calculator.CalculateHourScoreOnly(sampleTime)
 	}
 
 	slot := NewTimeSlot(a.calculator.getUserID(), yearStart, yearEnd, GranularityYear)

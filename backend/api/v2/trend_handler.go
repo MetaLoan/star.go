@@ -186,7 +186,7 @@ func calculateHourTrendPoints(calculator *core.Calculator, queryTime time.Time, 
 
 	for hour := 0; hour < 24; hour++ {
 		t := dayStart.Add(time.Duration(hour) * time.Hour)
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 		points[hour] = TrendPoint{
 			Time:   t,
 			Label:  fmt.Sprintf("%02d:00", hour),
@@ -208,7 +208,7 @@ func calculateDayTrendPoints(calculator *core.Calculator, queryTime time.Time, l
 	for day := 0; day < daysInMonth; day++ {
 		// 每天中午采样
 		t := time.Date(queryTime.Year(), queryTime.Month(), day+1, 12, 0, 0, 0, queryTime.Location())
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 		points[day] = TrendPoint{
 			Time:   t,
 			Label:  fmt.Sprintf("%d", day+1),
@@ -236,7 +236,7 @@ func calculateWeekTrendPoints(calculator *core.Calculator, queryTime time.Time, 
 	// 如果第一个周一在月初之后，先添加月初那周
 	if current.After(monthStart) {
 		t := time.Date(monthStart.Year(), monthStart.Month(), monthStart.Day(), 12, 0, 0, 0, monthStart.Location())
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 		points = append(points, TrendPoint{
 			Time:   t,
 			Label:  fmt.Sprintf("W%d", weekNum),
@@ -248,7 +248,7 @@ func calculateWeekTrendPoints(calculator *core.Calculator, queryTime time.Time, 
 	// 遍历每个周一
 	for current.Before(monthEnd) {
 		t := time.Date(current.Year(), current.Month(), current.Day(), 12, 0, 0, 0, current.Location())
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 		points = append(points, TrendPoint{
 			Time:   t,
 			Label:  fmt.Sprintf("W%d", weekNum),
@@ -270,7 +270,7 @@ func calculateMonthTrendPoints(calculator *core.Calculator, queryTime time.Time,
 	for month := 0; month < 12; month++ {
 		// 每月 15 号中午采样
 		t := time.Date(queryTime.Year(), time.Month(month+1), 15, 12, 0, 0, 0, queryTime.Location())
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 
 		label := monthLabelsEn[month]
 		if language == "zh" {
@@ -296,7 +296,7 @@ func calculateYearTrendPoints(calculator *core.Calculator, queryTime time.Time, 
 		year := centerYear - 2 + i
 		// 每年 6 月 15 号中午采样
 		t := time.Date(year, 6, 15, 12, 0, 0, 0, queryTime.Location())
-		slot := calculator.CalculateHour(t)
+		slot := calculator.CalculateHourScoreOnly(t)
 		points[i] = TrendPoint{
 			Time:   t,
 			Label:  fmt.Sprintf("%d", year),

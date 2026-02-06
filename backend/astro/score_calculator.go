@@ -29,19 +29,47 @@ type ScoreResult struct {
 
 // CalculateScoresV2 计算某时刻的完整分数（新版）
 func CalculateScoresV2(chart *models.NatalChart, date time.Time) *ScoreResult {
+	transitPositions := GetTransitPositions(date)
+	return CalculateScoresV2WithPositions(chart, date, transitPositions)
+}
+
+// CalculateScoresV2WithPositions 使用已有的行运位置计算分数（避免重复获取）
+func CalculateScoresV2WithPositions(chart *models.NatalChart, date time.Time, transitPositions []models.PlanetPosition) *ScoreResult {
 	// 1. 计算本命盘基础分
 	baseScores := CalculateNatalBaseScores(chart)
 
-	// 2. 获取行运位置
-	transitPositions := GetTransitPositions(date)
-
-	// 3. 计算所有影响因子（新版）
+	// 2. 计算所有影响因子（新版）
 	factors := CalculateInfluenceFactorsV2(chart, date, transitPositions)
 
-	// 4. 根据因子计算维度分数
+	// 3. 根据因子计算维度分数
 	dimensions := calculateDimensionScoresFromFactors(baseScores, factors)
 
-	// 5. 根据维度分数计算综合分数
+	// 4. 根据维度分数计算综合分数
+	overall := calculateOverallFromDimensions(dimensions)
+
+	return &ScoreResult{
+		Overall:    overall,
+		Dimensions: dimensions,
+		BaseScores: baseScores,
+		Factors:    factors,
+		Timestamp:  date,
+	}
+}
+
+// CalculateScoresV2Lite 轻量版分数计算（跳过精确相位时间搜索，用于趋势/批量计算）
+func CalculateScoresV2Lite(chart *models.NatalChart, date time.Time) *ScoreResult {
+	transitPositions := GetTransitPositions(date)
+	
+	// 1. 计算本命盘基础分
+	baseScores := CalculateNatalBaseScores(chart)
+
+	// 2. 使用轻量版因子计算（跳过精确相位时间搜索）
+	factors := CalculateInfluenceFactorsLite(chart, date, transitPositions)
+
+	// 3. 根据因子计算维度分数
+	dimensions := calculateDimensionScoresFromFactors(baseScores, factors)
+
+	// 4. 根据维度分数计算综合分数
 	overall := calculateOverallFromDimensions(dimensions)
 
 	return &ScoreResult{

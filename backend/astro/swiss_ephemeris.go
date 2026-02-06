@@ -28,6 +28,13 @@ var (
 	cacheMaxSize    = 1000 // 最多缓存1000个位置
 )
 
+// 批量位置缓存（缓存整个行星数组，按小时精度）
+var (
+	allPositionsCache   = make(map[float64][]models.PlanetPosition)
+	allPositionsCacheMu sync.RWMutex
+	allPositionsCacheMax = 500 // 最多缓存500个时间点
+)
+
 func roundJD(jd float64) float64 {
 	// 精确到10秒级别（足够用）
 	return math.Floor(jd*8640+0.5) / 8640
@@ -152,6 +159,17 @@ func CalculatePlanetPositionSwe(planet models.PlanetID, jd float64) models.Plane
 
 // GetAllPlanetPositionsSwe 使用 Swiss Ephemeris 获取所有行星位置
 func GetAllPlanetPositionsSwe(jd float64) []models.PlanetPosition {
+	// 精确到小时级别缓存（1小时 ≈ 1/24 ≈ 0.0417 JD）
+	roundedJD := math.Floor(jd*24+0.5) / 24
+
+	// 检查批量缓存
+	allPositionsCacheMu.RLock()
+	if cached, ok := allPositionsCache[roundedJD]; ok {
+		allPositionsCacheMu.RUnlock()
+		return cached
+	}
+	allPositionsCacheMu.RUnlock()
+
 	planets := []models.PlanetID{
 		models.Sun, models.Moon, models.Mercury, models.Venus, models.Mars,
 		models.Jupiter, models.Saturn, models.Uranus, models.Neptune, models.Pluto,
@@ -162,6 +180,14 @@ func GetAllPlanetPositionsSwe(jd float64) []models.PlanetPosition {
 	for _, p := range planets {
 		positions = append(positions, CalculatePlanetPositionSwe(p, jd))
 	}
+
+	// 写入批量缓存
+	allPositionsCacheMu.Lock()
+	if len(allPositionsCache) < allPositionsCacheMax {
+		allPositionsCache[roundedJD] = positions
+	}
+	allPositionsCacheMu.Unlock()
+
 	return positions
 }
 
