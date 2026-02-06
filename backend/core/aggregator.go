@@ -74,7 +74,7 @@ func (a *Aggregator) AggregateDay(t time.Time) *TimeSlot {
 }
 
 // AggregateWeek 聚合为周级数据
-// 性能优化：使用每天中午采样（168次 -> 7次）
+// 性能优化：使用 3 天采样（周一、周三、周六）
 func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	// 获取本周一
 	weekday := int(t.Weekday())
@@ -85,13 +85,14 @@ func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, t.Location())
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	// 每天采样中午12点
-	sampleSlots := make([]*TimeSlot, 7)
-	for day := 0; day < 7; day++ {
+	// 采样 3 个关键天（周一、周三、周六）
+	sampleDays := []int{0, 2, 5} // 0=周一, 2=周三, 5=周六
+	sampleSlots := make([]*TimeSlot, len(sampleDays))
+	for i, day := range sampleDays {
 		noonTime := weekStart.AddDate(0, 0, day).Add(12 * time.Hour)
-		sampleSlots[day] = a.calculator.CalculateHour(noonTime)
-		sampleSlots[day].StartTime = weekStart.AddDate(0, 0, day)
-		sampleSlots[day].Granularity = GranularityDay
+		sampleSlots[i] = a.calculator.CalculateHour(noonTime)
+		sampleSlots[i].StartTime = weekStart.AddDate(0, 0, day)
+		sampleSlots[i].Granularity = GranularityDay
 	}
 
 	// 创建周级时间槽
@@ -100,10 +101,10 @@ func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	// 聚合分数（基于采样点）
 	slot.Scores = a.aggregateScoresFromSlots(sampleSlots)
 
-	// 独立获取事件
-	slot.Events = a.getEventsForTimeRange(weekStart, weekEnd, GranularityWeek)
+	// 独立获取事件（使用已有的采样点，不额外计算）
+	slot.Events = a.getEventsFromSlots(sampleSlots, weekStart, weekEnd, GranularityWeek)
 
-	// 生成子时间槽（每天一个点）
+	// 生成子时间槽（3 个采样点）
 	for _, ss := range sampleSlots {
 		slot.SubSlots = append(slot.SubSlots, SubSlot{
 			StartTime:  ss.StartTime,
@@ -115,7 +116,7 @@ func (a *Aggregator) AggregateWeek(t time.Time) *TimeSlot {
 	// 计算事件的 impactDelta
 	a.deltaCalculator.ApplyDeltaToSlot(slot, GranularityWeek, t)
 
-	// 计算前一周 delta
+	// 计算前一周 delta（使用简化采样）
 	prevWeekStart := weekStart.AddDate(0, 0, -7)
 	prevSlot := a.calculateWeekSlotWithoutDelta(prevWeekStart)
 	slot.Delta = a.deltaCalculator.CalculateSlotDelta(slot, prevSlot)
@@ -444,6 +445,45 @@ func (a *Aggregator) getEventsForTimeRange(start, end time.Time, granularity str
 	return events
 }
 
+// getEventsFromSlots 从已计算的 slots 中提取事件（避免重复计算）
+func (a *Aggregator) getEventsFromSlots(slots []*TimeSlot, start, end time.Time, granularity string) []AstroEvent {
+	eventMap := make(map[string]AstroEvent)
+
+	for _, slot := range slots {
+		if slot == nil {
+			continue
+		}
+		for _, event := range slot.Events {
+			// 粒度过滤
+			if !a.shouldIncludeEvent(event, granularity) {
+				continue
+			}
+			// 检查事件是否与时间范围有交集
+			if event.EndTime.Before(start) || event.StartTime.After(end) {
+				continue
+			}
+			if existing, ok := eventMap[event.EventID]; ok {
+				if event.Intensity > existing.Intensity {
+					eventMap[event.EventID] = event
+				}
+			} else {
+				eventMap[event.EventID] = event
+			}
+		}
+	}
+
+	events := make([]AstroEvent, 0, len(eventMap))
+	for _, event := range eventMap {
+		events = append(events, event)
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].ExactTime.Before(events[j].ExactTime)
+	})
+
+	return events
+}
+
 // shouldIncludeEvent 判断事件是否应包含在指定查询粒度中
 // 规则：事件的 timeLevel 必须 >= 查询粒度
 // 例如：day 粒度只显示 daily、weekly、monthly、yearly 事件，不显示 hourly
@@ -589,10 +629,12 @@ func (a *Aggregator) calculateWeekSlotWithoutDelta(weekStart time.Time) *TimeSlo
 	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	sampleSlots := make([]*TimeSlot, 7)
-	for day := 0; day < 7; day++ {
+	// 只采样 2 个点（周二、周五）用于 delta 计算
+	sampleDays := []int{1, 4} // 周二、周五
+	sampleSlots := make([]*TimeSlot, len(sampleDays))
+	for i, day := range sampleDays {
 		noonTime := weekStart.AddDate(0, 0, day).Add(12 * time.Hour)
-		sampleSlots[day] = a.calculator.CalculateHour(noonTime)
+		sampleSlots[i] = a.calculator.CalculateHour(noonTime)
 	}
 
 	slot := NewTimeSlot(a.calculator.getUserID(), weekStart, weekEnd, GranularityWeek)
