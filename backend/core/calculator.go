@@ -182,8 +182,13 @@ func (c *Calculator) factorToAspectEvent(f *models.InfluenceFactor, t time.Time)
 		exactTime = t
 	}
 
-	// 生成事件 ID（使用 exactTime 而不是查询时间 t，确保唯一性）
-	eventID := GenerateEventID(EventTypeAspect, models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, exactTime)
+	// 生成事件 ID（生命周期稳定 + 兼容无生命周期）
+	var eventID string
+	if f.Lifecycle != nil {
+		eventID = GenerateAspectLifecycleEventID(models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, startTime, endTime)
+	} else {
+		eventID = GenerateEventID(EventTypeAspect, models.PlanetID(primaryPlanet), models.PlanetID(secondaryPlanet), aspect, exactTime)
+	}
 
 	return &AstroEvent{
 		EventID:         eventID,

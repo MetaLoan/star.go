@@ -442,7 +442,7 @@ func (a *Aggregator) getEventsForTimeRange(start, end time.Time, granularity str
 
 // getEventsFromSlots 从已计算的 slots 中提取事件（避免重复计算）
 func (a *Aggregator) getEventsFromSlots(slots []*TimeSlot, start, end time.Time, granularity string) []AstroEvent {
-	eventMap := make(map[string]AstroEvent)
+	groupedEvents := make(map[eventGroupKey][]AstroEvent)
 
 	for _, slot := range slots {
 		if slot == nil {
@@ -457,19 +457,20 @@ func (a *Aggregator) getEventsFromSlots(slots []*TimeSlot, start, end time.Time,
 			if event.EndTime.Before(start) || event.StartTime.After(end) {
 				continue
 			}
-			if existing, ok := eventMap[event.EventID]; ok {
-				if event.Intensity > existing.Intensity {
-					eventMap[event.EventID] = event
-				}
-			} else {
-				eventMap[event.EventID] = event
+			key := eventGroupKey{
+				EventType:       event.Type,
+				PrimaryPlanet:   event.PrimaryPlanet,
+				SecondaryPlanet: event.SecondaryPlanet,
+				Aspect:          event.Aspect,
+				TimeLevel:       event.TimeLevel,
 			}
+			groupedEvents[key] = mergeEventIntoGroup(groupedEvents[key], event)
 		}
 	}
 
-	events := make([]AstroEvent, 0, len(eventMap))
-	for _, event := range eventMap {
-		events = append(events, event)
+	events := make([]AstroEvent, 0)
+	for _, group := range groupedEvents {
+		events = append(events, group...)
 	}
 
 	sort.Slice(events, func(i, j int) bool {
@@ -477,6 +478,49 @@ func (a *Aggregator) getEventsFromSlots(slots []*TimeSlot, start, end time.Time,
 	})
 
 	return events
+}
+
+type eventGroupKey struct {
+	EventType       string
+	PrimaryPlanet   string
+	SecondaryPlanet string
+	Aspect          string
+	TimeLevel       string
+}
+
+func mergeEventIntoGroup(group []AstroEvent, event AstroEvent) []AstroEvent {
+	merged := event
+	i := 0
+	for i < len(group) {
+		if eventsOverlap(merged, group[i]) {
+			merged = mergeEvents(merged, group[i])
+			group = append(group[:i], group[i+1:]...)
+			continue
+		}
+		i++
+	}
+	return append(group, merged)
+}
+
+func eventsOverlap(a, b AstroEvent) bool {
+	return !a.EndTime.Before(b.StartTime) && !a.StartTime.After(b.EndTime)
+}
+
+func mergeEvents(a, b AstroEvent) AstroEvent {
+	merged := a
+	if b.Intensity > a.Intensity {
+		merged = b
+	}
+	if b.StartTime.Before(merged.StartTime) {
+		merged.StartTime = b.StartTime
+	}
+	if b.EndTime.After(merged.EndTime) {
+		merged.EndTime = b.EndTime
+	}
+	if b.ExactTime.Before(merged.ExactTime) {
+		merged.ExactTime = b.ExactTime
+	}
+	return merged
 }
 
 // shouldIncludeEvent 判断事件是否应包含在指定查询粒度中

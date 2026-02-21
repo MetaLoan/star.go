@@ -168,6 +168,13 @@ func GenerateEventID(eventType string, planet1 models.PlanetID, planet2 models.P
 	return eventType + "_" + string(planet1) + "_" + exactTime.Format("20060102_1504")
 }
 
+// GenerateAspectLifecycleEventID 生成相位事件的稳定 ID（基于生命周期）
+func GenerateAspectLifecycleEventID(planet1 models.PlanetID, planet2 models.PlanetID, aspect string, startTime, endTime time.Time) string {
+	start := startTime.UTC().Format("20060102_1504")
+	end := endTime.UTC().Format("20060102_1504")
+	return EventTypeAspect + "_" + string(planet1) + "_" + aspect + "_" + string(planet2) + "_" + start + "_" + end
+}
+
 // NewTimeSlot 创建新的时间槽
 func NewTimeSlot(userID string, startTime, endTime time.Time, granularity string) *TimeSlot {
 	return &TimeSlot{

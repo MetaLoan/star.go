@@ -320,8 +320,49 @@ def check_events(events: list, granularity: str, result: TestResult) -> bool:
     if duplicates:
         result.add_issue(granularity, "events", f"eventId 重复: {duplicates[:3]}")
         all_valid = False
+
+    # 检查相同事件签名下的重叠区间（重复事件）
+    signature_map = {}
+    for event in events:
+        key = (
+            event.get("type", ""),
+            event.get("primaryPlanet", ""),
+            event.get("secondaryPlanet", ""),
+            event.get("aspect", ""),
+            event.get("timeLevel", "")
+        )
+        start_time = parse_time(event.get("startTime", ""))
+        end_time = parse_time(event.get("endTime", ""))
+        if start_time is None or end_time is None:
+            continue
+        signature_map.setdefault(key, []).append((start_time, end_time, event.get("eventId", "")))
+
+    for key, ranges in signature_map.items():
+        ranges.sort(key=lambda item: item[0])
+        for i in range(1, len(ranges)):
+            prev_start, prev_end, prev_id = ranges[i - 1]
+            curr_start, curr_end, curr_id = ranges[i]
+            if not (curr_start > prev_end):
+                result.add_issue(
+                    granularity,
+                    "events",
+                    f"事件重复（重叠区间）: {key} {prev_id} vs {curr_id}"
+                )
+                all_valid = False
+                break
     
     return all_valid
+
+
+def parse_time(value: str):
+    if not value:
+        return None
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def check_event_by_type(event: dict, idx: int, granularity: str, result: TestResult) -> bool:
