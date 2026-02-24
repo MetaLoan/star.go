@@ -321,6 +321,17 @@ def check_events(events: list, granularity: str, result: TestResult) -> bool:
         result.add_issue(granularity, "events", f"eventId 重复: {duplicates[:3]}")
         all_valid = False
 
+    # 检查 impact 不能全 0（允许的事件类型除外）
+    zero_impact_allowed = {"void_of_course"}
+    for i, event in enumerate(events):
+        event_type = event.get("type", "")
+        if event_type in zero_impact_allowed:
+            continue
+        impact = event.get("impact", {})
+        if impact and all(impact.get(dim, 0) == 0 for dim in DIMENSIONS):
+            result.add_issue(granularity, event_type, f"events[{i}] impact 全 0")
+            all_valid = False
+
     # 检查相同事件签名下的重叠区间（重复事件）
     signature_map = {}
     for event in events:
