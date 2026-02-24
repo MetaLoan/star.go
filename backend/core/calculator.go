@@ -875,6 +875,16 @@ func (c *Calculator) getRetrogradeImpact(planet models.PlanetID) DimensionImpact
 		return DimensionImpact{Career: -1, Relationship: 0, Health: 0, Finance: -1, Spiritual: 1}
 	case models.Saturn:
 		return DimensionImpact{Career: -1, Relationship: 0, Health: 0, Finance: 0, Spiritual: 1}
+	case models.Uranus:
+		return DimensionImpact{Career: -1, Relationship: -1, Health: 0, Finance: -1, Spiritual: 2}
+	case models.Neptune:
+		return DimensionImpact{Career: -1, Relationship: -1, Health: -1, Finance: -1, Spiritual: 2}
+	case models.Pluto:
+		return DimensionImpact{Career: -1, Relationship: -1, Health: -1, Finance: -1, Spiritual: 3}
+	case models.NorthNode:
+		return DimensionImpact{Career: 0, Relationship: 1, Health: 0, Finance: 0, Spiritual: 2}
+	case models.Chiron:
+		return DimensionImpact{Career: 0, Relationship: 0, Health: 1, Finance: 0, Spiritual: 2}
 	default:
 		return DimensionImpact{Career: 0, Relationship: 0, Health: 0, Finance: 0, Spiritual: 0}
 	}
