@@ -8,7 +8,7 @@
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8080`
+- **Base URL**: `http://localhost:8888`
 - **Content-Type**: `application/json`
 - **版本**: 2.0.0
 
@@ -18,6 +18,7 @@
 
 | 路径 | 方法 | 功能 |
 |------|------|------|
+| `/` | GET | 根路径信息 |
 | `/health` | GET | 健康检查 |
 | `/api/calc/chart` | POST | 基础星盘数据查询 |
 | `/api/v2/astro` | POST | 五维运势统一接口（核心） |
@@ -49,6 +50,38 @@
 ---
 
 ## 健康检查
+
+### GET /
+
+返回服务根路径信息，适合快速查看服务状态和已暴露入口。
+
+**响应示例**：
+
+```json
+{
+  "service": "Star API (Go)",
+  "version": "2.0.0",
+  "status": "running",
+  "dataSource": "Swiss Ephemeris (High Precision)",
+  "endpoints": {
+    "health": "GET /health",
+    "chart": "POST /api/calc/chart",
+    "astro": "POST /api/v2/astro",
+    "monitor_dashboard": "GET /api/monitor/dashboard",
+    "monitor_summary": "GET /api/monitor/summary"
+  },
+  "docs": "See /docs/API-REFERENCE.md for detailed API documentation"
+}
+```
+
+**字段说明**：
+
+- `service`：服务名称
+- `version`：当前版本号
+- `status`：当前服务状态
+- `dataSource`：当前使用的数据源
+- `endpoints`：已注册的核心入口
+- `docs`：文档提示信息
 
 ### GET /health
 
@@ -94,6 +127,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
+| `name` | string | - | 出生者名称或昵称，主要用于展示和回显 |
 | `year` | int | ✓ | 出生年份 |
 | `month` | int | ✓ | 出生月份（1-12） |
 | `day` | int | ✓ | 出生日期（1-31） |
@@ -102,7 +136,7 @@
 | `second` | int | - | 出生秒数（默认 0） |
 | `latitude` | float | ✓ | 出生地纬度（-90 到 90） |
 | `longitude` | float | ✓ | 出生地经度（-180 到 180） |
-| `timezone` | float | ✓ | 时区偏移（如北京为 8） |
+| `timezone` | float | ✓ | 时区偏移（如北京为 8，支持 5.5 这种半时区） |
 
 ### DimensionScores（五维度分数）
 
@@ -156,58 +190,72 @@
 
 ```json
 {
-  "birthData": { ... },
+  "birthData": {
+    "name": "",
+    "year": 1990,
+    "month": 5,
+    "day": 15,
+    "hour": 10,
+    "minute": 30,
+    "second": 0,
+    "latitude": 39.9,
+    "longitude": 116.4,
+    "timezone": 8
+  },
   "planets": [
     {
       "id": "sun",
-      "name": "太阳",
+      "name": "Sun",
       "symbol": "☉",
-      "longitude": 84.5,
+      "longitude": 54.3,
       "latitude": 0,
-      "sign": "gemini",
-      "signName": "双子座",
-      "signSymbol": "♊",
-      "signDegree": 24.5,
+      "sign": "taurus",
+      "signName": "Taurus",
+      "signSymbol": "♉",
+      "signDegree": 24.3,
       "retrograde": false,
-      "house": 10,
+      "house": 7,
       "dignityScore": 0
     }
   ],
   "houses": [
     {
       "house": 1,
-      "cusp": 120.5,
-      "sign": "leo",
-      "signName": "狮子座"
+      "cusp": 225.1,
+      "sign": "scorpio",
+      "signName": "Scorpio"
     }
   ],
-  "ascendant": 120.5,
-  "midheaven": 30.2,
+  "ascendant": 225.1,
+  "midheaven": 144.5,
   "aspects": [
     {
       "planet1": "sun",
       "planet2": "moon",
       "aspectType": "trine",
       "exactAngle": 120,
-      "actualAngle": 118.5,
-      "orb": 1.5,
+      "actualAngle": 117.9,
+      "orb": 2.1,
       "applying": true,
-      "strength": 0.85
+      "strength": 0.74,
+      "weight": 4.46,
+      "interpretation": "Sun forms Trine with Moon"
     }
   ],
   "elementBalance": {
-    "fire": 0.3,
-    "earth": 0.2,
-    "air": 0.35,
-    "water": 0.15
+    "fire": 7.04,
+    "earth": 61.97,
+    "air": 4.23,
+    "water": 26.76
   },
   "modalityBalance": {
-    "cardinal": 0.4,
-    "fixed": 0.3,
-    "mutable": 0.3
+    "cardinal": 54.93,
+    "fixed": 36.62,
+    "mutable": 8.45
   },
-  "dominantPlanets": ["sun", "mars"],
-  "chartRuler": "sun"
+  "patterns": ["Grand Trine", "T-Square"],
+  "dominantPlanets": ["moon", "saturn", "sun", "jupiter", "uranus"],
+  "chartRuler": "pluto"
 }
 ```
 
@@ -222,20 +270,31 @@
 | `aspects` | array | 行星相位列表 |
 | `elementBalance` | object | 元素平衡（火/土/风/水） |
 | `modalityBalance` | object | 模式平衡（本位/固定/变动） |
+| `patterns` | array | 识别出的整体结构模式 |
 | `dominantPlanets` | array | 主导行星 |
 | `chartRuler` | string | 命盘主星 |
 
 **字段解释**：
 
+- `birthData`：本次计算使用的出生信息，会把请求里的出生参数原样回显出来
 - `planets`：每颗行星当前落在哪个星座、哪个宫位、是否逆行
 - `houses`：12 个生活领域的分区，类似“人生地图的 12 个房间”
 - `ascendant`：上升点，代表出生那一刻东方地平线升起的位置
 - `midheaven`：中天，通常和事业、社会角色、公众表现有关
 - `aspects`：行星彼此之间的角度关系，决定配合还是冲突
-- `elementBalance`：火、土、风、水四种元素哪个更强
-- `modalityBalance`：本位、固定、变动三种模式哪个更强
+- `elementBalance`：火、土、风、水四种元素的相对占比，当前实现通常是百分比数值
+- `modalityBalance`：本位、固定、变动三种模式的相对占比，当前实现通常是百分比数值
+- `patterns`：识别出来的结构模式，比如大三角、T 三角、T 字架
 - `dominantPlanets`：对这张盘最有存在感的几颗星
 - `chartRuler`：上升星座的守护星，类似整张盘的“总控星”
+
+**行星与相位的附加字段**：
+
+- `planets[].name`：行星英文名，当前实现直接返回数据源原名
+- `planets[].signName`：星座英文名
+- `planets[].dignityScore`：这颗星在当前星座里的尊贵度分值，越高说明状态越顺
+- `aspects[].weight`：这条相位在整体盘里的权重，越大说明越重要
+- `aspects[].interpretation`：相位的简短文字解释，通常用于调试或文案展示
 
 ---
 
@@ -289,7 +348,7 @@
 **请求示例**：
 
 ```bash
-curl -X POST http://localhost:8080/api/v2/astro \
+curl -X POST http://localhost:8888/api/v2/astro \
   -H "Content-Type: application/json" \
   -d '{
     "birth": {
@@ -401,6 +460,7 @@ curl -X POST http://localhost:8080/api/v2/astro \
 | `slot.guidance` | object | 综合指导建议 |
 | `slot.subSlots` | array | 子周期曲线数据 |
 | `meta.cached` | bool | 是否缓存命中 |
+| `meta.cacheAge` | string | 预留字段，当前 live 响应里通常不返回 |
 | `meta.computeTime` | string | 计算耗时 |
 
 **响应样例速读**：
@@ -429,6 +489,7 @@ curl -X POST http://localhost:8080/api/v2/astro \
 - `meta.cached`：是否直接用缓存返回
 - `meta.computeTime`：后端计算花了多久
 - `meta.eventCount`：最终返回了多少事件
+- `meta.cacheAge`：预留字段，当前 live 响应通常没有这个值
 
 **事件类型**：
 
@@ -515,7 +576,7 @@ curl -X POST http://localhost:8080/api/v2/astro \
 **请求示例**：
 
 ```bash
-curl -X POST http://localhost:8080/api/v2/astro/trend \
+curl -X POST http://localhost:8888/api/v2/astro/trend \
   -H "Content-Type: application/json" \
   -d '{
     "birth": {
@@ -561,7 +622,8 @@ curl -X POST http://localhost:8080/api/v2/astro/trend \
   },
   "meta": {
     "cached": false,
-    "computeTime": "5.8s"
+    "computeTime": "5.8s",
+    "eventCount": 0
   }
 }
 ```
@@ -580,6 +642,7 @@ curl -X POST http://localhost:8080/api/v2/astro/trend \
 | `summary.trend` | string | 趋势方向：`upward`/`downward`/`stable` |
 | `meta.cached` | bool | 是否缓存命中 |
 | `meta.computeTime` | string | 计算耗时 |
+| `meta.eventCount` | int | 当前趋势接口复用的计数字段，通常为 `0` |
 
 **响应样例速读**：
 
@@ -595,6 +658,7 @@ curl -X POST http://localhost:8080/api/v2/astro/trend \
 - `summary.trend`：整体走势是向上、向下还是横盘
 - `meta.cached`：是否命中趋势缓存
 - `meta.computeTime`：生成这条曲线耗时多久
+- `meta.eventCount`：趋势接口目前会带上这个字段，但它不承载事件数量语义，通常是 `0`
 
 **各粒度返回点数**：
 
@@ -647,7 +711,7 @@ const [mainData, trendData] = await Promise.all([
 
 返回监控仪表板 HTML 页面。
 
-**访问方式**：浏览器打开 `http://localhost:8080/api/monitor/dashboard`
+**访问方式**：浏览器打开 `http://localhost:8888/api/monitor/dashboard`
 
 **功能**：
 - 核心指标卡片（总请求数、活跃请求、成功率）
@@ -682,11 +746,17 @@ const [mainData, trendData] = await Promise.all([
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `startTime` | string | 服务启动时间 |
 | `uptime` | string | 运行时长（人类可读） |
+| `uptimeSeconds` | int | 运行时长（秒） |
 | `totalRequests` | int | 总请求数 |
 | `activeRequests` | int | 正在处理的请求数 |
+| `successRequests` | int | 成功请求数 |
+| `errorRequests` | int | 失败请求数 |
 | `successRate` | float | 成功率（百分比） |
+| `totalAPIs` | int | 已统计的接口数量 |
 | `requestsLastMin` | int | 最近 1 分钟请求数 |
+| `avgRequestsPerMin` | float | 平均每分钟请求数 |
 
 ---
 
@@ -714,9 +784,16 @@ const [mainData, trendData] = await Promise.all([
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `path` | string | 请求路径 |
+| `method` | string | 请求方法 |
 | `totalRequests` | int | 总请求数 |
+| `successRequests` | int | 成功请求数 |
+| `errorRequests` | int | 失败请求数 |
 | `avgDuration` | float | 平均响应时间（毫秒） |
+| `minDuration` | int | 最快响应时间（毫秒） |
 | `maxDuration` | int | 最慢响应时间（毫秒） |
+| `totalDuration` | int | 总耗时（毫秒） |
+| `lastAccess` | string | 最近一次访问时间 |
 
 ---
 
@@ -729,6 +806,11 @@ const [mainData, trendData] = await Promise.all([
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `limit` | int | 50 | 返回记录数（最多 1000） |
+
+**说明**：
+
+- `limit` 默认是 `50`
+- 当前实现会限制为正整数，超大值由采集层控制
 
 **响应示例**：
 
@@ -759,6 +841,11 @@ const [mainData, trendData] = await Promise.all([
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `seconds` | int | 60 | 时间窗口（秒） |
+
+**说明**：
+
+- `seconds` 默认是 `60`
+- live 统计会按这个窗口重新聚合请求
 
 **响应示例**：
 
@@ -827,7 +914,7 @@ import requests
 
 # 查询五维运势
 response = requests.post(
-    'http://localhost:8080/api/v2/astro',
+    'http://localhost:8888/api/v2/astro',
     json={
         'birth': {
             'year': 1990, 'month': 5, 'day': 15,
@@ -856,7 +943,7 @@ for event in slot['events'][:3]:
 
 ```javascript
 async function getAstroData(birthData, queryTime) {
-  const response = await fetch('http://localhost:8080/api/v2/astro', {
+  const response = await fetch('http://localhost:8888/api/v2/astro', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -891,10 +978,10 @@ getAstroData(birthData, '2026-01-16T14:00:00+08:00')
 
 ```bash
 # 健康检查
-curl http://localhost:8080/health
+curl http://localhost:8888/health
 
 # 计算本命盘
-curl -X POST http://localhost:8080/api/calc/chart \
+curl -X POST http://localhost:8888/api/calc/chart \
   -H "Content-Type: application/json" \
   -d '{
     "year": 1990, "month": 5, "day": 15,
@@ -904,7 +991,7 @@ curl -X POST http://localhost:8080/api/calc/chart \
   }'
 
 # 查询五维运势（日粒度）
-curl -X POST http://localhost:8080/api/v2/astro \
+curl -X POST http://localhost:8888/api/v2/astro \
   -H "Content-Type: application/json" \
   -d '{
     "birth": {
@@ -919,7 +1006,7 @@ curl -X POST http://localhost:8080/api/v2/astro \
   }'
 
 # 查询周运势曲线
-curl -X POST http://localhost:8080/api/v2/astro \
+curl -X POST http://localhost:8888/api/v2/astro \
   -H "Content-Type: application/json" \
   -d '{
     "birth": {
@@ -934,7 +1021,7 @@ curl -X POST http://localhost:8080/api/v2/astro \
   }'
 
 # 查看监控统计
-curl http://localhost:8080/api/monitor/summary
+curl http://localhost:8888/api/monitor/summary
 ```
 
 ---
