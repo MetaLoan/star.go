@@ -2,6 +2,8 @@
 
 本文档描述 Star 占星计算平台后端的所有 API 接口。
 
+算法说明见：[ALGORITHM.md](./ALGORITHM.md)
+
 ---
 
 ## 基础信息
@@ -26,6 +28,23 @@
 | `/api/monitor/recent` | GET | 最近请求日志 |
 | `/api/monitor/realtime` | GET | 实时统计 |
 | `/api/monitor/reset` | POST | 重置统计 |
+
+## 接口职责速查
+
+| 接口 | 内部核心入口 | 主要功能 | 适合场景 |
+|------|------|------|------|
+| `/health` | 无 | 服务状态检查 | 启动探活、监控 |
+| `/api/calc/chart` | `CalculateNatalChart` | 生成本命盘 | 展示出生盘基础信息 |
+| `/api/v2/astro` | `CalculateScoresV2` / `CalculateScoreBreakdown` / `CalculateDailyEvents` | 返回分数、事件、指导、delta | 主页面、详情页、卡片页 |
+| `/api/v2/astro/trend` | `CalculateScoresV2Lite` | 返回趋势曲线 | 折线图、趋势面板 |
+| `/api/monitor/*` | 监控模块 | 统计请求和性能 | 运维、排障、观察系统健康 |
+
+大白话：
+
+- `chart` 接口只负责“出生盘长什么样”
+- `astro` 接口负责“某个时刻整体怎么样”
+- `trend` 接口负责“这一段时间是往上还是往下”
+- `monitor` 接口负责“系统自己运行得好不好”
 
 ---
 
@@ -206,6 +225,18 @@
 | `dominantPlanets` | array | 主导行星 |
 | `chartRuler` | string | 命盘主星 |
 
+**字段解释**：
+
+- `planets`：每颗行星当前落在哪个星座、哪个宫位、是否逆行
+- `houses`：12 个生活领域的分区，类似“人生地图的 12 个房间”
+- `ascendant`：上升点，代表出生那一刻东方地平线升起的位置
+- `midheaven`：中天，通常和事业、社会角色、公众表现有关
+- `aspects`：行星彼此之间的角度关系，决定配合还是冲突
+- `elementBalance`：火、土、风、水四种元素哪个更强
+- `modalityBalance`：本位、固定、变动三种模式哪个更强
+- `dominantPlanets`：对这张盘最有存在感的几颗星
+- `chartRuler`：上升星座的守护星，类似整张盘的“总控星”
+
 ---
 
 ## 五维运势统一接口（核心）
@@ -222,6 +253,38 @@
 | `time` | string | ✓ | 查询时间，ISO 8601 格式 |
 | `granularity` | string | - | 粒度：`hour`/`day`/`week`/`month`/`year`，默认 `day` |
 | `language` | string | - | 语言：`zh`/`en`/`ru`，默认 `en` |
+
+**字段说明**：
+
+- `birth`：这次计算对应谁的出生信息，是所有后续计算的底座
+- `time`：你想看“这个时刻附近”的运势，不是出生时间
+- `granularity`：决定输出是小时级、日级、周级、月级还是年级
+- `language`：只影响文案语言，不影响分数本身
+
+**返回的 `slot` 字段**：
+
+- `userId`：这次计算对应的用户标识，通常由出生数据拼出来
+- `startTime` / `endTime`：这个时间槽的起止范围
+- `granularity`：这个结果属于哪个时间粒度
+- `scores`：五维评分结果，`overall` 是总分，其余是分维度分
+- `events`：这个时间槽里命中的天象事件
+- `delta`：和上一周期相比的变化量
+- `guidance`：给用户看的行动建议
+- `subSlots`：用于画折线图的子时间点
+
+**返回的 `meta` 字段**：
+
+- `cached`：是否直接命中了缓存
+- `computeTime`：后端实际计算耗时
+- `eventCount`：返回了多少条事件
+
+**补充说明**：
+
+- 这个接口返回的是“已经整理好的结果”，不是完整的内部因子对象
+- 如果你想看某个时间点的单个因子持续时间、峰值和剩余天数，要结合算法文档里的生命周期说明
+- 如果你想看“为什么这个时间点变成这样”，优先看 `slot.events`、`slot.delta`，再去看分数拆解逻辑
+- 如果你要查“某个时间点有哪些影响因子仍然活跃”，当前代码里对应的是内部方法 `GetActiveFactorsInRange`
+- 这个方法更偏排查和分析，不是目前对外暴露的独立 HTTP 接口；前端要展示这类内容时，通常由 `astro` 结果加上算法层分析一起拼出来
 
 **请求示例**：
 
@@ -340,6 +403,33 @@ curl -X POST http://localhost:8080/api/v2/astro \
 | `meta.cached` | bool | 是否缓存命中 |
 | `meta.computeTime` | string | 计算耗时 |
 
+**响应样例速读**：
+
+- `slot.userId`：这条结果属于哪个用户
+- `slot.startTime` / `slot.endTime`：当前查询覆盖的时间段
+- `slot.scores.overall`：总分，越高表示这段时间整体越顺
+- `slot.scores.career`：事业维度分数
+- `slot.scores.relationship`：关系维度分数
+- `slot.scores.health`：健康维度分数
+- `slot.scores.finance`：财务维度分数
+- `slot.scores.spiritual`：灵性维度分数
+- `slot.events[0].type`：这条事件属于哪类天象
+- `slot.events[0].title`：前端展示给用户看的短标题
+- `slot.events[0].isPositive`：这条事件是利好还是压力
+- `slot.events[0].intensity`：事件强度，越大越明显
+- `slot.events[0].impact`：这条事件对五维的“绝对影响”
+- `slot.events[0].impactDelta`：跟上一周期相比，这条事件变化了多少
+- `slot.events[0].exactTime`：最强的卡点时间
+- `slot.delta.reason`：为什么这段时间比上一段更好或更差
+- `slot.guidance.summary`：一句话总结
+- `slot.guidance.dos`：建议做什么
+- `slot.guidance.donts`：建议少做什么
+- `slot.guidance.focus`：当前最值得关注的维度
+- `slot.subSlots`：子粒度采样点，用来画折线
+- `meta.cached`：是否直接用缓存返回
+- `meta.computeTime`：后端计算花了多久
+- `meta.eventCount`：最终返回了多少事件
+
 **事件类型**：
 
 | type | 说明 |
@@ -391,6 +481,36 @@ curl -X POST http://localhost:8080/api/v2/astro \
 | `start_time` | string | ✓ | 基准时间，ISO 8601 格式 |
 | `granularity` | string | - | 粒度：`hour`/`day`/`week`/`month`/`year`，默认 `day` |
 | `language` | string | - | 语言：`zh`/`en`/`ru`，默认 `en` |
+
+**字段说明**：
+
+- `birth`：同上，表示这个趋势属于谁
+- `start_time`：趋势曲线从哪个时间点开始算
+- `granularity`：决定趋势点的密度
+- `language`：只影响标签和文案
+
+**返回的 `points[]` 字段**：
+
+- `time`：这个趋势点对应的实际时间
+- `label`：前端展示标签，比如 `1月`、`W1`、`08:00`
+- `scores`：这个时间点的五维分数
+
+**返回的 `summary` 字段**：
+
+- `max`：整条趋势曲线里的最高总分
+- `min`：整条趋势曲线里的最低总分
+- `trend`：整体趋势方向，`upward`、`downward` 或 `stable`
+
+**返回的 `meta` 字段**：
+
+- `cached`：是否命中缓存
+- `computeTime`：这条趋势曲线算了多久
+
+**补充说明**：
+
+- 趋势接口只给“走势”，不直接给完整因子生命周期
+- 如果你想知道某个趋势点为什么高或低，要回到对应时间点看 `slot.events` 和分数拆解
+- 趋势本质上是很多点连起来的结果，不是单个事件决定的
 
 **请求示例**：
 
@@ -460,6 +580,21 @@ curl -X POST http://localhost:8080/api/v2/astro/trend \
 | `summary.trend` | string | 趋势方向：`upward`/`downward`/`stable` |
 | `meta.cached` | bool | 是否缓存命中 |
 | `meta.computeTime` | string | 计算耗时 |
+
+**响应样例速读**：
+
+- `granularity`：这条趋势曲线是按小时、天、周、月还是年生成
+- `points`：整条曲线上的所有点
+- `points[0].time`：这个点对应的实际时间
+- `points[0].label`：给前端显示的短标签
+- `points[0].scores.overall`：这个点的总分
+- `points[0].scores.career`：这个点的事业分
+- `points[0].scores.relationship`：这个点的关系分
+- `summary.max`：曲线里最高的总分
+- `summary.min`：曲线里最低的总分
+- `summary.trend`：整体走势是向上、向下还是横盘
+- `meta.cached`：是否命中趋势缓存
+- `meta.computeTime`：生成这条曲线耗时多久
 
 **各粒度返回点数**：
 
